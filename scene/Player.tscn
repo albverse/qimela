@@ -1,0 +1,77 @@
+[gd_scene load_steps=10 format=3 uid="uid://m7ts2uye3c05"]
+
+[ext_resource type="Script" uid="uid://lpocjighkltx" path="res://scene/player.gd" id="1_y30ri"]
+[ext_resource type="Texture2D" uid="uid://u0xe7spvy7ng" path="res://character.png" id="2_waelg"]
+[ext_resource type="Texture2D" uid="uid://ckp5byo6jo0ah" path="res://scene/chain.png" id="3_82gks"]
+[ext_resource type="Shader" uid="uid://e68r8esw3k5x" path="res://shaders/chain_sand_dissolve.gdshader" id="3_dc1pm"]
+[ext_resource type="Script" uid="uid://bwnq4w6n0xdee" path="res://scene/RopeSim2D.gd" id="5_82gks"]
+[ext_resource type="Shader" uid="uid://dsseho82equsg" path="res://shaders/burn_dissolve.gdshader" id="5_ea7gk"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
+radius = 12.0
+height = 86.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ea7gk"]
+shader = ExtResource("3_dc1pm")
+shader_parameter/burn = 0.0
+shader_parameter/edge_width = 0.08
+shader_parameter/grain_scale = 180.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_82gks"]
+shader = ExtResource("5_ea7gk")
+shader_parameter/burn = 0.0
+shader_parameter/edge_width = 0.08
+shader_parameter/grain_scale = 180.0
+shader_parameter/speck_density = 0.9
+shader_parameter/fall_strength = 0.18
+shader_parameter/u_max = 1.0
+shader_parameter/front_soft = 0.1
+shader_parameter/black_spread = 0.12
+shader_parameter/sand_color = Vector4(0.85, 0.78, 0.62, 1)
+shader_parameter/darken = 0.85
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_y30ri")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -42)
+shape = SubResource("CapsuleShape2D_dc1pm")
+
+[node name="Visual" type="Node2D" parent="."]
+position = Vector2(0, -42)
+
+[node name="Sprite2D" type="Sprite2D" parent="Visual"]
+position = Vector2(1, 0)
+scale = Vector2(0.3533654, 0.35703868)
+texture = ExtResource("2_waelg")
+flip_h = true
+
+[node name="HandL" type="Marker2D" parent="Visual"]
+position = Vector2(-2, 2)
+
+[node name="HandR" type="Marker2D" parent="Visual"]
+position = Vector2(5, 2)
+
+[node name="Chains" type="Node2D" parent="."]
+
+[node name="ChainLine0" type="Line2D" parent="Chains"]
+visible = false
+material = SubResource("ShaderMaterial_ea7gk")
+width = 15.0
+texture = ExtResource("3_82gks")
+texture_mode = 1
+
+[node name="ChainLine1" type="Line2D" parent="Chains"]
+visible = false
+material = SubResource("ShaderMaterial_82gks")
+width = 15.0
+texture = ExtResource("3_82gks")
+texture_mode = 1
+
+[node name="Rope0" type="Node2D" parent="Chains"]
+script = ExtResource("5_82gks")
+line_path = NodePath("../ChainLine0")
+
+[node name="Rope1" type="Node2D" parent="Chains"]
+script = ExtResource("5_82gks")
+line_path = NodePath("../ChainLine1")

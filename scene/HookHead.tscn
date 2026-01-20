@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://cuvp45063niky"]
+
+[ext_resource type="Script" uid="uid://c8ewt06hnqht8" path="res://scene/hook_head.gd" id="1_00tx5"]
+[ext_resource type="Texture2D" uid="uid://bb5ktorla0nq6" path="res://guangbiao.png" id="2_iflot"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_vks35"]
+radius = 6.0
+
+[node name="HookHead" type="CharacterBody2D"]
+collision_mask = 2
+script = ExtResource("1_00tx5")
+ttl = 50.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_vks35")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, 4)
+scale = Vector2(0.23456791, 0.255814)
+texture = ExtResource("2_iflot")
