@@ -515,9 +515,13 @@ func _update_chain_flying(i: int, dt: float) -> void:
 			_begin_burn_dissolve(i)
 			return
 
-		# 命中普通平台/静物：你要“停止/结束”，这里直接溶解
+		# Hurtbox 没有宿主：直接溶解
 		_begin_burn_dissolve(i)
 		return
+
+	# 命中普通平台/静物：你要“停止/结束”，这里直接溶解
+	_begin_burn_dissolve(i)
+	return
 
 	# 超时未命中：停住（悬停 hold_time 后溶解）
 	var min_fly_time: float = chain_max_length / max(chain_speed, 1.0)
