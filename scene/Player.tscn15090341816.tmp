@@ -1,11 +1,11 @@
 [gd_scene load_steps=11 format=3 uid="uid://m7ts2uye3c05"]
 
-[ext_resource type="Script" uid="uid://br2eby52784yh" path="res://scene/player.gd" id="1_y30ri"]
+[ext_resource type="Script" uid="uid://lpocjighkltx" path="res://scene/player.gd" id="1_y30ri"]
 [ext_resource type="PackedScene" uid="uid://dsyys0748arks" path="res://scene/ChimeraA.tscn" id="2_ea7gk"]
 [ext_resource type="Texture2D" uid="uid://u0xe7spvy7ng" path="res://character.png" id="2_waelg"]
 [ext_resource type="Texture2D" uid="uid://ckp5byo6jo0ah" path="res://scene/chain.png" id="3_82gks"]
 [ext_resource type="Shader" uid="uid://e68r8esw3k5x" path="res://shaders/chain_sand_dissolve.gdshader" id="3_dc1pm"]
-[ext_resource type="Script" uid="uid://c13kxpdh7c7p8" path="res://scene/RopeSim2D.gd" id="5_82gks"]
+[ext_resource type="Script" uid="uid://bwnq4w6n0xdee" path="res://scene/RopeSim2D.gd" id="5_82gks"]
 [ext_resource type="Shader" uid="uid://dsseho82equsg" path="res://shaders/burn_dissolve.gdshader" id="5_ea7gk"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
@@ -39,23 +39,23 @@ hand_l_path = null
 hand_r_path = null
 chain_line0_path = null
 chain_line1_path = null
-action_left = null
-action_right = null
-action_jump = null
 action_fuse = null
+fusion_lock_time = null
+fusion_chain_dissolve_time = null
+chimera_scene = ExtResource("2_ea7gk")
 move_speed = null
 jump_speed = null
 gravity = null
 facing_visual_sign = null
+action_left = null
+action_right = null
+action_jump = null
 chain_speed = null
 chain_max_length = null
 chain_max_fly_time = null
 hold_time = null
 burn_time = null
-fusion_lock_time = null
-fusion_chain_dissolve_time = null
 chain_shader_path = null
-chain_hit_mask = 5
 rope_segments = null
 rope_damping = null
 rope_stiffness = null
@@ -72,7 +72,10 @@ warn_start_ratio = null
 warn_gamma = null
 warn_color = null
 texture_anchor_at_hook = null
-chimeraA_scene = ExtResource("2_ea7gk")
+spawn_try_up_step = null
+spawn_try_up_count = null
+spawn_try_side = null
+spawn_disable_collision_one_frame = null
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -42)
