@@ -3,7 +3,7 @@ class_name MonsterBase
 # Godot 4.5
 # 基础怪物：掉血 -> 受击闪白 + 僵直 -> HP==1 进入 weak（虚弱）状态
 # 约定：
-# - Player 的锁链命中时会 call: on_chain_hit(player, slot) -> int
+# - Player 的锁链命中时会 call: on_chain_hit(player, slot, hit_world) -> int
 #   返回 1：表示允许 Player 进入 LINKED（用于虚弱怪物/奇美拉互动）
 #   返回 0：表示普通受击，Player 锁链立刻溶解
 
@@ -42,7 +42,7 @@ func set_fusion_vanish(v: bool) -> void:
 		collision_mask = 0
 
 # Player 锁链命中
-func on_chain_hit(_player: Node, _slot: int) -> int:
+func on_chain_hit(_player: Node, _slot: int, _hit_world: Vector2) -> int:
 	# 虚弱：允许链接（Player 进入 LINKED，不溶解）
 	if weak:
 		return 1
