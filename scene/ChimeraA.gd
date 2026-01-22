@@ -21,11 +21,15 @@ func setup(p: Node2D) -> void:
 	set_player(p)
 
 # 锁链命中时：允许进入 LINKED（返回 1），不扣血
-func on_chain_hit(_player_node: Node, _slot: int) -> int:
+func on_chain_hit(_player_node: Node, _slot: int, _hit_world: Vector2) -> int:
 	return 1
 
-func on_chain_attached(slot: int) -> void:
+func on_chain_attached(slot: int, player: Node, _hit_world: Vector2) -> void:
 	_linked_slots[slot] = true
+	if _player == null:
+		var p2d := player as Node2D
+		if p2d != null:
+			_player = p2d
 
 func on_chain_detached(slot: int) -> void:
 	_linked_slots.erase(slot)
