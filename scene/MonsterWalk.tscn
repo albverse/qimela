@@ -14,7 +14,6 @@ radius = 37.01351
 collision_layer = 4
 script = ExtResource("1_86voa")
 visual_path = NodePath("Sprite2D")
-max_hp = 5
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(-0.99998665, -36)

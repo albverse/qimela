@@ -50,7 +50,6 @@ position = Vector2(468, 398)
 collision_layer = 4
 script = ExtResource("3_55hp2")
 visual_path = NodePath("Sprite2D")
-max_hp = 3
 
 [node name="Sprite2D" type="Sprite2D" parent="Fly1"]
 position = Vector2(2.0000067, -2.9999943)
@@ -75,7 +74,6 @@ position = Vector2(787, 550)
 collision_layer = 4
 script = ExtResource("5_00cx3")
 visual_path = NodePath("Sprite2D")
-max_hp = 5
 
 [node name="Sprite2D" type="Sprite2D" parent="Walk1"]
 position = Vector2(-0.99998665, -36)
