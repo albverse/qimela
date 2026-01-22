@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=13 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://1gk18xvlf41r" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://d1bjllgs223dv" path="res://scene/MonsterFly.gd" id="3_55hp2"]
@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://b6hccfl630f0o" path="res://tori.png" id="4_acqgf"]
 [ext_resource type="Script" uid="uid://uy08rhafns6j" path="res://scene/MonsterWalk.gd" id="5_00cx3"]
 [ext_resource type="Texture2D" uid="uid://b1fm38k3hepbb" path="res://shitou.png" id="6_s077k"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="7_71n5o"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_55hp2"]
 size = Vector2(1736, 20)
@@ -16,6 +17,12 @@ radius = 25.495098
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_8dcda"]
 radius = 31.257
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_2q8ak"]
+radius = 37.01351
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_gw4x6"]
+radius = 37.01351
 
 [node name="MainTest" type="Node2D"]
 
@@ -35,13 +42,14 @@ texture = ExtResource("1_71n5o")
 
 [node name="Player" parent="World" instance=ExtResource("3_ngg7y")]
 position = Vector2(238, 571)
-chain_hit_mask = 5
+chain_hit_mask = 9
 chimeraA_scene = ExtResource("3_acqgf")
 
 [node name="Fly1" type="CharacterBody2D" parent="."]
 position = Vector2(468, 398)
 collision_layer = 4
 script = ExtResource("3_55hp2")
+visual_path = NodePath("Sprite2D")
 
 [node name="Sprite2D" type="Sprite2D" parent="Fly1"]
 position = Vector2(2.0000067, -2.9999943)
@@ -52,10 +60,20 @@ texture = ExtResource("4_acqgf")
 position = Vector2(0.25, 1.5)
 shape = SubResource("CircleShape2D_pe88y")
 
+[node name="Hurtbox" type="Area2D" parent="Fly1"]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("7_71n5o")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fly1/Hurtbox"]
+position = Vector2(1, 0)
+shape = SubResource("CircleShape2D_2q8ak")
+
 [node name="Walk1" type="CharacterBody2D" parent="."]
 position = Vector2(787, 550)
 collision_layer = 4
 script = ExtResource("5_00cx3")
+visual_path = NodePath("Sprite2D")
 
 [node name="Sprite2D" type="Sprite2D" parent="Walk1"]
 position = Vector2(-0.99998665, -36)
@@ -65,3 +83,12 @@ texture = ExtResource("6_s077k")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walk1"]
 position = Vector2(0, -34)
 shape = SubResource("CircleShape2D_8dcda")
+
+[node name="Hurtbox" type="Area2D" parent="Walk1"]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("7_71n5o")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walk1/Hurtbox"]
+position = Vector2(-1, -36)
+shape = SubResource("CircleShape2D_gw4x6")
