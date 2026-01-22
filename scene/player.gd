@@ -52,7 +52,7 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解 shader 路径
 
 # 锁链射线“命中哪些层”
-# ✅ 这里就是你问的 chain_hit_mask：Inspector 会出现勾选框（World / Enemy / ...）
+# ✅ 这里就是你问的 chain_hit_mask：Inspector 会出现勾选框（World / EnemyHurtbox / ...）
 @export_flags_2d_physics var chain_hit_mask: int = 0
 
 # =========================
@@ -175,9 +175,9 @@ func _ready() -> void:
 		push_error("Player: cannot load chain shader: %s" % chain_shader_path)
 
 	# 默认命中层（如果你没在 Inspector 勾）
-	# 建议：1=World, 3=Enemy（你自己按工程设置改）
+	# 建议：1=World, 4=EnemyHurtbox（你自己按工程设置改）
 	if chain_hit_mask == 0:
-		chain_hit_mask = (1 << 0) | (1 << 2) # 默认勾第1层 + 第3层
+		chain_hit_mask = (1 << 0) | (1 << 3) # 默认勾第1层 + 第4层
 
 	chains.clear()
 	chains.resize(2)
@@ -490,17 +490,25 @@ func _update_chain_flying(i: int, dt: float) -> void:
 		c.end_pos = hit.get("position", c.end_pos) as Vector2
 		var col_obj: Object = hit.get("collider", null) as Object
 		var col_node: Node = col_obj as Node
-		print("[HIT] ", col_node, " class=", (col_node.get_class() if col_node else "null"))
-		# 命中瞬间余震d
+		# 命中瞬间余震
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
 
-		# 命中可处理对象：怪物/奇美拉（不强制组名，只要有 on_chain_hit）
-		if col_node != null and col_node.has_method("on_chain_hit"):
-			# 约定返回值：1 = 进入 LINKED；否则 = 立刻溶解
-			var ret: int = int(col_node.call("on_chain_hit", self, i))
-			if ret == 1:
-				_chain_enter_linked(i, col_node, c.end_pos)
+		# 命中 EnemyHurtbox：解析逻辑主体并走统一接口
+		var hurtbox: EnemyHurtbox = col_node as EnemyHurtbox
+		if hurtbox != null:
+			var host: Node = hurtbox.get_host()
+			if host != null and host.has_method("on_chain_hit"):
+				# 约定返回值：0=普通受击并溶解；1=进入 LINKED；2=忽略/穿透
+				var ret: int = int(host.call("on_chain_hit", self, i, c.end_pos))
+				if ret == 1:
+					_chain_enter_linked(i, host, c.end_pos)
+					return
+				if ret == 2:
+					return
+				_begin_burn_dissolve(i)
 				return
+
+			# Hurtbox 没有宿主：直接溶解
 			_begin_burn_dissolve(i)
 			return
 
@@ -529,7 +537,7 @@ func _chain_enter_linked(i: int, target: Node, hit_pos: Vector2) -> void:
 
 	# 通知目标：链已挂上（用于触发互动）
 	if target.has_method("on_chain_attached"):
-		target.call("on_chain_attached", i)
+		target.call("on_chain_attached", i, self, hit_pos)
 
 
 # =========================
