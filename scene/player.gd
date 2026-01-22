@@ -493,15 +493,18 @@ func _finish_chain(i: int) -> void:
 
 func _handle_chain_hit(i: int, hit: Dictionary) -> bool:
 	var c := chains[i]
-	var collider := hit.get("collider")
-	var hit_pos: Vector2 = hit.get("position", c.end_pos)
+	var collider: Object
+	var hit_pos: Vector2
+	collider = hit["collider"] as Object
+	hit_pos = hit["position"] as Vector2
 
 	if collider is Node and (collider as Node).has_method("on_chain_hit"):
-		var result = (collider as Node).call("on_chain_hit", hit_pos, self)
+		var result: Variant = (collider as Node).call("on_chain_hit", hit_pos, self)
 		if result is Dictionary:
-			var action: String = result.get("action", "")
+			var result_dict: Dictionary = result
+			var action: String = result_dict.get("action", "")
 			if action == "link":
-				var target: Node2D = result.get("target", null)
+				var target: Node2D = result_dict.get("target", null)
 				if target != null and is_instance_valid(target):
 					c.state = ChainState.LINKED
 					c.linked_target = target
