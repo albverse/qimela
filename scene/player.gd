@@ -493,18 +493,22 @@ func _update_chain_flying(i: int, dt: float) -> void:
 		# 命中瞬间余震
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
 
-	# 命中 EnemyHurtbox：解析逻辑主体并走统一接口
-	var hurtbox: EnemyHurtbox = col_node as EnemyHurtbox
-	if hurtbox != null:
-		var host: Node = hurtbox.get_host()
-		if host != null and host.has_method("on_chain_hit"):
-			# 约定返回值：0=普通受击并溶解；1=进入 LINKED；2=忽略/穿透
-			var ret: int = int(host.call("on_chain_hit", self, i, c.end_pos))
-			if ret == 1:
-				_chain_enter_linked(i, host, c.end_pos)
+		# 命中 EnemyHurtbox：解析逻辑主体并走统一接口
+		var hurtbox: EnemyHurtbox = col_node as EnemyHurtbox
+		if hurtbox != null:
+			var host: Node = hurtbox.get_host()
+			if host != null and host.has_method("on_chain_hit"):
+				# 约定返回值：0=普通受击并溶解；1=进入 LINKED；2=忽略/穿透
+				var ret: int = int(host.call("on_chain_hit", self, i, c.end_pos))
+				if ret == 1:
+					_chain_enter_linked(i, host, c.end_pos)
+					return
+				if ret == 2:
+					return
+				_begin_burn_dissolve(i)
 				return
-			if ret == 2:
-				return
+
+			# Hurtbox 没有宿主：直接溶解
 			_begin_burn_dissolve(i)
 			return
 
