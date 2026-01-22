@@ -524,7 +524,9 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	return
 
 	# 超时未命中：停住（悬停 hold_time 后溶解）
-	if c.fly_t >= chain_max_fly_time:
+	var min_fly_time: float = chain_max_length / max(chain_speed, 1.0)
+	var max_fly_time: float = max(chain_max_fly_time, min_fly_time)
+	if c.fly_t >= max_fly_time:
 		c.state = ChainState.STUCK
 		c.hold_t = 0.0
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.35)

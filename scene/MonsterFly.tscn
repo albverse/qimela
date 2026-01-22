@@ -14,6 +14,7 @@ radius = 37.01351
 collision_layer = 4
 script = ExtResource("1_ipemx")
 visual_path = NodePath("Sprite2D")
+max_hp = 3
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(2.0000067, -2.9999943)
