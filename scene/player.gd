@@ -475,7 +475,8 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	var c := chains[i]
 
 	var prev_pos: Vector2 = c.end_pos
-	c.end_pos = c.end_pos + c.end_vel * dt
+	var next_pos: Vector2 = c.end_pos + c.end_vel * dt
+	c.end_pos = next_pos
 	c.fly_t += dt
 
 	# Raycast（复用 Query）
@@ -487,7 +488,8 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	var hit: Dictionary = space.intersect_ray(c.ray_q)
 	
 	if hit.size() > 0:
-		c.end_pos = hit.get("position", c.end_pos) as Vector2
+		var hit_pos: Vector2 = hit.get("position", c.end_pos) as Vector2
+		c.end_pos = hit_pos
 		var col_obj: Object = hit.get("collider", null) as Object
 		var col_node: Node = col_obj as Node
 		# 命中瞬间余震
@@ -504,6 +506,7 @@ func _update_chain_flying(i: int, dt: float) -> void:
 					_chain_enter_linked(i, host, c.end_pos)
 					return
 				if ret == 2:
+					c.end_pos = next_pos
 					return
 				_begin_burn_dissolve(i)
 				return
