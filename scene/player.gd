@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-enum ChainState { IDLE, FLYING, STUCK, DISSOLVING }
+enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 
 # =========================
 # 节点路径（按你当前节点树默认）
@@ -36,6 +36,7 @@ enum ChainState { IDLE, FLYING, STUCK, DISSOLVING }
 @export var hold_time: float = 0.3            # 停住后悬停多久开始溶解
 @export var burn_time: float = 1.0             # 溶解动画时长
 @export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解shader
+@export_flags_2d_physics var chain_hit_mask: int = 1
 
 # =========================
 # Rope视觉（Verlet + 波动叠加）
@@ -94,6 +95,8 @@ class ChainSlot:
 	var end_vel: Vector2 = Vector2.ZERO
 	var fly_t: float = 0.0
 	var hold_t: float = 0.0
+	var linked_target: Node2D = null
+	var linked_offset: Vector2 = Vector2.ZERO
 
 	# rope buffers（世界坐标）
 	var pts: PackedVector2Array = PackedVector2Array()
@@ -178,6 +181,7 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q.collide_with_areas = true
 	c.ray_q.collide_with_bodies = true
 	c.ray_q.exclude = [self.get_rid()]
+	c.ray_q.collision_mask = chain_hit_mask
 
 	# 溶解材质预创建（每条链一份，避免串台）
 	if _burn_shader != null:
@@ -337,6 +341,8 @@ func _try_fire_chain() -> void:
 	c.end_vel = dir * chain_speed
 	c.fly_t = 0.0
 	c.hold_t = 0.0
+	c.linked_target = null
+	c.linked_offset = Vector2.ZERO
 
 	# 发射时给一发“整绳抖动能量”
 	c.wave_amp = rope_wave_amp
@@ -377,6 +383,9 @@ func _update_chain(i: int, dt: float) -> void:
 			c.hold_t += dt
 			if c.hold_t >= hold_time:
 				_begin_burn_dissolve(i)
+		ChainState.LINKED:
+			if not _sync_linked_target(c):
+				_begin_burn_dissolve(i)
 		ChainState.DISSOLVING:
 			pass
 
@@ -412,6 +421,9 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	var hit: Dictionary = space.intersect_ray(c.ray_q)
 	if hit.size() > 0:
 		c.end_pos = hit["position"] as Vector2
+		if _handle_chain_hit(i, hit):
+			return
+
 		c.state = ChainState.STUCK
 		c.hold_t = 0.0
 		# 命中瞬间余震
@@ -461,6 +473,12 @@ func _finish_chain(i: int) -> void:
 		return
 	var c := chains[i]
 
+	if c.linked_target != null and is_instance_valid(c.linked_target):
+		if c.linked_target.has_method("on_chain_unlinked"):
+			c.linked_target.call("on_chain_unlinked")
+	c.linked_target = null
+	c.linked_offset = Vector2.ZERO
+
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
@@ -471,6 +489,40 @@ func _finish_chain(i: int) -> void:
 	c.line.modulate = Color.WHITE
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
+
+
+func _handle_chain_hit(i: int, hit: Dictionary) -> bool:
+	var c := chains[i]
+	var collider := hit.get("collider")
+	var hit_pos: Vector2 = hit.get("position", c.end_pos)
+
+	if collider is Node and (collider as Node).has_method("on_chain_hit"):
+		var result = (collider as Node).call("on_chain_hit", hit_pos, self)
+		if result is Dictionary:
+			var action: String = result.get("action", "")
+			if action == "link":
+				var target: Node2D = result.get("target", null)
+				if target != null and is_instance_valid(target):
+					c.state = ChainState.LINKED
+					c.linked_target = target
+					c.linked_offset = hit_pos - target.global_position
+					c.end_pos = target.global_position + c.linked_offset
+					c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
+					if target.has_method("on_chain_linked"):
+						target.call("on_chain_linked", self)
+					return true
+			if action == "dissolve":
+				_begin_burn_dissolve(i)
+				return true
+
+	return false
+
+
+func _sync_linked_target(c: ChainSlot) -> bool:
+	if c.linked_target == null or not is_instance_valid(c.linked_target):
+		return false
+	c.end_pos = c.linked_target.global_position + c.linked_offset
+	return true
 
 
 # =========================
