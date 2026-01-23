@@ -1,15 +1,4 @@
 extends CharacterBody2D
-# Godot 4.5  |  数据A（稳定基线 + 融合/奇美拉A框架 + 物理层/Mask可配置）
-# 目标：
-# - 鼠标左键发射锁链；W 跳跃；A/D 左右
-# - 锁链命中普通怪物：掉血/受击/僵直，锁链立刻溶解
-# - 怪物虚弱（HP==1）后再命中：锁链进入 LINKED（不再按 hold_time 自动溶解），超出最大长度才断
-# - 两根锁链分别 LINKED 两只虚弱怪物：按空格融合 -> 0.5s 演出 -> 生成 ChimeraA
-# - Rope 视觉：Verlet + “整绳抖动（钩子端更强，快速恢复）”
-#
-# 重要：
-# - 本文件内的 @export 都保留并注释用途，方便你调参。
-# - 不包含 X 立即取消功能（你已明确暂时不需要）。
 
 enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 
@@ -19,16 +8,16 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var visual_path: NodePath = ^"Visual"                 # 角色视觉节点（用于翻转）
 @export var hand_l_path: NodePath = ^"Visual/HandL"           # 左手发射点
 @export var hand_r_path: NodePath = ^"Visual/HandR"           # 右手发射点
-@export var chain_line0_path: NodePath = ^"Chains/ChainLine0" # 锁链0的 Line2D
-@export var chain_line1_path: NodePath = ^"Chains/ChainLine1" # 锁链1的 Line2D
+@export var chain_line0_path: NodePath = ^"Chains/ChainLine0" # 锁链0的Line2D
+@export var chain_line1_path: NodePath = ^"Chains/ChainLine1" # 锁链1的Line2D
 
 # =========================
-# 输入映射名（有就用，没有就读按键）
+# 融合 / 生成
 # =========================
-@export var action_left: StringName = &"move_left"    # A
-@export var action_right: StringName = &"move_right"  # D
-@export var action_jump: StringName = &"jump"         # W（你要 W 跳跃）
-@export var action_fuse: StringName = &"fuse"         # 空格：融合（可选 InputMap）
+@export var action_fuse: StringName = &"fuse"                 # 空格：融合（可选InputMap）
+@export var fusion_lock_time: float = 0.5                     # 融合演出期间锁玩家
+@export var fusion_chain_dissolve_time: float = 0.5           # 融合时两条链溶解用时（更快）
+@export var chimera_scene: PackedScene                        # 指向 ChimeraA.tscn（你当前用这个即可）
 
 # =========================
 # 角色移动参数
@@ -36,69 +25,71 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var move_speed: float = 260.0         # 水平移动速度
 @export var jump_speed: float = 520.0         # 跳跃初速度
 @export var gravity: float = 1500.0           # 重力
-@export var facing_visual_sign: float = 1.0   # 角色左右反了就改成 -1.0（只翻 Visual）
+@export var facing_visual_sign: float = 1.0   # 左右反了就改成 -1.0
+
+# =========================
+# 输入映射名（有就用，没有就读按键）
+# 你要求：W跳跃（不再空格）
+# =========================
+@export var action_left: StringName = &"move_left"   # A
+@export var action_right: StringName = &"move_right" # D
+@export var action_jump: StringName = &"jump"        # W
 
 # =========================
 # 锁链行为参数
 # =========================
-@export var chain_speed: float = 1200.0        # 钩子飞行速度（像子弹一样推进）
-@export var chain_max_length: float = 550.0    # 最大拉伸长度（超过触发溶解/断裂）
-@export var chain_max_fly_time: float = 0.2    # 飞行超过就 STUCK（未命中也会停住）
-@export var hold_time: float = 0.3             # STUCK 后悬停多久开始溶解
-@export var burn_time: float = 1.0             # 溶解动画时长（shader burn 0->1）
-@export var fusion_lock_time: float = 0.5      # 融合演出期间锁玩家（不能移动）
-@export var fusion_chain_dissolve_time: float = 0.5 # 融合时两条链溶解用时（更快）
+@export var chain_speed: float = 1200.0        # 钩子飞行速度
+@export var chain_max_length: float = 550.0    # 最大拉伸长度（越界触发溶解/断裂）
+@export var chain_max_fly_time: float = 0.2    # 飞行超过就停住
+@export var hold_time: float = 0.3             # 停住后悬停多久开始溶解
+@export var burn_time: float = 1.0             # 溶解动画时长
+@export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解shader
 
-@export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解 shader 路径
-
-# 锁链射线“命中哪些层”
-# ✅ 这里就是你问的 chain_hit_mask：Inspector 会出现勾选框（World / Enemy / ...）
-@export_flags_2d_physics var chain_hit_mask: int = 0
+# 锁链射线命中层（在 Inspector 里以勾选框显示）。
+# 你把 2D 物理层命名成 World / EnemyHurtbox 后，这里就能直接勾选。
+@export_flags_2d_physics var chain_hit_mask: int = 0xFFFFFFFF
 
 # =========================
-# Rope 视觉（Verlet + 波动叠加）
+# Rope视觉（Verlet + 波动叠加）
 # =========================
 @export var rope_segments: int = 22            # 绳子点数量（越大更细腻，但更耗）
-@export var rope_damping: float = 0.88         # 阻尼（越小越“软/抖”，但更容易发散）
-@export var rope_stiffness: float = 1.7        # 刚性（越大越绷直，抖动更局部）
-@export var rope_iterations: int = 13          # 约束迭代（越大越稳定）
-@export var rope_gravity: float = 0.0          # 绳子自重（想更“垂”就设 8~25）
+@export var rope_damping: float = 0.88         # 阻尼
+@export var rope_stiffness: float = 1.7        # 刚性
+@export var rope_iterations: int = 13          # 约束迭代
+@export var rope_gravity: float = 0.0          # 绳子自重
 
 # =========================
-# “自然抖动”参数（核心）
-# 效果：整根绳都会抖，钩子端抖最大，并快速恢复
+# “自然抖动”参数
 # =========================
-@export var rope_wave_amp: float = 44.0             # 发射瞬间的抖动幅度（像素级）
-@export var rope_wave_freq: float = 10.0            # 波动频率（越大越快抖）
-@export var rope_wave_decay: float = 7.5            # 衰减速度（越大越快稳定）
-@export var rope_wave_hook_power: float = 2.2       # 钩子端权重（越大越集中在钩子）
-@export var rope_wave_along_segments: float = 8.0   # 沿绳传播次数（越大波纹更多）
+@export var rope_wave_amp: float = 44.0
+@export var rope_wave_freq: float = 10.0
+@export var rope_wave_decay: float = 7.5
+@export var rope_wave_hook_power: float = 2.2
+@export var rope_wave_along_segments: float = 8.0
 
-# 端点移动也会激发全绳惯性（更自然）
-@export var end_motion_inject: float = 0.5          # 钩子端运动注入力
-@export var hand_motion_inject: float = 0.15        # 手端运动注入力
+@export var end_motion_inject: float = 0.5
+@export var hand_motion_inject: float = 0.15
 
 # =========================
 # 断裂预警：越接近最大长度越红
 # =========================
-@export var warn_start_ratio: float = 0.80          # 从最大长度的多少比例开始变红
-@export var warn_gamma: float = 1.6                 # 红色渐变曲线（>1 更靠近末端才急剧变红）
-@export var warn_color: Color = Color(1.0, 0.259, 0.475, 1.0)  # 预警红色
+@export var warn_start_ratio: float = 0.80
+@export var warn_gamma: float = 1.6
+@export var warn_color: Color = Color(1.0, 0.259, 0.475, 1.0)
 
 # =========================
-# 材质展开端点控制：
-# true：UV 从钩子端开始 -> 缩进/展开只发生在手端（自然）
+# 材质展开端点控制
+# true：UV从钩子端开始 -> 缩进/展开只发生在手端（自然）
 # =========================
 @export var texture_anchor_at_hook: bool = true
 
 # =========================
-# 奇美拉生成
+# Chimera 安全生成（A+B）
 # =========================
-@export var chimeraA_scene: PackedScene                 # 指向 ChimeraA.tscn（在 Inspector 拖）
-@export_flags_2d_physics var chimera_spawn_block_mask: int = 0  # 用于找“不会卡住”的生成点（通常只勾 World）
-@export var chimera_spawn_radius: float = 10.0          # 生成点的简单“避障”半径（越大越保守）
-@export var chimera_spawn_try_step: float = 18.0        # 每次尝试往上/两侧挪多少像素
-@export var chimera_spawn_disable_collision_frames: int = 1  # 生成后禁碰撞几帧（双保险）
+@export var spawn_try_up_step: float = 16.0          # 每次向上试探的步长
+@export var spawn_try_up_count: int = 10             # 向上试探次数
+@export var spawn_try_side: float = 24.0             # 侧向偏移（左右各试）
+@export var spawn_disable_collision_one_frame: bool = true  # B：禁碰撞1帧
 
 # -------------------------
 # 运行时引用
@@ -110,6 +101,8 @@ var facing: int = 1
 
 var _burn_shader: Shader = null
 var _player_locked: bool = false
+var _chimera: Node = null
+
 
 class ChainSlot:
 	var state: int = ChainState.IDLE
@@ -124,35 +117,37 @@ class ChainSlot:
 	# rope buffers（世界坐标）
 	var pts: PackedVector2Array = PackedVector2Array()
 	var prev: PackedVector2Array = PackedVector2Array()
+
+	# 用于“端点运动注入”
 	var prev_end: Vector2 = Vector2.ZERO
 	var prev_start: Vector2 = Vector2.ZERO
 
-	# 波动参数
+	# 波参数
 	var wave_amp: float = 0.0
 	var wave_phase: float = 0.0
 	var wave_seed: float = 0.0
 
 	# 性能：缓存 RayQuery
 	var ray_q: PhysicsRayQueryParameters2D
-	# 性能：每条链一份材质（避免串台）
+
+	# 性能：每条链预创建溶解材质（避免串台）
 	var burn_mat: ShaderMaterial
 	var burn_tw: Tween
 
-	# 性能：缓存权重表（避免每帧 pow）
+	# 性能：缓存权重表
 	var w_end: PackedFloat32Array = PackedFloat32Array()
 	var w_start: PackedFloat32Array = PackedFloat32Array()
 	var cached_n: int = -1
 	var cached_hook_power: float = -999.0
 
-	# LINKED 目标
+	# ✅ 链接对象（monster/chimera 都走这套）
 	var linked_target: Node2D = null
-	var linked_offset: Vector2 = Vector2.ZERO  # 命中点相对目标的偏移（保持挂点）
+	var linked_offset: Vector2 = Vector2.ZERO
+
 
 var chains: Array[ChainSlot] = []
 
-# =========================
-# 生命周期
-# =========================
+
 func _ready() -> void:
 	visual = get_node_or_null(visual_path) as Node2D
 	hand_l = get_node_or_null(hand_l_path) as Node2D
@@ -165,6 +160,7 @@ func _ready() -> void:
 		push_error("Player: visual/hand paths not set correctly.")
 		set_process(false); set_physics_process(false)
 		return
+
 	if line0 == null or line1 == null:
 		push_error("Player: chain line paths not set correctly.")
 		set_process(false); set_physics_process(false)
@@ -173,11 +169,6 @@ func _ready() -> void:
 	_burn_shader = load(chain_shader_path) as Shader
 	if _burn_shader == null:
 		push_error("Player: cannot load chain shader: %s" % chain_shader_path)
-
-	# 默认命中层（如果你没在 Inspector 勾）
-	# 建议：1=World, 3=Enemy（你自己按工程设置改）
-	if chain_hit_mask == 0:
-		chain_hit_mask = (1 << 0) | (1 << 2) # 默认勾第1层 + 第3层
 
 	chains.clear()
 	chains.resize(2)
@@ -207,10 +198,10 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q = PhysicsRayQueryParameters2D.new()
 	c.ray_q.collide_with_areas = true
 	c.ray_q.collide_with_bodies = true
-	c.ray_q.exclude = [self.get_rid()]
 	c.ray_q.collision_mask = chain_hit_mask
+	c.ray_q.exclude = [self.get_rid()]
 
-	# 溶解材质：每条链一份（避免上一条链的 burn 残留）
+	# 溶解材质预创建（每条链一份）
 	if _burn_shader != null:
 		c.burn_mat = ShaderMaterial.new()
 		c.burn_mat.shader = _burn_shader
@@ -235,7 +226,6 @@ func _init_rope_buffers(c: ChainSlot) -> void:
 	c.prev_start = global_position
 
 
-# 关键优化：Line2D 点只分配一次，之后每帧 set_point_position
 func _prealloc_line_points(c: ChainSlot) -> void:
 	var n: int = c.pts.size()
 	if c.line.get_point_count() != n:
@@ -260,7 +250,7 @@ func _rebuild_weight_cache_if_needed(c: ChainSlot) -> void:
 
 	var inv: float = 1.0 / float(n - 1)
 	for k in range(n):
-		var t: float = float(k) * inv # 0=手端, 1=钩子端
+		var t: float = float(k) * inv
 		c.w_end[k] = pow(t, rope_wave_hook_power)
 		c.w_start[k] = pow(1.0 - t, 1.6)
 
@@ -268,7 +258,6 @@ func _rebuild_weight_cache_if_needed(c: ChainSlot) -> void:
 func _physics_process(dt: float) -> void:
 	_update_facing()
 
-	# 移动
 	if not _player_locked:
 		var dir_x: float = 0.0
 		if _has_action(action_left):
@@ -288,19 +277,18 @@ func _physics_process(dt: float) -> void:
 	velocity.y += gravity * dt
 
 	# 跳跃：W
-	var jump_pressed: bool = false
 	if not _player_locked:
+		var jump_pressed: bool = false
 		if _has_action(action_jump):
 			jump_pressed = Input.is_action_just_pressed(action_jump)
 		else:
 			jump_pressed = Input.is_key_pressed(KEY_W)
 
-	if not _player_locked and is_on_floor() and jump_pressed:
-		velocity.y = -jump_speed
+		if is_on_floor() and jump_pressed:
+			velocity.y = -jump_speed
 
 	move_and_slide()
 
-	# 更新两条锁链
 	for i in range(chains.size()):
 		_update_chain(i, dt)
 
@@ -313,7 +301,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_fire_chain()
 			return
 
-	# 空格：融合（优先 InputMap，没有就读 Space）
+	# 空格：融合（优先InputMap，没有就读Space）
 	if event is InputEventKey:
 		var ek := event as InputEventKey
 		if not ek.pressed:
@@ -332,6 +320,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _has_action(a: StringName) -> bool:
 	return InputMap.has_action(a)
+
+
+# 将“链住的对象”解析成 MonsterBase。
+# 兼容两种实现：
+# - 直接射线命中怪物本体（CharacterBody2D with MonsterBase script）
+# - 射线命中 EnemyHurtbox（Area2D），需要向上找父节点
+func _resolve_monster(n: Node) -> MonsterBase:
+	var cur: Node = n
+	for _i in range(6):
+		if cur == null:
+			return null
+		var mb := cur as MonsterBase
+		if mb != null:
+			return mb
+		cur = cur.get_parent()
+	return null
 
 
 func _update_facing() -> void:
@@ -357,9 +361,6 @@ func _update_facing() -> void:
 		visual.scale.x = float(facing) * facing_visual_sign
 
 
-# =========================
-# 发射锁链
-# =========================
 func _try_fire_chain() -> void:
 	if chains.size() < 2:
 		return
@@ -382,10 +383,13 @@ func _try_fire_chain() -> void:
 	else:
 		dir = dir.normalized()
 
-	# 确保点数一致
+	# 确保缓冲一致
 	_init_rope_buffers(c)
 	_prealloc_line_points(c)
 	_rebuild_weight_cache_if_needed(c)
+
+	# 清理旧链接
+	_detach_link_if_needed(idx)
 
 	c.state = ChainState.FLYING
 	c.end_pos = start
@@ -393,10 +397,6 @@ func _try_fire_chain() -> void:
 	c.fly_t = 0.0
 	c.hold_t = 0.0
 
-	c.linked_target = null
-	c.linked_offset = Vector2.ZERO
-
-	# 发射时给一发“整绳抖动能量”
 	c.wave_amp = rope_wave_amp
 	c.wave_phase = 0.0
 
@@ -409,9 +409,6 @@ func _try_fire_chain() -> void:
 	c.prev_end = c.end_pos
 
 
-# =========================
-# 每帧更新锁链
-# =========================
 func _update_chain(i: int, dt: float) -> void:
 	if i < 0 or i >= chains.size():
 		return
@@ -422,34 +419,40 @@ func _update_chain(i: int, dt: float) -> void:
 
 	var start: Vector2 = (hand_r.global_position if c.use_right_hand else hand_l.global_position)
 
-	# 越接近最大长度越红（非溶解时）
+	# 断裂预警（非溶解时）
 	if c.state != ChainState.DISSOLVING:
 		_apply_break_warning_color(c, start)
-
-	# 超长：触发溶解/断裂
-	if start.distance_to(c.end_pos) > chain_max_length and c.state != ChainState.DISSOLVING:
-		_begin_burn_dissolve(i)
-		return
 
 	match c.state:
 		ChainState.FLYING:
 			_update_chain_flying(i, dt)
+
 		ChainState.STUCK:
+			# STUCK：超过 hold_time 溶解
 			c.hold_t += dt
 			if c.hold_t >= hold_time:
 				_begin_burn_dissolve(i)
+
 		ChainState.LINKED:
+			# LINKED：端点固定在目标挂点
 			if c.linked_target == null or not is_instance_valid(c.linked_target):
 				_begin_burn_dissolve(i)
 				return
-			# 端点固定在目标身上的“挂点”
+
 			c.end_pos = c.linked_target.global_position + c.linked_offset
-			# 超过最大长度：断裂消失
+
+			# 超过最大长度：断裂（溶解）
 			if start.distance_to(c.end_pos) > chain_max_length:
 				_begin_burn_dissolve(i)
 				return
+
 		ChainState.DISSOLVING:
 			pass
+
+	# ✅ 超长保护：FLYING/STUCK/LINKED 都要防
+	if c.state != ChainState.DISSOLVING and start.distance_to(c.end_pos) > chain_max_length:
+		_begin_burn_dissolve(i)
+		return
 
 	_sim_rope(c, start, c.end_pos, dt)
 	_apply_rope_to_line_fast(c)
@@ -468,9 +471,6 @@ func _apply_break_warning_color(c: ChainSlot, start: Vector2) -> void:
 	c.line.modulate = Color.WHITE.lerp(warn_color, t)
 
 
-# =========================
-# FLYING：射线命中
-# =========================
 func _update_chain_flying(i: int, dt: float) -> void:
 	var c := chains[i]
 
@@ -482,84 +482,92 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	var space := get_world_2d().direct_space_state
 	c.ray_q.from = prev_pos
 	c.ray_q.to = c.end_pos
-	c.ray_q.collision_mask = chain_hit_mask
 
 	var hit: Dictionary = space.intersect_ray(c.ray_q)
-	
 	if hit.size() > 0:
-		c.end_pos = hit.get("position", c.end_pos) as Vector2
-		var col_obj: Object = hit.get("collider", null) as Object
+		c.end_pos = hit["position"] as Vector2
+		var col_obj: Object = hit["collider"]
 		var col_node: Node = col_obj as Node
-		print("[HIT] ", col_node, " class=", (col_node.get_class() if col_node else "null"))
-		# 命中瞬间余震d
+
+		# 命中瞬间余震
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
 
-		# 命中可处理对象：怪物/奇美拉（不强制组名，只要有 on_chain_hit）
-		if col_node != null and col_node.has_method("on_chain_hit"):
-			# 约定返回值：1 = 进入 LINKED；否则 = 立刻溶解
+		# 1) 命中怪物：走 on_chain_hit（决定扣血并溶解 / 虚弱则链接）
+		if col_node != null and col_node.is_in_group("monster") and col_node.has_method("on_chain_hit"):
 			var ret: int = int(col_node.call("on_chain_hit", self, i))
 			if ret == 1:
-				_chain_enter_linked(i, col_node, c.end_pos)
+				_attach_link(i, col_node as Node2D, c.end_pos)
 				return
 			_begin_burn_dissolve(i)
 			return
 
-		# 命中普通平台/静物：你要“停止/结束”，这里直接溶解
+		# 2) 命中 Chimera：进入链接，并触发互动（ChimeraA.on_chain_attached）
+		if col_node != null and col_node.has_method("on_chain_attached"):
+			_attach_link(i, col_node as Node2D, c.end_pos)
+			return
+
+		# 3) 命中普通平台/静物：你要求“无视反弹+立刻消失特效”
 		_begin_burn_dissolve(i)
 		return
 
-	# 超时未命中：停住（悬停 hold_time 后溶解）
+	# 超时未命中：停住
 	if c.fly_t >= chain_max_fly_time:
 		c.state = ChainState.STUCK
 		c.hold_t = 0.0
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.35)
 
 
-func _chain_enter_linked(i: int, target: Node, hit_pos: Vector2) -> void:
-	var c := chains[i]
-	var t2d: Node2D = target as Node2D
-	if t2d == null:
-		_begin_burn_dissolve(i)
+func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
+	if slot < 0 or slot >= chains.size():
 		return
+	var c := chains[slot]
+
+	_detach_link_if_needed(slot)
 
 	c.state = ChainState.LINKED
-	c.linked_target = t2d
-	c.linked_offset = hit_pos - t2d.global_position
+	c.linked_target = target
+	if target != null:
+		c.linked_offset = hit_pos - target.global_position
+	else:
+		c.linked_offset = Vector2.ZERO
+
 	c.hold_t = 0.0
 
-	# 通知目标：链已挂上（用于触发互动）
-	if target.has_method("on_chain_attached"):
-		target.call("on_chain_attached", i)
+	# ✅ 通知目标进入“互动状态”
+	if target != null and target.has_method("on_chain_attached"):
+		target.call("on_chain_attached", slot)
 
 
-# =========================
-# 溶解（shader burn）
-# =========================
+func _detach_link_if_needed(slot: int) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c := chains[slot]
+	if c.linked_target != null and is_instance_valid(c.linked_target):
+		if c.linked_target.has_method("on_chain_detached"):
+			c.linked_target.call("on_chain_detached", slot)
+	c.linked_target = null
+	c.linked_offset = Vector2.ZERO
+
+
 func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 	if i < 0 or i >= chains.size():
 		return
-
 	var c := chains[i]
 	if c.state == ChainState.DISSOLVING or c.state == ChainState.IDLE:
 		return
 
-	# 如果此前是 LINKED，先通知目标断开
-	if c.state == ChainState.LINKED and c.linked_target != null and is_instance_valid(c.linked_target):
-		if c.linked_target.has_method("on_chain_detached"):
-			c.linked_target.call("on_chain_detached", i)
-	c.linked_target = null
-	c.linked_offset = Vector2.ZERO
+	# ✅ 断链时必须通知目标退出互动
+	_detach_link_if_needed(i)
 
-	# 材质
+	# 材质（每次溶解要 reset burn=0）
 	if c.burn_mat == null:
-		# shader 不存在：直接结束
-		_finish_chain(i)
-		return
-
-	# kill 旧 tween（避免 burn 串台）
-	if c.burn_tw != null:
-		c.burn_tw.kill()
-		c.burn_tw = null
+		var sh := load(chain_shader_path) as Shader
+		if sh == null:
+			push_error("Cannot load chain shader: %s" % chain_shader_path)
+			_finish_chain(i)
+			return
+		c.burn_mat = ShaderMaterial.new()
+		c.burn_mat.shader = sh
 
 	c.line.material = c.burn_mat
 	c.burn_mat.set_shader_parameter("burn", 0.0)
@@ -568,12 +576,15 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 
 	var t: float = burn_time if dissolve_time <= 0.0 else dissolve_time
 
-	var tw := create_tween()
-	c.burn_tw = tw
-	tw.set_trans(Tween.TRANS_SINE)
-	tw.set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(c.burn_mat, "shader_parameter/burn", 1.0, t)
-	tw.tween_callback(func() -> void:
+	if c.burn_tw != null:
+		c.burn_tw.kill()
+		c.burn_tw = null
+
+	c.burn_tw = create_tween()
+	c.burn_tw.set_trans(Tween.TRANS_SINE)
+	c.burn_tw.set_ease(Tween.EASE_IN_OUT)
+	c.burn_tw.tween_property(c.burn_mat, "shader_parameter/burn", 1.0, t)
+	c.burn_tw.tween_callback(func() -> void:
 		_finish_chain(i)
 	)
 
@@ -581,17 +592,11 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 func _finish_chain(i: int) -> void:
 	if i < 0 or i >= chains.size():
 		return
-
 	var c := chains[i]
 
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
-
-	# 保险：若仍处于 LINKED，也通知断开
-	if c.state == ChainState.LINKED and c.linked_target != null and is_instance_valid(c.linked_target):
-		if c.linked_target.has_method("on_chain_detached"):
-			c.linked_target.call("on_chain_detached", i)
 
 	c.state = ChainState.IDLE
 	c.line.visible = false
@@ -599,18 +604,12 @@ func _finish_chain(i: int) -> void:
 	c.line.modulate = Color.WHITE
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
-	c.linked_target = null
-	c.linked_offset = Vector2.ZERO
 
 
 # =========================
-# 融合：两条链都 LINKED 两个“虚弱怪物”
+# 融合（两条链都 LINKED 且两只 monster 都弱）
 # =========================
-func _try_fuse() -> void: 
-	var t0 := chains[0].linked_target
-	var t1 := chains[1].linked_target
-	print("[FUSE] type0=", (t0.get_class() if t0 else "null"),
-		  " type1=", (t1.get_class() if t1 else "null"))
+func _try_fuse() -> void:
 	if _player_locked:
 		return
 	if chains.size() < 2:
@@ -618,6 +617,7 @@ func _try_fuse() -> void:
 
 	var c0 := chains[0]
 	var c1 := chains[1]
+
 	if c0.state != ChainState.LINKED or c1.state != ChainState.LINKED:
 		return
 	if c0.linked_target == null or c1.linked_target == null:
@@ -625,27 +625,20 @@ func _try_fuse() -> void:
 	if c0.linked_target == c1.linked_target:
 		return
 
-	var m0: MonsterBase = c0.linked_target as MonsterBase
-	var m1: MonsterBase = c1.linked_target as MonsterBase
+	# 只允许融合 monster（Chimera 不参与融合）
+	var m0: MonsterBase = _resolve_monster(c0.linked_target)
+	var m1: MonsterBase = _resolve_monster(c1.linked_target)
 	if m0 == null or m1 == null:
 		return
 	if not m0.weak or not m1.weak:
 		return
 
-	# ✅ 只先实现：MonsterFly + MonsterWalk => ChimeraA（顺序无关）
-	var ok_pair: bool = _is_pair_for_chimeraA(m0, m1)
-	if not ok_pair:
-		# 先不做其它 Chimera，直接拒绝
-		return
-
 	_player_locked = true
 	velocity = Vector2.ZERO
 
-	# 怪物原地“消失”（禁碰撞+隐藏视觉）
 	m0.set_fusion_vanish(true)
 	m1.set_fusion_vanish(true)
 
-	# 两条链更快溶解
 	_begin_burn_dissolve(0, fusion_chain_dissolve_time)
 	_begin_burn_dissolve(1, fusion_chain_dissolve_time)
 
@@ -654,95 +647,108 @@ func _try_fuse() -> void:
 	tw.tween_callback(func() -> void:
 		if is_instance_valid(m0): m0.queue_free()
 		if is_instance_valid(m1): m1.queue_free()
-		await _spawn_chimeraA_safe()
+		_spawn_chimera_at_player()
 		_player_locked = false
 	)
 
 
-func _is_pair_for_chimeraA(a: MonsterBase, b: MonsterBase) -> bool:
-	# 仅用于 ChimeraA：FLY + WALK
-	var ka: int = int(a.kind)
-	var kb: int = int(b.kind)
-	return (ka == int(MonsterBase.MonsterKind.FLY) and kb == int(MonsterBase.MonsterKind.WALK)) \
-		or (ka == int(MonsterBase.MonsterKind.WALK) and kb == int(MonsterBase.MonsterKind.FLY))
-
-
-# A + B 双保险生成：A 找不重叠点，B 禁碰撞 1 帧再启用
-func _spawn_chimeraA_safe() -> void:
-	if chimeraA_scene == null:
+# =========================
+# Chimera 安全生成：A（找不重叠点）+ B（禁碰撞1帧）
+# =========================
+func _spawn_chimera_at_player() -> void:
+	if chimera_scene == null:
 		return
 
-	var parent: Node = get_parent()
-	if parent == null:
+	# 已有就不重复生成（你之后要多个再改）
+	if _chimera != null and is_instance_valid(_chimera):
+		if _chimera is Node2D:
+			(_chimera as Node2D).global_position = global_position
 		return
 
-	var origin: Vector2 = global_position
-	var spawn_pos: Vector2 = _find_non_overlapping_spawn_pos(origin)
-
-	var inst: Node = chimeraA_scene.instantiate()
-	var n2d: Node2D = inst as Node2D
-	if n2d == null:
+	var n := chimera_scene.instantiate()
+	if not (n is Node2D):
 		return
 
-	n2d.global_position = spawn_pos
-	parent.add_child(n2d)
+	var chim := n as Node2D
+	get_parent().add_child(chim)
 
-	# 生成后：禁碰撞 N 帧（双保险）
-	var co: CollisionObject2D = inst as CollisionObject2D
-	var old_layer: int = 0
-	var old_mask: int = 0
-	if co != null:
-		old_layer = int(co.collision_layer)
-		old_mask = int(co.collision_mask)
-		co.collision_layer = 0
-		co.collision_mask = 0
+	# 先把它放到“临时位置”
+	chim.global_position = global_position
 
-	for _i in range(chimera_spawn_disable_collision_frames):
-		await get_tree().physics_frame
+	# 取它的碰撞形状（默认找子节点 CollisionShape2D）
+	var body := chim as CollisionObject2D
+	var cs: CollisionShape2D = chim.get_node_or_null(^"CollisionShape2D") as CollisionShape2D
 
-	if co != null:
-		co.collision_layer = old_layer
-		co.collision_mask = old_mask
+	# 若没有碰撞体，直接生成（你的担心只发生在有碰撞时）
+	if body == null or cs == null or cs.shape == null:
+		_post_spawn_setup(chim)
+		_chimera = chim
+		return
 
-	# 告诉 ChimeraA 玩家引用（兼容 set_player / setup）
-	if inst.has_method("set_player"):
-		inst.call("set_player", self)
-	elif inst.has_method("setup"):
-		inst.call("setup", self)
+	# B：先禁碰撞（避免刚加入就挤）
+	var orig_layer: int = body.collision_layer
+	var orig_mask: int = body.collision_mask
+	var orig_disabled: bool = cs.disabled
+
+	if spawn_disable_collision_one_frame:
+		body.collision_layer = 0
+		body.collision_mask = 0
+		cs.disabled = true
+
+	# A：找安全点
+	var safe_pos: Vector2 = _find_safe_spawn_pos(cs.shape, chim.global_transform, global_position, orig_mask)
+	chim.global_position = safe_pos
+
+	# B：等待1帧后恢复碰撞
+	if spawn_disable_collision_one_frame:
+		await get_tree().process_frame
+		if is_instance_valid(body) and is_instance_valid(cs):
+			body.collision_layer = orig_layer
+			body.collision_mask = orig_mask
+			cs.disabled = orig_disabled
+
+	_post_spawn_setup(chim)
+	_chimera = chim
 
 
-# 用 PhysicsShapeQueryParameters2D 找不会卡住的生成点
-func _find_non_overlapping_spawn_pos(origin: Vector2) -> Vector2:
+func _find_safe_spawn_pos(shape: Shape2D, chim_xform: Transform2D, base: Vector2, mask: int) -> Vector2:
 	var space := get_world_2d().direct_space_state
 
-	var shape := CircleShape2D.new()
-	shape.radius = chimera_spawn_radius
+	# 候选点：优先“上方”，其次“左右上方”，再更高
+	var candidates: Array[Vector2] = []
+	for k in range(1, spawn_try_up_count + 1):
+		var up := Vector2(0.0, -spawn_try_up_step * float(k))
+		candidates.append(base + up)
+		candidates.append(base + up + Vector2(spawn_try_side, 0.0))
+		candidates.append(base + up + Vector2(-spawn_try_side, 0.0))
 
-	var qp: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
-	qp.shape = shape
-	qp.collision_mask = chimera_spawn_block_mask if chimera_spawn_block_mask != 0 else (1 << 0) # 默认只挡 World
-	qp.exclude = [self.get_rid()]
-	qp.margin = 0.1
+	# 最后兜底：原地
+	candidates.append(base)
 
-	# 依次尝试：上、右上、左上、右、左、再更上...
-	var offsets: Array[Vector2] = []
-	offsets.append(Vector2(0.0, -chimera_spawn_try_step))
-	offsets.append(Vector2(chimera_spawn_try_step, -chimera_spawn_try_step))
-	offsets.append(Vector2(-chimera_spawn_try_step, -chimera_spawn_try_step))
-	offsets.append(Vector2(chimera_spawn_try_step, 0.0))
-	offsets.append(Vector2(-chimera_spawn_try_step, 0.0))
-	offsets.append(Vector2(0.0, -chimera_spawn_try_step * 2.0))
-	offsets.append(Vector2(chimera_spawn_try_step, -chimera_spawn_try_step * 2.0))
-	offsets.append(Vector2(-chimera_spawn_try_step, -chimera_spawn_try_step * 2.0))
+	var q := PhysicsShapeQueryParameters2D.new()
+	q.shape = shape
+	q.collide_with_areas = false
+	q.collide_with_bodies = true
+	q.collision_mask = mask
+	q.exclude = [self.get_rid()]  # 至少排除玩家
 
-	for off in offsets:
-		var p: Vector2 = origin + off
-		qp.transform = Transform2D(0.0, p)
-		var hits: Array[Dictionary] = space.intersect_shape(qp, 1)
-		if hits.is_empty():
+	for p in candidates:
+		var xf := chim_xform
+		xf.origin = p
+		q.transform = xf
+		var hits := space.intersect_shape(q, 8)
+		if hits.size() == 0:
 			return p
 
-	return origin
+	return base
+
+
+func _post_spawn_setup(chim: Node2D) -> void:
+	# 兼容你 ChimeraA 的 API：setup(self) 或 set_player(self)
+	if chim.has_method("setup"):
+		chim.call("setup", self)
+	elif chim.has_method("set_player"):
+		chim.call("set_player", self)
 
 
 # =========================
@@ -765,50 +771,38 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 		return
 	var last: int = n - 1
 
-	# 端点锁定
 	c.pts[0] = start_world
 	c.pts[last] = end_world
 
-	# 端点位移（用于整绳惯性注入）
 	var start_delta: Vector2 = start_world - c.prev_start
 	var end_delta: Vector2 = end_world - c.prev_end
 	c.prev_start = start_world
 	c.prev_end = end_world
 
-	# Verlet 积分
 	for k in range(1, last):
 		var cur: Vector2 = c.pts[k]
 		var vel: Vector2 = (cur - c.prev[k]) * rope_damping
 		c.prev[k] = cur
 		c.pts[k] = cur + vel + Vector2(0.0, rope_gravity)
 
-	# 端点运动注入（使用缓存权重）
 	_rebuild_weight_cache_if_needed(c)
 	for k in range(1, last):
-		var w_end: float = c.w_end[k]
-		var w_start: float = c.w_start[k]
-		c.pts[k] += end_delta * (end_motion_inject * w_end)
-		c.pts[k] += start_delta * (hand_motion_inject * w_start)
+		c.pts[k] += end_delta * (end_motion_inject * c.w_end[k])
+		c.pts[k] += start_delta * (hand_motion_inject * c.w_start[k])
 
-	# 波动叠加（快速衰减）
 	if c.wave_amp > 0.001:
 		c.wave_amp *= exp(-rope_wave_decay * dt)
 		c.wave_phase += (rope_wave_freq * TAU) * dt
 
 		var dir: Vector2 = end_world - start_world
 		var perp: Vector2 = Vector2(-dir.y, dir.x)
-		if perp.length() < 0.001:
-			perp = Vector2.UP
-		else:
-			perp = perp.normalized()
+		perp = (Vector2.UP if perp.length() < 0.001 else perp.normalized())
 
 		for k in range(1, last):
-			var t2: float = float(k) / float(last) # 0=手 1=钩
-			var w: float = c.w_end[k]              # 钩子端更强
+			var t2: float = float(k) / float(last)
 			var phase: float = c.wave_phase + (t2 * rope_wave_along_segments * TAU) + c.wave_seed * 10.0
-			c.pts[k] += perp * (sin(phase) * c.wave_amp * w)
+			c.pts[k] += perp * (sin(phase) * c.wave_amp * c.w_end[k])
 
-	# 约束：保持段长
 	var total_len: float = start_world.distance_to(end_world)
 	var seg_len: float = total_len / float(last)
 
@@ -830,7 +824,6 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 				c.pts[k + 1] -= adj
 
 
-# 不再 clear/add，每帧 set_point_position；同时保留“UV锚在钩子端”
 func _apply_rope_to_line_fast(c: ChainSlot) -> void:
 	var n: int = c.pts.size()
 	if c.line.get_point_count() != n:

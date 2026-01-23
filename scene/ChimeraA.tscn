@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://dsyys0748arks"]
 
-[ext_resource type="Script" uid="uid://drmy0xp03tjyt" path="res://scene/ChimeraA.gd" id="1_7bd0c"]
+[ext_resource type="Script" uid="uid://cfw301easht5" path="res://scene/ChimeraA.gd" id="1_7bd0c"]
 [ext_resource type="Texture2D" uid="uid://b1nxj7ilolc17" path="res://yaoshi.png" id="2_iljuf"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_7bd0c"]

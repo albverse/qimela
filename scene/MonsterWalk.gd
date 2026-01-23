@@ -1,28 +1,24 @@
 extends MonsterBase
 class_name MonsterWalk
 
-# ===== 陆行怪：简单左右走动 =====
-@export var walk_speed: float = 80.0
-@export var dir: int = -1
+@export var move_speed: float = 70.0
+@export var gravity: float = 1200.0
 
-func _physics_process(dt: float) -> void:
-	super._physics_process(dt)
+var _dir: int = -1
 
-	velocity.y += 1500.0 * dt
+func _ready() -> void:
+	max_hp = 5
+	super._ready()
 
+func _do_move(dt: float) -> void:
 	if weak:
-		velocity.x = 0.0
+		velocity = Vector2.ZERO
 		move_and_slide()
 		return
 
-	if is_stunned():
-		velocity.x = 0.0
-		move_and_slide()
-		return
-
-	velocity.x = float(dir) * walk_speed
+	velocity.y += gravity * dt
+	velocity.x = float(_dir) * move_speed
 	move_and_slide()
 
-	# 碰到墙就反向（用 CharacterBody2D 的碰撞信息）
 	if is_on_wall():
-		dir *= -1
+		_dir *= -1
