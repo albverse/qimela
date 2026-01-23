@@ -44,6 +44,7 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var chain_max_fly_time: float = 0.2    # 飞行超过就停住
 @export var hold_time: float = 0.3             # 停住后悬停多久开始溶解
 @export var burn_time: float = 1.0             # 溶解动画时长
+@export var cancel_dissolve_time: float = 0.3  # 强制取消时的溶解时长
 const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
 @export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH # 散沙溶解shader
 
@@ -590,6 +591,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 
 	c.line.material = c.burn_mat
 	c.burn_mat.set_shader_parameter("burn", 0.0)
+	c.line.visible = true
 
 	c.state = ChainState.DISSOLVING
 
@@ -616,7 +618,7 @@ func _force_dissolve_all_chains() -> void:
 		# 停止当前抖动/效果
 		c.wave_amp = 0.0
 		c.wave_phase = 0.0
-		_begin_burn_dissolve(i, 0.05, true)
+		_begin_burn_dissolve(i, cancel_dissolve_time, true)
 
 func force_dissolve_chain(slot: int) -> void:
 	if slot < 0 or slot >= chains.size():
@@ -626,7 +628,7 @@ func force_dissolve_chain(slot: int) -> void:
 		return
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
-	_begin_burn_dissolve(slot, -1.0, true)
+	_begin_burn_dissolve(slot, cancel_dissolve_time, true)
 
 
 func _finish_chain(i: int) -> void:
