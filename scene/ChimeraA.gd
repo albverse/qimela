@@ -11,6 +11,9 @@ class_name ChimeraA
 var _player: Node2D = null
 var _linked: bool = false
 var _linked_slot: int = -1
+var _wander_dir: int = 0
+var _wander_t: float = 0.0
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 @export var flash_time: float = 0.2
 @export var visual_item_path: NodePath = NodePath("")
@@ -21,6 +24,8 @@ var _flash_tw: Tween = null
 func _ready() -> void:
 	# 让 Player 的锁链射线识别它（Player 里检测 group: "chimera"）
 	add_to_group("chimera")
+	_rng.randomize()
+	_pick_next_wander()
 
 # 兼容 Player：spawn 后会调用 setup(self)
 func setup(p: Node2D) -> void:
@@ -62,7 +67,11 @@ func _physics_process(dt: float) -> void:
 			var desired: float = dir * move_speed
 			velocity.x = move_toward(velocity.x, desired, accel * dt)
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, accel * dt)
+		_wander_t -= dt
+		if _wander_t <= 0.0:
+			_pick_next_wander()
+		var desired := float(_wander_dir) * move_speed
+		velocity.x = move_toward(velocity.x, desired, accel * dt)
 
 	move_and_slide()
 
@@ -106,3 +115,7 @@ func _flash_once() -> void:
 	_flash_tw = create_tween()
 	_flash_tw.tween_property(sprite, "modulate", orig_mod, flash_time)
 	_flash_tw.parallel().tween_property(sprite, "self_modulate", orig_self, flash_time)
+
+func _pick_next_wander() -> void:
+	_wander_dir = _rng.randi_range(-1, 1)
+	_wander_t = _rng.randf_range(1.0, 4.0)
