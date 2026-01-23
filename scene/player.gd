@@ -44,7 +44,8 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var chain_max_fly_time: float = 0.2    # 飞行超过就停住
 @export var hold_time: float = 0.3             # 停住后悬停多久开始溶解
 @export var burn_time: float = 1.0             # 溶解动画时长
-@export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解shader
+const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
+@export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH # 散沙溶解shader
 
 # 锁链射线命中层（在 Inspector 里以勾选框显示）。
 # 你把 2D 物理层命名成 World / EnemyHurtbox 后，这里就能直接勾选。
@@ -167,6 +168,8 @@ func _ready() -> void:
 		set_process(false); set_physics_process(false)
 		return
 
+	if chain_shader_path == "" or chain_shader_path == null:
+		chain_shader_path = DEFAULT_CHAIN_SHADER_PATH
 	_burn_shader = load(chain_shader_path) as Shader
 	if _burn_shader == null:
 		push_error("Player: cannot load chain shader: %s" % chain_shader_path)
@@ -575,6 +578,8 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 
 	# 材质（每次溶解要 reset burn=0）
 	if c.burn_mat == null:
+		if chain_shader_path == "" or chain_shader_path == null:
+			chain_shader_path = DEFAULT_CHAIN_SHADER_PATH
 		var sh := load(chain_shader_path) as Shader
 		if sh == null:
 			push_error("Cannot load chain shader: %s" % chain_shader_path)
