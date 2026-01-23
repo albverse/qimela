@@ -493,13 +493,22 @@ func _update_chain_flying(i: int, dt: float) -> void:
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
 
 		# 1) 命中怪物：走 on_chain_hit（决定扣血并溶解 / 虚弱则链接）
-		if col_node != null and col_node.is_in_group("monster") and col_node.has_method("on_chain_hit"):
-			var ret: int = int(col_node.call("on_chain_hit", self, i))
-			if ret == 1:
-				_attach_link(i, col_node as Node2D, c.end_pos)
+		if col_node != null:
+			var hit_target: Node = null
+			if col_node.is_in_group("monster") and col_node.has_method("on_chain_hit"):
+				hit_target = col_node
+			else:
+				var mb := _resolve_monster(col_node)
+				if mb != null and mb.has_method("on_chain_hit"):
+					hit_target = mb
+
+			if hit_target != null:
+				var ret: int = int(hit_target.call("on_chain_hit", self, i))
+				if ret == 1:
+					_attach_link(i, hit_target as Node2D, c.end_pos)
+					return
+				_begin_burn_dissolve(i)
 				return
-			_begin_burn_dissolve(i)
-			return
 
 		# 2) 命中 Chimera：进入链接，并触发互动（ChimeraA.on_chain_attached）
 		if col_node != null and col_node.has_method("on_chain_attached"):
