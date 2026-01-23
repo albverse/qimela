@@ -33,7 +33,6 @@ func set_player(p: Node2D) -> void:
 # Player 的射线命中后会先调用 on_chain_hit。
 # 返回 1 表示：锁链进入 LINKED（保持链接），并触发互动。
 func on_chain_hit(_player_ref: Node, slot: int) -> int:
-	_flash_once()
 	on_chain_attached(slot)
 	return 1
 
@@ -41,6 +40,7 @@ func on_chain_hit(_player_ref: Node, slot: int) -> int:
 func on_chain_attached(slot: int) -> void:
 	_linked = true
 	_linked_slot = slot
+	_flash_once()
 
 # Player：锁链断裂/溶解/结束时调用
 func on_chain_detached(slot: int) -> void:
@@ -99,7 +99,10 @@ func _flash_once() -> void:
 		_flash_tw.kill()
 		_flash_tw = null
 
-	var orig: Color = sprite.modulate
-	sprite.modulate = Color(1.0, 1.0, 1.0, orig.a)
+	var orig_mod: Color = sprite.modulate
+	var orig_self: Color = sprite.self_modulate
+	sprite.modulate = Color(1.0, 1.0, 1.0, orig_mod.a)
+	sprite.self_modulate = Color(1.8, 1.8, 1.8, orig_self.a)
 	_flash_tw = create_tween()
-	_flash_tw.tween_property(sprite, "modulate", orig, flash_time)
+	_flash_tw.tween_property(sprite, "modulate", orig_mod, flash_time)
+	_flash_tw.parallel().tween_property(sprite, "self_modulate", orig_self, flash_time)

@@ -74,11 +74,14 @@ func _flash_once() -> void:
 		_flash_tw.kill()
 		_flash_tw = null
 
-	var orig: Color = sprite.modulate
-	# 变白：直接打到白色（对“用 modulate 着色的白色方块素材”最直观）
-	sprite.modulate = Color(1.0, 1.0, 1.0, orig.a)
+	var orig_mod: Color = sprite.modulate
+	var orig_self: Color = sprite.self_modulate
+	# 提亮：用 HDR 值拉高自发光，避免白色素材“看不出变化”
+	sprite.modulate = Color(1.0, 1.0, 1.0, orig_mod.a)
+	sprite.self_modulate = Color(1.8, 1.8, 1.8, orig_self.a)
 	_flash_tw = create_tween()
-	_flash_tw.tween_property(sprite, "modulate", orig, flash_time)
+	_flash_tw.tween_property(sprite, "modulate", orig_mod, flash_time)
+	_flash_tw.parallel().tween_property(sprite, "self_modulate", orig_self, flash_time)
 
 func take_damage(amount: int) -> void:
 	if hp <= 0:
