@@ -5,7 +5,8 @@ class_name MonsterBase
 @export var weak_hp: int = 1                 # hp==1 => 虚弱/昏迷
 @export var hit_stun_time: float = 0.1       # 受击僵直
 @export var flash_time: float = 0.2          # 闪烁时长
-@export var weak_stun_time: float = 3.0      # 虚弱眩晕时长
+@export var weak_stun_time: float = 5.0      # 虚弱眩晕时长
+@export var weak_stun_extend_time: float = 3.0 # 虚弱时被锁链锁定追加时长
 
 # 受击闪白/变亮要作用到哪个“外观节点”（Sprite2D / AnimatedSprite2D / ColorRect 等 CanvasItem）。
 # 为空则自动在子树里找第一个 CanvasItem。
@@ -15,6 +16,8 @@ var hp: int = 3
 var stunned_t: float = 0.0
 var weak: bool = false
 var weak_stun_t: float = 0.0
+var _linked_player: Node = null
+var _linked_slot: int = -1
 
 @onready var sprite: CanvasItem = _find_visual()
 var _flash_tw: Tween = null
@@ -51,6 +54,12 @@ func _update_weak_state() -> void:
 func _restore_from_weak() -> void:
 	hp = max_hp
 	weak = false
+	weak_stun_t = 0.0
+	if _linked_player != null and is_instance_valid(_linked_player):
+		if _linked_player.has_method("force_dissolve_chain"):
+			_linked_player.call("force_dissolve_chain", _linked_slot)
+	_linked_player = null
+	_linked_slot = -1
 
 func _find_visual() -> CanvasItem:
 	# 1) 显式指定路径（最稳）
@@ -120,8 +129,22 @@ func set_fusion_vanish(v: bool) -> void:
 func on_chain_hit(_player: Node, _chain_index: int) -> int:
 	# 虚弱：允许链接（不扣血）
 	if weak:
+		_linked_player = _player
+		_linked_slot = _chain_index
 		return 1
 
 	# 非虚弱：扣血+闪烁+僵直
 	take_damage(1)
 	return 0
+
+# Player：锁链链接到怪物时调用
+func on_chain_attached(slot: int) -> void:
+	_linked_slot = slot
+	if weak:
+		weak_stun_t += weak_stun_extend_time
+
+# Player：锁链断裂/溶解/结束时调用
+func on_chain_detached(slot: int) -> void:
+	if slot == _linked_slot:
+		_linked_player = null
+		_linked_slot = -1

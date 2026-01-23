@@ -613,6 +613,16 @@ func _force_dissolve_all_chains() -> void:
 		c.wave_phase = 0.0
 		_begin_burn_dissolve(i, 0.05, true)
 
+func force_dissolve_chain(slot: int) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c := chains[slot]
+	if c.state == ChainState.IDLE:
+		return
+	c.wave_amp = 0.0
+	c.wave_phase = 0.0
+	_begin_burn_dissolve(slot, -1.0, true)
+
 
 func _finish_chain(i: int) -> void:
 	if i < 0 or i >= chains.size():
