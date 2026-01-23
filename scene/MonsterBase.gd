@@ -5,6 +5,7 @@ class_name MonsterBase
 @export var weak_hp: int = 1                 # hp==1 => 虚弱/昏迷
 @export var hit_stun_time: float = 0.1       # 受击僵直
 @export var flash_time: float = 0.2          # 闪烁时长
+@export var weak_stun_time: float = 3.0      # 虚弱眩晕时长
 
 # 受击闪白/变亮要作用到哪个“外观节点”（Sprite2D / AnimatedSprite2D / ColorRect 等 CanvasItem）。
 # 为空则自动在子树里找第一个 CanvasItem。
@@ -13,6 +14,7 @@ class_name MonsterBase
 var hp: int = 3
 var stunned_t: float = 0.0
 var weak: bool = false
+var weak_stun_t: float = 0.0
 
 @onready var sprite: CanvasItem = _find_visual()
 var _flash_tw: Tween = null
@@ -23,6 +25,13 @@ func _ready() -> void:
 	_update_weak_state()
 
 func _physics_process(dt: float) -> void:
+	if weak:
+		if weak_stun_t > 0.0:
+			weak_stun_t -= dt
+			if weak_stun_t <= 0.0:
+				weak_stun_t = 0.0
+				_restore_from_weak()
+		return
 	if stunned_t > 0.0:
 		stunned_t -= dt
 		if stunned_t < 0.0:
@@ -36,6 +45,12 @@ func _do_move(_dt: float) -> void:
 
 func _update_weak_state() -> void:
 	weak = (hp <= weak_hp)
+	if weak and weak_stun_t <= 0.0:
+		weak_stun_t = weak_stun_time
+
+func _restore_from_weak() -> void:
+	hp = max_hp
+	weak = false
 
 func _find_visual() -> CanvasItem:
 	# 1) 显式指定路径（最稳）
