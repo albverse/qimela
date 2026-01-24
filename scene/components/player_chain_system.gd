@@ -36,6 +36,7 @@ class ChainSlot:
 	# RayQuery（阻挡 / 交互分离）
 	var ray_q_block: PhysicsRayQueryParameters2D
 	var ray_q_interact: PhysicsRayQueryParameters2D
+	var point_q_interact: PhysicsPointQueryParameters2D
 
 	# 每条链预创建溶解材质（避免串台）
 	var burn_mat: ShaderMaterial
@@ -172,6 +173,12 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q_interact.collision_mask = player.chain_interact_mask
 	c.ray_q_interact.exclude = [player.get_rid()]
 
+	c.point_q_interact = PhysicsPointQueryParameters2D.new()
+	c.point_q_interact.collide_with_areas = true
+	c.point_q_interact.collide_with_bodies = false
+	c.point_q_interact.collision_mask = player.chain_interact_mask
+	c.point_q_interact.exclude = [player.get_rid()]
+
 	if _burn_shader != null:
 		c.burn_mat = ShaderMaterial.new()
 		c.burn_mat.shader = _burn_shader
@@ -266,6 +273,7 @@ func _try_fire_chain() -> void:
 	_detach_link_if_needed(idx)
 
 	c.interacted.clear()
+	_try_interact_from_inside(idx, start)
 
 	c.state = ChainState.FLYING
 	c.end_pos = start
@@ -283,6 +291,20 @@ func _try_fire_chain() -> void:
 	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
+
+
+func _try_interact_from_inside(slot: int, start: Vector2) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c: ChainSlot = chains[slot]
+	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
+	if c.point_q_interact == null:
+		return
+	c.point_q_interact.position = start
+	var hits := space.intersect_point(c.point_q_interact)
+	for hit in hits:
+		var area := hit.get("collider") as Area2D
+		_handle_interact_area(slot, area)
 
 
 func _update_chain(i: int, dt: float) -> void:
@@ -408,9 +430,13 @@ func _process_interact_hit(slot: int, hit_interact: Dictionary) -> void:
 
 	var col_obj: Object = hit_interact.get("collider")
 	var area: Area2D = col_obj as Area2D
+	_handle_interact_area(slot, area)
+
+
+func _handle_interact_area(slot: int, area: Area2D) -> void:
 	if area == null:
 		return
-
+	var c: ChainSlot = chains[slot]
 	var rid: RID = area.get_rid()
 	if c.interacted.has(rid):
 		return

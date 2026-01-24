@@ -48,6 +48,7 @@ func _physics_process(dt: float) -> void:
 		stunned_t -= dt
 		if stunned_t < 0.0:
 			stunned_t = 0.0
+			_release_linked_chains()
 		return
 
 	_do_move(dt)
@@ -65,6 +66,9 @@ func _restore_from_weak() -> void:
 	weak = false
 	weak_stun_t = 0.0
 
+	_release_linked_chains()
+
+func _release_linked_chains() -> void:
 	# 先把要溶解的slot拿出来，然后立刻清空（避免后续逻辑影响）
 	var slots: Array[int] = _linked_slots.duplicate()
 	_linked_slots.clear()
@@ -164,7 +168,7 @@ func set_fusion_vanish(v: bool) -> void:
 
 # 返回：0=普通受击(锁链应溶解)；1=虚弱可链接(锁链进入LINKED)
 func on_chain_hit(_player: Node, _chain_index: int) -> int:
-	if weak:
+	if weak or stunned_t > 0.0:
 		_linked_player = _player
 		if not _linked_slots.has(_chain_index):
 			_linked_slots.append(_chain_index)
@@ -179,6 +183,8 @@ func on_chain_attached(slot: int) -> void:
 		_linked_slots.append(slot)
 	if weak:
 		weak_stun_t += weak_stun_extend_time
+	elif stunned_t > 0.0:
+		stunned_t += weak_stun_extend_time
 
 # Player：锁链断裂/溶解/结束时调用
 func on_chain_detached(slot: int) -> void:
