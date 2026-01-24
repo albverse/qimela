@@ -201,6 +201,7 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q = PhysicsRayQueryParameters2D.new()
 	c.ray_q.collide_with_areas = true
 	c.ray_q.collide_with_bodies = true
+	c.ray_q.hit_from_inside = true
 	c.ray_q.collision_mask = chain_hit_mask
 	c.ray_q.exclude = [self.get_rid()]
 
@@ -501,6 +502,12 @@ func _update_chain_flying(i: int, dt: float) -> void:
 		c.end_pos = hit["position"] as Vector2
 		var col_obj: Object = hit["collider"]
 		var col_node: Node = col_obj as Node
+		# 命中 EnemyHurtbox(4) 时，把判定目标转为宿主（怪物本体 / Chimera 本体）
+		var host_node: Node = col_node
+		if col_node != null and col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
+			var h := col_node.call("get_host") as Node
+			if h != null:
+				host_node = h
 
 		# 命中瞬间余震
 		c.wave_amp = maxf(c.wave_amp, rope_wave_amp * 0.6)
@@ -524,8 +531,8 @@ func _update_chain_flying(i: int, dt: float) -> void:
 				return
 
 		# 2) 命中 Chimera：进入链接，并触发互动（ChimeraA.on_chain_attached）
-		if col_node != null and col_node.has_method("on_chain_attached"):
-			_attach_link(i, col_node as Node2D, c.end_pos)
+		if host_node != null and host_node.has_method("on_chain_attached"):
+			_attach_link(i, host_node as Node2D, c.end_pos)
 			return
 
 		# 3) 命中普通平台/静物：你要求“无视反弹+立刻消失特效”
@@ -636,27 +643,6 @@ func force_dissolve_chain(slot: int) -> void:
 	_begin_burn_dissolve(slot, cancel_dissolve_time, true)
 
 
-
-
-func _force_dissolve_all_chains() -> void:
-	for i in range(chains.size()):
-		var c := chains[i]
-		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
-			continue
-		# 停止当前抖动/效果
-		c.wave_amp = 0.0
-		c.wave_phase = 0.0
-		_begin_burn_dissolve(i, cancel_dissolve_time, true)
-
-func force_dissolve_chain(slot: int) -> void:
-	if slot < 0 or slot >= chains.size():
-		return
-	var c := chains[slot]
-	if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
-		return
-	c.wave_amp = 0.0
-	c.wave_phase = 0.0
-	_begin_burn_dissolve(slot, cancel_dissolve_time, true)
 
 
 func _finish_chain(i: int) -> void:

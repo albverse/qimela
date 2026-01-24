@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://dsyys0748arks"]
+[gd_scene load_steps=6 format=3 uid="uid://dsyys0748arks"]
 
 [ext_resource type="Script" uid="uid://cfw301easht5" path="res://scene/ChimeraA.gd" id="1_7bd0c"]
 [ext_resource type="Texture2D" uid="uid://b1nxj7ilolc17" path="res://yaoshi.png" id="2_iljuf"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_iljuf"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_7bd0c"]
 radius = 40.706264
@@ -24,6 +25,7 @@ shape = SubResource("CircleShape2D_7bd0c")
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
 collision_mask = 0
+script = ExtResource("3_iljuf")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(-1, -52)

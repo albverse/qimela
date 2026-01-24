@@ -1,13 +1,14 @@
-[gd_scene load_steps=5 format=3 uid="uid://drfu4onteuxd3"]
+[gd_scene load_steps=6 format=3 uid="uid://drfu4onteuxd3"]
 
-[ext_resource type="Script" path="res://scene/MonsterWalk.gd" id="1_86voa"]
+[ext_resource type="Script" uid="uid://uy08rhafns6j" path="res://scene/MonsterWalk.gd" id="1_86voa"]
 [ext_resource type="Texture2D" uid="uid://b1fm38k3hepbb" path="res://shitou.png" id="2_tb0vp"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_tb0vp"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_8dcda"]
-radius = 31.257
+radius = 9.486833
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_n2viv"]
-radius = 37.01351
+radius = 26.0
 
 [node name="Walk1" type="CharacterBody2D"]
 collision_layer = 4
@@ -19,13 +20,15 @@ scale = Vector2(0.66875017, 0.8000001)
 texture = ExtResource("2_tb0vp")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -34)
+position = Vector2(-1, -11)
 shape = SubResource("CircleShape2D_8dcda")
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
 collision_mask = 0
+script = ExtResource("3_tb0vp")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(-1, -36)
+position = Vector2(-2, -39)
 shape = SubResource("CircleShape2D_n2viv")
+debug_color = Color(0.7554843, 0.3590794, 0.7238039, 0.41960785)
