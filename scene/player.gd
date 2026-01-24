@@ -47,7 +47,6 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var cancel_dissolve_time: float = 0.3  # 强制取消时的溶解时长
 const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
 @export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH # 散沙溶解shader
-
 # 锁链射线命中层（在 Inspector 里以勾选框显示）。
 # 你把 2D 物理层命名成 World / EnemyHurtbox 后，这里就能直接勾选。
 @export_flags_2d_physics var chain_hit_mask: int = 0xFFFFFFFF
@@ -168,7 +167,6 @@ func _ready() -> void:
 		push_error("Player: chain line paths not set correctly.")
 		set_process(false); set_physics_process(false)
 		return
-
 	if chain_shader_path == "" or chain_shader_path == null:
 		chain_shader_path = DEFAULT_CHAIN_SHADER_PATH
 	_burn_shader = load(chain_shader_path) as Shader
@@ -322,7 +320,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_fuse()
 			return
 
-		# X：强制消失所有锁链
+# X：强制消失所有锁链
 		var cancel_pressed: bool = false
 		if _has_action(action_cancel_chains):
 			cancel_pressed = Input.is_action_just_pressed(action_cancel_chains)
@@ -332,7 +330,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if cancel_pressed:
 			_force_dissolve_all_chains()
 			return
-
 
 func _has_action(a: StringName) -> bool:
 	return InputMap.has_action(a)
@@ -617,6 +614,28 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	c.burn_tw.tween_callback(func() -> void:
 		_finish_chain(i)
 	)
+	
+func _force_dissolve_all_chains() -> void:
+	for i in range(chains.size()):
+		var c := chains[i]
+		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
+			continue
+		# 停止当前抖动/效果
+		c.wave_amp = 0.0
+		c.wave_phase = 0.0
+		_begin_burn_dissolve(i, cancel_dissolve_time, true)
+
+func force_dissolve_chain(slot: int) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c := chains[slot]
+	if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
+		return
+	c.wave_amp = 0.0
+	c.wave_phase = 0.0
+	_begin_burn_dissolve(slot, cancel_dissolve_time, true)
+
+
 
 
 func _force_dissolve_all_chains() -> void:
