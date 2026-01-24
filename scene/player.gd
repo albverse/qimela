@@ -15,6 +15,7 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 # 融合 / 生成
 # =========================
 @export var action_fuse: StringName = &"fuse"                 # 空格：融合（可选InputMap）
+@export var action_cancel_chains: StringName = &"cancel_chains" # X：强制消失锁链
 @export var fusion_lock_time: float = 0.5                     # 融合演出期间锁玩家
 @export var fusion_chain_dissolve_time: float = 0.5           # 融合时两条链溶解用时（更快）
 @export var chimera_scene: PackedScene                        # 指向 ChimeraA.tscn（你当前用这个即可）
@@ -43,8 +44,9 @@ enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 @export var chain_max_fly_time: float = 0.2    # 飞行超过就停住
 @export var hold_time: float = 0.3             # 停住后悬停多久开始溶解
 @export var burn_time: float = 1.0             # 溶解动画时长
-@export var chain_shader_path: String = "res://shaders/chain_sand_dissolve.gdshader" # 散沙溶解shader
-
+@export var cancel_dissolve_time: float = 0.3  # 强制取消时的溶解时长
+const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
+@export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH # 散沙溶解shader
 # 锁链射线命中层（在 Inspector 里以勾选框显示）。
 # 你把 2D 物理层命名成 World / EnemyHurtbox 后，这里就能直接勾选。
 @export_flags_2d_physics var chain_hit_mask: int = 0xFFFFFFFF
@@ -165,7 +167,8 @@ func _ready() -> void:
 		push_error("Player: chain line paths not set correctly.")
 		set_process(false); set_physics_process(false)
 		return
-
+	if chain_shader_path == "" or chain_shader_path == null:
+		chain_shader_path = DEFAULT_CHAIN_SHADER_PATH
 	_burn_shader = load(chain_shader_path) as Shader
 	if _burn_shader == null:
 		push_error("Player: cannot load chain shader: %s" % chain_shader_path)
@@ -317,6 +320,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_fuse()
 			return
 
+# X：强制消失所有锁链
+		var cancel_pressed: bool = false
+		if _has_action(action_cancel_chains):
+			cancel_pressed = Input.is_action_just_pressed(action_cancel_chains)
+		else:
+			cancel_pressed = (ek.keycode == KEY_X)
+
+		if cancel_pressed:
+			_force_dissolve_all_chains()
+			return
 
 func _has_action(a: StringName) -> bool:
 	return InputMap.has_action(a)
@@ -558,11 +571,13 @@ func _detach_link_if_needed(slot: int) -> void:
 	c.linked_offset = Vector2.ZERO
 
 
-func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
+func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false) -> void:
 	if i < 0 or i >= chains.size():
 		return
 	var c := chains[i]
-	if c.state == ChainState.DISSOLVING or c.state == ChainState.IDLE:
+	if c.state == ChainState.IDLE:
+		return
+	if c.state == ChainState.DISSOLVING and not force:
 		return
 
 	# ✅ 断链时必须通知目标退出互动
@@ -570,6 +585,8 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 
 	# 材质（每次溶解要 reset burn=0）
 	if c.burn_mat == null:
+		if chain_shader_path == "" or chain_shader_path == null:
+			chain_shader_path = DEFAULT_CHAIN_SHADER_PATH
 		var sh := load(chain_shader_path) as Shader
 		if sh == null:
 			push_error("Cannot load chain shader: %s" % chain_shader_path)
@@ -580,6 +597,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 
 	c.line.material = c.burn_mat
 	c.burn_mat.set_shader_parameter("burn", 0.0)
+	c.line.visible = true
 
 	c.state = ChainState.DISSOLVING
 
@@ -596,6 +614,28 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0) -> void:
 	c.burn_tw.tween_callback(func() -> void:
 		_finish_chain(i)
 	)
+	
+func _force_dissolve_all_chains() -> void:
+	for i in range(chains.size()):
+		var c := chains[i]
+		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
+			continue
+		# 停止当前抖动/效果
+		c.wave_amp = 0.0
+		c.wave_phase = 0.0
+		_begin_burn_dissolve(i, cancel_dissolve_time, true)
+
+func force_dissolve_chain(slot: int) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c := chains[slot]
+	if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
+		return
+	c.wave_amp = 0.0
+	c.wave_phase = 0.0
+	_begin_burn_dissolve(slot, cancel_dissolve_time, true)
+
+
 
 
 func _finish_chain(i: int) -> void:
