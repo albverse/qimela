@@ -1,12 +1,14 @@
-[gd_scene load_steps=11 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=13 format=3 uid="uid://m7ts2uye3c05"]
 
 [ext_resource type="Script" uid="uid://br2eby52784yh" path="res://scene/player.gd" id="1_y30ri"]
 [ext_resource type="PackedScene" uid="uid://dsyys0748arks" path="res://scene/ChimeraA.tscn" id="2_ea7gk"]
 [ext_resource type="Texture2D" uid="uid://u0xe7spvy7ng" path="res://character.png" id="2_waelg"]
 [ext_resource type="Texture2D" uid="uid://ckp5byo6jo0ah" path="res://scene/chain.png" id="3_82gks"]
 [ext_resource type="Shader" uid="uid://e68r8esw3k5x" path="res://shaders/chain_sand_dissolve.gdshader" id="3_dc1pm"]
-[ext_resource type="Script" uid="uid://c13kxpdh7c7p8" path="res://scene/RopeSim2D.gd" id="5_82gks"]
 [ext_resource type="Shader" uid="uid://dsseho82equsg" path="res://shaders/burn_dissolve.gdshader" id="5_ea7gk"]
+[ext_resource type="Script" uid="uid://b1205jsvplo4w" path="res://scene/components/player_movement.gd" id="7_kqvfm"]
+[ext_resource type="Script" uid="uid://c38lcxf3unva2" path="res://scene/components/player_chain_system.gd" id="8_63jwq"]
+[ext_resource type="Script" uid="uid://li8l6bxvudvm" path="res://scene/components/player_health.gd" id="9_63jwq"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
 radius = 12.0
@@ -32,19 +34,22 @@ shader_parameter/sand_color = Vector4(0.85, 0.78, 0.62, 1)
 shader_parameter/darken = 0.85
 
 [node name="Player" type="CharacterBody2D"]
+z_index = 1
 collision_layer = 2
 script = ExtResource("1_y30ri")
 chimera_scene = ExtResource("2_ea7gk")
 chain_hit_mask = 9
+chain_interact_mask = 64
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -42)
+position = Vector2(1, -42)
 shape = SubResource("CapsuleShape2D_dc1pm")
 
 [node name="Visual" type="Node2D" parent="."]
 position = Vector2(0, -42)
 
 [node name="Sprite2D" type="Sprite2D" parent="Visual"]
+z_index = 1
 position = Vector2(1, 0)
 scale = Vector2(0.3533654, 0.35703868)
 texture = ExtResource("2_waelg")
@@ -72,10 +77,13 @@ width = 15.0
 texture = ExtResource("3_82gks")
 texture_mode = 1
 
-[node name="Rope0" type="Node2D" parent="Chains"]
-script = ExtResource("5_82gks")
-line_path = NodePath("../ChainLine0")
+[node name="Components" type="Node" parent="."]
 
-[node name="Rope1" type="Node2D" parent="Chains"]
-script = ExtResource("5_82gks")
-line_path = NodePath("../ChainLine1")
+[node name="Movement" type="Node" parent="Components"]
+script = ExtResource("7_kqvfm")
+
+[node name="ChainSystem" type="Node" parent="Components"]
+script = ExtResource("8_63jwq")
+
+[node name="Health" type="Node" parent="Components"]
+script = ExtResource("9_63jwq")

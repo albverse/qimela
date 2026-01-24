@@ -1,0 +1,80 @@
+[gd_scene load_steps=9 format=3 uid="uid://clq5t538kdf2a"]
+
+[ext_resource type="Script" uid="uid://jh0fa4nlcg2f" path="res://scene/lightning_flower.gd" id="1_0xvv3"]
+[ext_resource type="Texture2D" uid="uid://dxxbtr01cscne" path="res://art/lightflower/lightflower_0.png" id="2_7dygw"]
+
+[sub_resource type="Gradient" id="Gradient_0xvv3"]
+offsets = PackedFloat32Array(0, 0.48666668, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0.9533333, 0.9533333, 0.9533333, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_7dygw"]
+gradient = SubResource("Gradient_0xvv3")
+width = 256
+height = 256
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_yi15u"]
+radius = 56.0
+height = 171.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_200k4"]
+radius = 218.00229
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_0gdle"]
+radius = 112.01785
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_200k4"]
+radius = 66.0
+height = 190.0
+
+[node name="LightningFlower" type="Node2D"]
+script = ExtResource("1_0xvv3")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(-13, -91)
+scale = Vector2(0.38636363, 0.39666665)
+texture = ExtResource("2_7dygw")
+
+[node name="Glow" type="PointLight2D" parent="."]
+position = Vector2(3.8146973e-06, -139)
+scale = Vector2(1.929253, 1.8081108)
+color = Color(0, 0.5087692, 0.5087693, 1)
+texture = SubResource("GradientTexture2D_7dygw")
+offset = Vector2(1.24, 0)
+
+[node name="SelfArea" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SelfArea"]
+position = Vector2(-12, -92)
+shape = SubResource("CapsuleShape2D_yi15u")
+
+[node name="LightArea" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightArea"]
+position = Vector2(-21, -142)
+shape = SubResource("CircleShape2D_200k4")
+debug_color = Color(0.7529412, 1, 0.105882354, 0.41960785)
+
+[node name="HurtArea" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 6
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtArea"]
+position = Vector2(-14, -111)
+shape = SubResource("CircleShape2D_0gdle")
+debug_color = Color(0.6553972, 0.16265988, 0.23455948, 0.41960785)
+
+[node name="ChainInteract" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ChainInteract"]
+position = Vector2(-11, -96)
+shape = SubResource("CapsuleShape2D_200k4")
+debug_color = Color(0.09638517, 0.06364042, 1.8049032e-08, 0.41960785)

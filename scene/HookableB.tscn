@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://d1o31vfvwivw5"]
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_w7s1q"]
-radius = 25.495098
-
-[node name="HookableB" type="StaticBody2D" groups=["hookable_b"]]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_w7s1q")
