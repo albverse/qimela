@@ -48,6 +48,7 @@ func _physics_process(dt: float) -> void:
 		stunned_t -= dt
 		if stunned_t < 0.0:
 			stunned_t = 0.0
+			_release_linked_chains()
 		return
 
 	_do_move(dt)
@@ -65,6 +66,9 @@ func _restore_from_weak() -> void:
 	weak = false
 	weak_stun_t = 0.0
 
+	_release_linked_chains()
+
+func _release_linked_chains() -> void:
 	# 先把要溶解的slot拿出来，然后立刻清空（避免后续逻辑影响）
 	var slots: Array[int] = _linked_slots.duplicate()
 	_linked_slots.clear()
