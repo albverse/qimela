@@ -168,7 +168,7 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q_interact = PhysicsRayQueryParameters2D.new()
 	c.ray_q_interact.collide_with_areas = true
 	c.ray_q_interact.collide_with_bodies = false
-	c.ray_q_interact.hit_from_inside = false
+	c.ray_q_interact.hit_from_inside = true
 	c.ray_q_interact.collision_mask = player.chain_interact_mask
 	c.ray_q_interact.exclude = [player.get_rid()]
 
@@ -266,6 +266,7 @@ func _try_fire_chain() -> void:
 	_detach_link_if_needed(idx)
 
 	c.interacted.clear()
+	_try_interact_from_inside(idx, start)
 
 	c.state = ChainState.FLYING
 	c.end_pos = start
@@ -283,6 +284,31 @@ func _try_fire_chain() -> void:
 	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
+
+
+func _try_interact_from_inside(slot: int, start: Vector2) -> void:
+	if slot < 0 or slot >= chains.size():
+		return
+	var c: ChainSlot = chains[slot]
+	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = start
+	params.collide_with_areas = true
+	params.collide_with_bodies = false
+	params.collision_mask = player.chain_interact_mask
+	params.exclude = [player.get_rid()]
+	var hits := space.intersect_point(params)
+	for hit in hits:
+		var area := hit.get("collider") as Area2D
+		if area == null:
+			continue
+		var rid: RID = area.get_rid()
+		if c.interacted.has(rid):
+			continue
+		c.interacted[rid] = true
+		var host: Node = area.get_parent()
+		if host != null and host.has_method("on_chain_hit"):
+			host.call("on_chain_hit", player, slot)
 
 
 func _update_chain(i: int, dt: float) -> void:

@@ -164,7 +164,7 @@ func set_fusion_vanish(v: bool) -> void:
 
 # 返回：0=普通受击(锁链应溶解)；1=虚弱可链接(锁链进入LINKED)
 func on_chain_hit(_player: Node, _chain_index: int) -> int:
-	if weak:
+	if weak or stunned_t > 0.0:
 		_linked_player = _player
 		if not _linked_slots.has(_chain_index):
 			_linked_slots.append(_chain_index)
@@ -179,6 +179,8 @@ func on_chain_attached(slot: int) -> void:
 		_linked_slots.append(slot)
 	if weak:
 		weak_stun_t += weak_stun_extend_time
+	elif stunned_t > 0.0:
+		stunned_t += weak_stun_extend_time
 
 # Player：锁链断裂/溶解/结束时调用
 func on_chain_detached(slot: int) -> void:
