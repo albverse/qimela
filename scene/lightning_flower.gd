@@ -2,6 +2,7 @@ extends Node2D
 class_name LightningFlower
 
 const ENERGY_MAX: int = 5
+const LIGHT_ENERGY_DELAY: float = 0.5
 
 @export_range(0, 5, 1) var initial_energy: int = 0
 @export var light_time_per_energy: float = 1.0 # 自动释放：5*1.0=5秒
@@ -185,6 +186,14 @@ func _on_light_started(source_id: int, _remaining_time: float, source_light_area
 	if _self_area == null or source_light_area == null:
 		return
 	if not source_light_area.overlaps_area(_self_area):
+		return
+
+	_apply_light_energy_after_delay(LIGHT_ENERGY_DELAY)
+
+func _apply_light_energy_after_delay(delay_seconds: float) -> void:
+	if delay_seconds > 0.0:
+		await get_tree().create_timer(delay_seconds).timeout
+	if not is_inside_tree():
 		return
 
 	# 规则：光照事件到来时，先判断是否要“因满能量而立刻释放”
