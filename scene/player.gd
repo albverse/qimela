@@ -622,7 +622,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 func _force_dissolve_all_chains() -> void:
 	for i in range(chains.size()):
 		var c := chains[i]
-		if c.state == ChainState.IDLE:
+		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
 			continue
 		# 停止当前抖动/效果
 		c.wave_amp = 0.0
@@ -633,7 +633,7 @@ func force_dissolve_chain(slot: int) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
 	var c := chains[slot]
-	if c.state == ChainState.IDLE:
+	if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
 		return
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
