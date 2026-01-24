@@ -168,7 +168,7 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q_interact = PhysicsRayQueryParameters2D.new()
 	c.ray_q_interact.collide_with_areas = true
 	c.ray_q_interact.collide_with_bodies = false
-	c.ray_q_interact.hit_from_inside = false
+	c.ray_q_interact.hit_from_inside = true
 	c.ray_q_interact.collision_mask = player.chain_interact_mask
 	c.ray_q_interact.exclude = [player.get_rid()]
 
