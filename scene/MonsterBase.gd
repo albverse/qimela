@@ -17,10 +17,15 @@ var stunned_t: float = 0.0
 var weak: bool = false
 var weak_stun_t: float = 0.0
 var _linked_player: Node = null
-var _linked_slot: int = -1
+var _linked_slots: Array[int] = []
 
 @onready var sprite: CanvasItem = _find_visual()
 var _flash_tw: Tween = null
+
+var _saved_collision_layer: int = -1
+var _saved_collision_mask: int = -1
+var _fusion_vanished: bool = false
+
 
 func _ready() -> void:
 	add_to_group("monster")
@@ -55,11 +60,22 @@ func _restore_from_weak() -> void:
 	hp = max_hp
 	weak = false
 	weak_stun_t = 0.0
-	if _linked_player != null and is_instance_valid(_linked_player):
-		if _linked_player.has_method("force_dissolve_chain"):
-			_linked_player.call("force_dissolve_chain", _linked_slot)
+
+	# 先把要溶解的slot拿出来，然后立刻清空（避免后续逻辑影响）
+	var slots: Array[int] = _linked_slots.duplicate()
+	_linked_slots.clear()
+
+	# ✅ 把玩家引用缓存到局部变量，随后就算成员被置空也不影响本次
+	var p: Node = _linked_player
 	_linked_player = null
-	_linked_slot = -1
+
+	if p == null or not is_instance_valid(p):
+		return
+	if not p.has_method("force_dissolve_chain"):
+		return
+
+	for s in slots:
+		p.call("force_dissolve_chain", s)
 
 func _find_visual() -> CanvasItem:
 	# 1) 显式指定路径（最稳）
@@ -118,33 +134,45 @@ func take_damage(amount: int) -> void:
 		queue_free()
 
 func set_fusion_vanish(v: bool) -> void:
-	# 融合时“消失”：不需要真实粒子/物理，先禁碰撞+隐藏视觉即可
-	collision_layer = 0 if v else collision_layer
-	collision_mask = 0 if v else collision_mask
+	# 融合时“消失”：禁碰撞+隐藏视觉（可恢复）
+	if v:
+		if not _fusion_vanished:
+			_saved_collision_layer = collision_layer
+			_saved_collision_mask = collision_mask
+			_fusion_vanished = true
+		collision_layer = 0
+		collision_mask = 0
+	else:
+		if _fusion_vanished:
+			collision_layer = _saved_collision_layer
+			collision_mask = _saved_collision_mask
+			_fusion_vanished = false
+
 	var s := get_node_or_null("Sprite2D") as Node
 	if s != null and s is CanvasItem:
 		(s as CanvasItem).visible = not v
 
 # 返回：0=普通受击(锁链应溶解)；1=虚弱可链接(锁链进入LINKED)
 func on_chain_hit(_player: Node, _chain_index: int) -> int:
-	# 虚弱：允许链接（不扣血）
 	if weak:
 		_linked_player = _player
-		_linked_slot = _chain_index
+		if not _linked_slots.has(_chain_index):
+			_linked_slots.append(_chain_index)
 		return 1
 
-	# 非虚弱：扣血+闪烁+僵直
 	take_damage(1)
 	return 0
 
 # Player：锁链链接到怪物时调用
 func on_chain_attached(slot: int) -> void:
-	_linked_slot = slot
+	if not _linked_slots.has(slot):
+		_linked_slots.append(slot)
 	if weak:
 		weak_stun_t += weak_stun_extend_time
 
 # Player：锁链断裂/溶解/结束时调用
 func on_chain_detached(slot: int) -> void:
-	if slot == _linked_slot:
+	_linked_slots.erase(slot)
+	# 如果链都没了，就清掉player引用
+	if _linked_slots.is_empty():
 		_linked_player = null
-		_linked_slot = -1
