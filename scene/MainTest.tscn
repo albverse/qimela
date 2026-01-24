@@ -1,17 +1,84 @@
-[gd_scene load_steps=7 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=13 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://1gk18xvlf41r" path="res://color.jpg" id="1_71n5o"]
+[ext_resource type="Script" uid="uid://cksllf24tarj2" path="res://systems/weather_controller.gd" id="1_ngg7y"]
+[ext_resource type="Texture2D" uid="uid://h8rv6cioem6j" path="res://Thunder.png" id="2_55hp2"]
 [ext_resource type="PackedScene" uid="uid://drfu4onteuxd3" path="res://scene/MonsterWalk.tscn" id="3_7qdox"]
+[ext_resource type="PackedScene" uid="uid://clq5t538kdf2a" path="res://scene/LightningFlower.tscn" id="3_acqgf"]
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="3_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://j7xkrffio8i4" path="res://scene/MonsterFly.tscn" id="4_ngg7y"]
+
+[sub_resource type="Animation" id="Animation_55hp2"]
+resource_name = "thunder"
+tracks/0/type = "method"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.16666667),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": [],
+"method": &"anim_emit_thunder_burst"
+}]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Thunder:visible")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.13333334, 0.23333335, 0.26666668, 0.36666667, 0.40000004, 0.53333336, 0.5666667, 0.70000005, 0.73333335, 0.8333334, 0.8666667, 0.9666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [true, true, false, false, true, false, true, false, true, true, false, false]
+}
+
+[sub_resource type="Animation" id="Animation_acqgf"]
+length = 0.001
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_acqgf"]
+_data = {
+&"RESET": SubResource("Animation_acqgf"),
+&"thunder": SubResource("Animation_55hp2")
+}
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_55hp2"]
 size = Vector2(1736, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7qdox"]
-size = Vector2(343, 20)
+size = Vector2(245.5, 57)
 
 [node name="MainTest" type="Node2D"]
+
+[node name="WeatherController" type="Node" parent="."]
+script = ExtResource("1_ngg7y")
+
+[node name="ThunderTimer" type="Timer" parent="WeatherController"]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController"]
+libraries = {
+&"": SubResource("AnimationLibrary_acqgf")
+}
+
+[node name="Thunder" type="Sprite2D" parent="WeatherController"]
+visible = false
+z_index = -2
+position = Vector2(663, 328)
+scale = Vector2(0.39867842, 0.43098384)
+texture = ExtResource("2_55hp2")
+
+[node name="LightningFlower" parent="WeatherController" instance=ExtResource("3_acqgf")]
+position = Vector2(911, 596)
+
+[node name="LightningFlower2" parent="WeatherController" instance=ExtResource("3_acqgf")]
+position = Vector2(733, 514)
+
+[node name="LightningFlower3" parent="WeatherController" instance=ExtResource("3_acqgf")]
+position = Vector2(1077, 599)
 
 [node name="World" type="Node2D" parent="."]
 
@@ -29,14 +96,8 @@ scale = Vector2(9.687166, 0.18983957)
 texture = ExtResource("1_71n5o")
 
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
-position = Vector2(865, 497)
+position = Vector2(395, 565)
 shape = SubResource("RectangleShape2D_7qdox")
-one_way_collision = true
-
-[node name="Color" type="Sprite2D" parent="World/Floor (StaticBody2D)"]
-position = Vector2(864, 498)
-scale = Vector2(1.8288769, 0.11764715)
-texture = ExtResource("1_71n5o")
 
 [node name="Player" parent="World" instance=ExtResource("3_ngg7y")]
 position = Vector2(238, 571)

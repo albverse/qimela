@@ -9,7 +9,9 @@ extends CharacterBody2D
 @export var hand_r_path: NodePath = ^"Visual/HandR"           # 右手发射点
 @export var chain_line0_path: NodePath = ^"Chains/ChainLine0" # 锁链0的Line2D
 @export var chain_line1_path: NodePath = ^"Chains/ChainLine1" # 锁链1的Line2D
-
+@onready var movement = $Components/Movement
+@onready var chain = $Components/ChainSystem
+@onready var health: PlayerHealth = $Components/Health
 # =========================
 # 融合 / 生成
 # =========================
@@ -47,7 +49,7 @@ extends CharacterBody2D
 const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
 @export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH
 @export_flags_2d_physics var chain_hit_mask: int = 0xFFFFFFFF
-
+@export_flags_2d_physics var chain_interact_mask: int = 0
 # =========================
 # Rope视觉（Verlet + 波动叠加）
 # =========================
@@ -98,6 +100,10 @@ var _player_locked: bool = false
 @onready var _movement: Node = $Components/Movement
 @onready var _chain: Node = $Components/ChainSystem
 
+func _ready() -> void:
+	if health != null:
+		health.setup(self)
+
 func is_player_locked() -> bool:
 	return _player_locked
 
@@ -106,17 +112,32 @@ func set_player_locked(v: bool) -> void:
 
 func _physics_process(dt: float) -> void:
 	# 1) 移动组件写 velocity
-	_movement.call("tick", dt)
+	movement.tick(dt)
+	if health != null:
+		health.tick(dt)
 
 	# 2) 角色本体运动
 	move_and_slide()
 
 	# 3) 锁链组件更新（rope/溶解/融合等）
-	_chain.call("tick", dt)
-
+	chain.tick(dt)
+	
+# 给Movement用：水平输入是否锁定（击退锁水平；核心锁定仍然生效）
+func is_horizontal_input_locked() -> bool:
+	if is_player_locked():
+		return true
+	return health != null and health.is_knockback_active()
+# 需求接口（文档要求）
+func apply_damage(amount: int, source_global_pos: Vector2) -> void: # :contentReference[oaicite:5]{index=5}
+	if health != null:
+		health.apply_damage(amount, source_global_pos)
+			
 func _unhandled_input(event: InputEvent) -> void:
 	_chain.call("handle_unhandled_input", event)
-
+func heal(amount: int) -> void: # :contentReference[oaicite:6]{index=6}
+	if health != null:
+		health.heal(amount)
+		
 # 给 MonsterBase 用的对外接口：保持不变
 func force_dissolve_chain(slot: int) -> void:
 	_chain.call("force_dissolve_chain", slot)

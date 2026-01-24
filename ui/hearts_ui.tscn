@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3 uid="uid://b65bcrst18abp"]
+
+[ext_resource type="Script" uid="uid://d2183xhwo3pem" path="res://ui/hearts_ui.gd" id="1_c328r"]
+[ext_resource type="Texture2D" uid="uid://4d552sa6xwxg" path="res://heart_full_texture.png" id="2_4sbwt"]
+[ext_resource type="Texture2D" uid="uid://d31cnqy7nf1f0" path="res://heart_empty_texture.png" id="3_vvh28"]
+
+[node name="HeartsUI" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_c328r")
+max_hp = null
+heart_full_texture = ExtResource("2_4sbwt")
+heart_empty_texture = ExtResource("3_vvh28")
+heart_spacing = null
+full_pixel_offset = null
+empty_pixel_offset = null
+
+[node name="HeartsBox" type="HBoxContainer" parent="."]
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 1
+offset_right = 40.0
+offset_bottom = 40.0

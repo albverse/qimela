@@ -15,6 +15,10 @@ run/main_scene="uid://qyjtn0637hdi"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+EventBus="*res://autoload/event_bus.gd"
+
 [input]
 
 chain_fire={
@@ -49,3 +53,6 @@ jump={
 2d_physics/layer_2="PlayerBody"
 2d_physics/layer_3="EnemyBody"
 2d_physics/layer_4="EnemyHurtbox"
+2d_physics/layer_5="ObjectSense"
+2d_physics/layer_6="hazards"
+2d_physics/layer_7="ChainInteract"

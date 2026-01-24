@@ -11,6 +11,8 @@ var _dir: int = 1
 
 
 func _ready() -> void:
+	add_to_group("flying_monster")
+	# 你原来的 _ready 逻辑继续放下面
 	max_hp = 3
 	super._ready()
 	_base_y = global_position.y

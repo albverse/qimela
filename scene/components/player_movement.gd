@@ -26,7 +26,7 @@ func tick(dt: float) -> void:
 		_visual.scale.x = float(_player.facing) * _player.facing_visual_sign
 
 	# x 轴：锁定则 0，否则按输入
-	if not _player.is_player_locked():
+	if not _player.is_horizontal_input_locked():
 		var dir_x := 0.0
 		if left:
 			dir_x -= 1.0

@@ -7,7 +7,9 @@ class_name MonsterBase
 @export var flash_time: float = 0.2          # 闪烁时长
 @export var weak_stun_time: float = 5.0      # 虚弱眩晕时长
 @export var weak_stun_extend_time: float = 3.0 # 虚弱时被锁链锁定追加时长
-
+@export var light_receiver_path: NodePath = ^"LightReceiver"
+@onready var _light_receiver: Area2D = get_node_or_null(light_receiver_path) as Area2D
+var _lit_sources: Dictionary = {} # source_id -> true
 # 受击闪白/变亮要作用到哪个“外观节点”（Sprite2D / AnimatedSprite2D / ColorRect 等 CanvasItem）。
 # 为空则自动在子树里找第一个 CanvasItem。
 @export var visual_item_path: NodePath = NodePath("")
@@ -31,6 +33,8 @@ func _ready() -> void:
 	add_to_group("monster")
 	hp = max_hp
 	_update_weak_state()
+	EventBus.light_started.connect(_on_light_started)
+	EventBus.light_finished.connect(_on_light_finished)
 
 func _physics_process(dt: float) -> void:
 	if weak:
@@ -128,11 +132,17 @@ func take_damage(amount: int) -> void:
 		return
 	hp = max(hp - amount, 0)
 	_flash_once()
-	stunned_t = hit_stun_time
+	stunned_t = max(stunned_t, hit_stun_time)
 	_update_weak_state()
 	if hp <= 0:
 		queue_free()
-
+func apply_stun(seconds: float, do_flash: bool = true) -> void:
+	if seconds <= 0.0:
+		return
+	if do_flash:
+		_flash_once()
+	# 取更长的眩晕，避免被更短的覆盖
+	stunned_t = max(stunned_t, seconds)
 func set_fusion_vanish(v: bool) -> void:
 	# 融合时“消失”：禁碰撞+隐藏视觉（可恢复）
 	if v:
@@ -176,3 +186,23 @@ func on_chain_detached(slot: int) -> void:
 	# 如果链都没了，就清掉player引用
 	if _linked_slots.is_empty():
 		_linked_player = null
+func _on_light_started(source_id: int, _time: float, source_light_area: Area2D) -> void:
+	if _light_receiver == null or source_light_area == null:
+		return
+	if source_light_area.overlaps_area(_light_receiver):
+		if _lit_sources.has(source_id):
+			return
+		_lit_sources[source_id] = true
+		_on_lit_changed(true)
+
+func _on_light_finished(source_id: int) -> void:
+	if _lit_sources.erase(source_id):
+		if _lit_sources.is_empty():
+			_on_lit_changed(false)
+
+func _on_lit_changed(is_lit: bool) -> void:
+	# 最小验收：变色或打印
+	if is_lit:
+		modulate = Color(1, 1, 1) # 你可改成更亮
+	else:
+		modulate = Color(1, 1, 1)

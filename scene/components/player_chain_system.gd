@@ -1,4 +1,5 @@
 extends Node
+class_name PlayerChainSystem
 
 enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 
@@ -32,24 +33,30 @@ class ChainSlot:
 	var wave_phase: float = 0.0
 	var wave_seed: float = 0.0
 
-	# 性能：缓存 RayQuery
-	var ray_q: PhysicsRayQueryParameters2D
+	# RayQuery（阻挡 / 交互分离）
+	var ray_q_block: PhysicsRayQueryParameters2D
+	var ray_q_interact: PhysicsRayQueryParameters2D
 
-	# 性能：每条链预创建溶解材质（避免串台）
+	# 每条链预创建溶解材质（避免串台）
 	var burn_mat: ShaderMaterial
 	var burn_tw: Tween
 
-	# 性能：缓存权重表
+	# 权重缓存
 	var w_end: PackedFloat32Array = PackedFloat32Array()
 	var w_start: PackedFloat32Array = PackedFloat32Array()
 	var cached_n: int = -1
 	var cached_hook_power: float = -999.0
 
-	# ✅ 链接对象（monster/chimera 都走这套）
+	# 链接对象（monster/chimera 都走这套）
 	var linked_target: Node2D = null
 	var linked_offset: Vector2 = Vector2.ZERO
 
+	# 交互去重（避免一帧/多帧重复触发同一个花）
+	var interacted: Dictionary = {} # key: RID -> true
+
+
 var chains: Array[ChainSlot] = []
+
 
 func _ready() -> void:
 	player = _find_player()
@@ -78,35 +85,38 @@ func _ready() -> void:
 	chains.clear()
 	chains.resize(2)
 
-	var c0 := ChainSlot.new()
+	var c0: ChainSlot = ChainSlot.new()
 	c0.use_right_hand = true
 	c0.line = line0
 	c0.wave_seed = 0.37
 	_setup_chain_slot(c0)
 	chains[0] = c0
 
-	var c1 := ChainSlot.new()
+	var c1: ChainSlot = ChainSlot.new()
 	c1.use_right_hand = false
 	c1.line = line1
 	c1.wave_seed = 0.81
 	_setup_chain_slot(c1)
 	chains[1] = c1
 
+
 func tick(dt: float) -> void:
-	for i in range(chains.size()):
+	for i: int in range(chains.size()):
 		_update_chain(i, dt)
 
+
+# ✅ 你 Player.gd 现在就是在 call 这个名字：必须存在
 func handle_unhandled_input(event: InputEvent) -> void:
 	# 鼠标左键：发射锁链
 	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
+		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			_try_fire_chain()
 			return
 
 	# 空格：融合；X：强制消失
 	if event is InputEventKey:
-		var ek := event as InputEventKey
+		var ek: InputEventKey = event as InputEventKey
 		if not ek.pressed:
 			return
 
@@ -128,14 +138,17 @@ func handle_unhandled_input(event: InputEvent) -> void:
 			_force_dissolve_all_chains()
 			return
 
+
 func _find_player() -> Player:
 	var p: Node = self
 	while p != null and not (p is Player):
 		p = p.get_parent()
 	return p as Player
 
+
 func _has_action(a: StringName) -> bool:
 	return InputMap.has_action(a)
+
 
 func _setup_chain_slot(c: ChainSlot) -> void:
 	_init_line(c.line)
@@ -143,12 +156,21 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	_prealloc_line_points(c)
 	_rebuild_weight_cache_if_needed(c)
 
-	c.ray_q = PhysicsRayQueryParameters2D.new()
-	c.ray_q.collide_with_areas = true
-	c.ray_q.collide_with_bodies = true
-	c.ray_q.hit_from_inside = true
-	c.ray_q.collision_mask = player.chain_hit_mask
-	c.ray_q.exclude = [player.get_rid()]
+	# 阻挡 ray：只负责“会挡住链/会挂链”的东西
+	c.ray_q_block = PhysicsRayQueryParameters2D.new()
+	c.ray_q_block.collide_with_areas = true
+	c.ray_q_block.collide_with_bodies = true
+	c.ray_q_block.hit_from_inside = true
+	c.ray_q_block.collision_mask = player.chain_hit_mask
+	c.ray_q_block.exclude = [player.get_rid()]
+
+	# 交互 ray：只负责“触发花等交互”，永不阻挡
+	c.ray_q_interact = PhysicsRayQueryParameters2D.new()
+	c.ray_q_interact.collide_with_areas = true
+	c.ray_q_interact.collide_with_bodies = false
+	c.ray_q_interact.hit_from_inside = false
+	c.ray_q_interact.collision_mask = player.chain_interact_mask
+	c.ray_q_interact.exclude = [player.get_rid()]
 
 	if _burn_shader != null:
 		c.burn_mat = ShaderMaterial.new()
@@ -156,28 +178,32 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	else:
 		c.burn_mat = null
 
+
 func _init_line(l: Line2D) -> void:
 	# ✅ 复刻原版：不碰 width/texture/gradient（它们是 Inspector 的“默认值”）
 	l.visible = false
 	l.material = null
 	l.modulate = Color.WHITE
 
+
 func _init_rope_buffers(c: ChainSlot) -> void:
 	var n: int = max(player.rope_segments + 1, 2)
 	c.pts.resize(n)
 	c.prev.resize(n)
-	for i in range(n):
+	for i: int in range(n):
 		c.pts[i] = player.global_position
 		c.prev[i] = player.global_position
 	c.prev_end = player.global_position
 	c.prev_start = player.global_position
 
+
 func _prealloc_line_points(c: ChainSlot) -> void:
 	var n: int = c.pts.size()
 	if c.line.get_point_count() != n:
 		c.line.clear_points()
-		for _i in range(n):
+		for _i: int in range(n):
 			c.line.add_point(Vector2.ZERO)
+
 
 func _rebuild_weight_cache_if_needed(c: ChainSlot) -> void:
 	var n: int = c.pts.size()
@@ -193,21 +219,23 @@ func _rebuild_weight_cache_if_needed(c: ChainSlot) -> void:
 		return
 
 	var inv: float = 1.0 / float(n - 1)
-	for k in range(n):
+	for k: int in range(n):
 		var t: float = float(k) * inv
 		c.w_end[k] = pow(t, player.rope_wave_hook_power)
 		c.w_start[k] = pow(1.0 - t, 1.6)
 
+
 func _resolve_monster(n: Node) -> MonsterBase:
 	var cur: Node = n
-	for _i in range(6):
+	for _i: int in range(6):
 		if cur == null:
 			return null
-		var mb := cur as MonsterBase
+		var mb: MonsterBase = cur as MonsterBase
 		if mb != null:
 			return mb
 		cur = cur.get_parent()
 	return null
+
 
 func _try_fire_chain() -> void:
 	if chains.size() < 2:
@@ -221,7 +249,7 @@ func _try_fire_chain() -> void:
 	else:
 		return
 
-	var c := chains[idx]
+	var c: ChainSlot = chains[idx]
 	var start: Vector2 = (hand_r.global_position if c.use_right_hand else hand_l.global_position)
 	var target: Vector2 = player.get_global_mouse_position()
 
@@ -236,6 +264,8 @@ func _try_fire_chain() -> void:
 	_rebuild_weight_cache_if_needed(c)
 
 	_detach_link_if_needed(idx)
+
+	c.interacted.clear()
 
 	c.state = ChainState.FLYING
 	c.end_pos = start
@@ -254,11 +284,12 @@ func _try_fire_chain() -> void:
 	c.prev_start = start
 	c.prev_end = c.end_pos
 
+
 func _update_chain(i: int, dt: float) -> void:
 	if i < 0 or i >= chains.size():
 		return
 
-	var c := chains[i]
+	var c: ChainSlot = chains[i]
 	if c.state == ChainState.IDLE:
 		return
 
@@ -292,6 +323,7 @@ func _update_chain(i: int, dt: float) -> void:
 	_sim_rope(c, start, c.end_pos, dt)
 	_apply_rope_to_line_fast(c)
 
+
 func _apply_break_warning_color(c: ChainSlot, start: Vector2) -> void:
 	var d: float = start.distance_to(c.end_pos)
 	var r: float = clamp(d / player.chain_max_length, 0.0, 1.0)
@@ -304,53 +336,65 @@ func _apply_break_warning_color(c: ChainSlot, start: Vector2) -> void:
 	t = pow(t, player.warn_gamma)
 	c.line.modulate = Color.WHITE.lerp(player.warn_color, t)
 
+
+# ============================
+# ✅ 核心修正：阻挡/交互分离 + 强制“花永不阻挡”
+# ============================
 func _update_chain_flying(i: int, dt: float) -> void:
-	var c := chains[i]
+	var c: ChainSlot = chains[i]
 
 	var prev_pos: Vector2 = c.end_pos
 	c.end_pos = c.end_pos + c.end_vel * dt
 	c.fly_t += dt
 
-	var space := player.get_world_2d().direct_space_state
-	c.ray_q.from = prev_pos
-	c.ray_q.to = c.end_pos
+	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
 
-	var hit: Dictionary = space.intersect_ray(c.ray_q)
-	if hit.size() > 0:
-		c.end_pos = hit["position"] as Vector2
-		var col_obj: Object = hit["collider"]
-		var col_node: Node = col_obj as Node
+	# 同步两条 ray 的 from/to
+	c.ray_q_block.from = prev_pos
+	c.ray_q_block.to = c.end_pos
+	c.ray_q_interact.from = prev_pos
+	c.ray_q_interact.to = c.end_pos
 
-		var host_node: Node = col_node
-		if col_node != null and col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
-			var h := col_node.call("get_host") as Node
-			if h != null:
-				host_node = h
+	# 交互命中（最近的交互体）
+	var hit_interact: Dictionary = space.intersect_ray(c.ray_q_interact)
 
-		c.wave_amp = maxf(c.wave_amp, player.rope_wave_amp * 0.6)
+	# 阻挡命中：做一个“小循环”，把所有落在 chain_interact_mask 的 collider 统统跳过
+	var hit_block: Dictionary = {}
+	var ex: Array[RID] = [player.get_rid()]
+	var block_pos: Vector2 = Vector2.ZERO
+	for _k: int in range(6):
+		c.ray_q_block.exclude = ex
+		var hb: Dictionary = space.intersect_ray(c.ray_q_block)
+		if hb.size() == 0:
+			break
 
-		if col_node != null:
-			var hit_target: Node = null
-			if col_node.is_in_group("monster") and col_node.has_method("on_chain_hit"):
-				hit_target = col_node
-			else:
-				var mb := _resolve_monster(col_node)
-				if mb != null and mb.has_method("on_chain_hit"):
-					hit_target = mb
+		var col_obj_b: Object = hb.get("collider")
+		var col_b: CollisionObject2D = col_obj_b as CollisionObject2D
+		if col_b != null:
+			# ✅ 只要它在“交互层”，就永远不让它阻挡（即便你误勾进了 chain_hit_mask）
+			if (col_b.collision_layer & player.chain_interact_mask) != 0:
+				ex.append(col_b.get_rid())
+				continue
 
-			if hit_target != null:
-				var ret: int = int(hit_target.call("on_chain_hit", player, i))
-				if ret == 1:
-					_attach_link(i, hit_target as Node2D, c.end_pos)
-					return
-				_begin_burn_dissolve(i)
-				return
+		hit_block = hb
+		block_pos = hb["position"]
+		break
 
-		if host_node != null and host_node.has_method("on_chain_attached"):
-			_attach_link(i, host_node as Node2D, c.end_pos)
-			return
+	# 如果交互命中发生在阻挡命中之前（或没有阻挡命中），就触发交互（但不停止、不溶解）
+	if hit_interact.size() > 0:
+		var interact_pos: Vector2 = hit_interact["position"]
+		var allow_interact: bool = true
+		if hit_block.size() > 0:
+			var db: float = prev_pos.distance_to(block_pos)
+			var di: float = prev_pos.distance_to(interact_pos)
+			allow_interact = (di <= db + 0.001)
 
-		_begin_burn_dissolve(i)
+		if allow_interact:
+			_process_interact_hit(i, hit_interact)
+
+	# 处理阻挡命中（怪物/墙等）
+	if hit_block.size() > 0:
+		_process_block_hit(i, hit_block)
 		return
 
 	if c.fly_t >= player.chain_max_fly_time:
@@ -358,10 +402,77 @@ func _update_chain_flying(i: int, dt: float) -> void:
 		c.hold_t = 0.0
 		c.wave_amp = maxf(c.wave_amp, player.rope_wave_amp * 0.35)
 
+
+func _process_interact_hit(slot: int, hit_interact: Dictionary) -> void:
+	var c: ChainSlot = chains[slot]
+
+	var col_obj: Object = hit_interact.get("collider")
+	var area: Area2D = col_obj as Area2D
+	if area == null:
+		return
+
+	var rid: RID = area.get_rid()
+	if c.interacted.has(rid):
+		return
+	c.interacted[rid] = true
+
+	var host: Node = area.get_parent()
+	if host == null:
+		return
+
+	# 约束：交互对象要自己实现 on_chain_hit(player, slot)
+	if host.has_method("on_chain_hit"):
+		host.call("on_chain_hit", player, slot)
+
+
+func _process_block_hit(slot: int, hit_block: Dictionary) -> void:
+	var c: ChainSlot = chains[slot]
+
+	c.end_pos = hit_block["position"]
+
+	var col_obj: Object = hit_block.get("collider")
+	var col_node: Node = col_obj as Node
+
+	var host_node: Node = col_node
+
+	# 命中 enemy_hurtbox（独立 Area2D）→ 取宿主
+	if col_node != null and col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
+		var h: Node = col_node.call("get_host") as Node
+		if h != null:
+			host_node = h
+
+	# 命中的是“独立 Area2D”（非 enemy_hurtbox）→ 宿主取父节点
+	if col_node is Area2D and (not col_node.is_in_group("enemy_hurtbox")):
+		var p: Node = (col_node as Area2D).get_parent()
+		if p != null:
+			host_node = p
+
+	c.wave_amp = maxf(c.wave_amp, player.rope_wave_amp * 0.6)
+
+	# ① 怪物：走 on_chain_hit(player, slot) → 返回 1 则 LINKED
+	if host_node != null:
+		var mb: MonsterBase = _resolve_monster(host_node)
+		if mb != null and mb.has_method("on_chain_hit"):
+			var ret_i: int = int(mb.call("on_chain_hit", player, slot))
+			if ret_i == 1:
+				_attach_link(slot, mb as Node2D, c.end_pos)
+				return
+			_begin_burn_dissolve(slot)
+			return
+
+	# ② 其它可挂对象：走 on_chain_attached
+	if host_node != null and host_node.has_method("on_chain_attached"):
+		_attach_link(slot, host_node as Node2D, c.end_pos)
+		return
+
+	# ③ 默认：溶解
+	_begin_burn_dissolve(slot)
+
+
 func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
-	var c := chains[slot]
+	var c: ChainSlot = chains[slot]
 
 	_detach_link_if_needed(slot)
 
@@ -373,20 +484,22 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 	if target != null and target.has_method("on_chain_attached"):
 		target.call("on_chain_attached", slot)
 
+
 func _detach_link_if_needed(slot: int) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
-	var c := chains[slot]
+	var c: ChainSlot = chains[slot]
 	if c.linked_target != null and is_instance_valid(c.linked_target):
 		if c.linked_target.has_method("on_chain_detached"):
 			c.linked_target.call("on_chain_detached", slot)
 	c.linked_target = null
 	c.linked_offset = Vector2.ZERO
 
+
 func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false) -> void:
 	if i < 0 or i >= chains.size():
 		return
-	var c := chains[i]
+	var c: ChainSlot = chains[i]
 	if c.state == ChainState.IDLE:
 		return
 	if c.state == ChainState.DISSOLVING and not force:
@@ -397,7 +510,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	if c.burn_mat == null:
 		if player.chain_shader_path == "" or player.chain_shader_path == null:
 			player.chain_shader_path = player.DEFAULT_CHAIN_SHADER_PATH
-		var sh := load(player.chain_shader_path) as Shader
+		var sh: Shader = load(player.chain_shader_path) as Shader
 		if sh == null:
 			push_error("Cannot load chain shader: %s" % player.chain_shader_path)
 			_finish_chain(i)
@@ -425,32 +538,36 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 		_finish_chain(i)
 	)
 
+
 func _force_dissolve_all_chains() -> void:
-	for i in range(chains.size()):
-		var c := chains[i]
+	for i: int in range(chains.size()):
+		var c: ChainSlot = chains[i]
 		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
 			continue
 		c.wave_amp = 0.0
 		c.wave_phase = 0.0
 		_begin_burn_dissolve(i, player.cancel_dissolve_time, true)
 
+
 func force_dissolve_chain(slot: int) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
-	var c := chains[slot]
+	var c: ChainSlot = chains[slot]
 	if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
 		return
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
 	_begin_burn_dissolve(slot, player.cancel_dissolve_time, true)
 
+
 func force_dissolve_all_chains() -> void:
 	_force_dissolve_all_chains()
+
 
 func _finish_chain(i: int) -> void:
 	if i < 0 or i >= chains.size():
 		return
-	var c := chains[i]
+	var c: ChainSlot = chains[i]
 
 	if c.burn_tw != null:
 		c.burn_tw.kill()
@@ -462,6 +579,8 @@ func _finish_chain(i: int) -> void:
 	c.line.modulate = Color.WHITE
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
+	c.interacted.clear()
+
 
 func _try_fuse() -> void:
 	if player.is_player_locked():
@@ -469,8 +588,8 @@ func _try_fuse() -> void:
 	if chains.size() < 2:
 		return
 
-	var c0 := chains[0]
-	var c1 := chains[1]
+	var c0: ChainSlot = chains[0]
+	var c1: ChainSlot = chains[1]
 
 	if c0.state != ChainState.LINKED or c1.state != ChainState.LINKED:
 		return
@@ -495,7 +614,7 @@ func _try_fuse() -> void:
 	_begin_burn_dissolve(0, player.fusion_chain_dissolve_time)
 	_begin_burn_dissolve(1, player.fusion_chain_dissolve_time)
 
-	var tw := create_tween()
+	var tw: Tween = create_tween()
 	tw.tween_interval(player.fusion_lock_time)
 	tw.tween_callback(func() -> void:
 		if is_instance_valid(m0): m0.queue_free()
@@ -503,6 +622,7 @@ func _try_fuse() -> void:
 		_spawn_chimera_at_player()
 		player.set_player_locked(false)
 	)
+
 
 func _spawn_chimera_at_player() -> void:
 	if player.chimera_scene == null:
@@ -513,15 +633,15 @@ func _spawn_chimera_at_player() -> void:
 			(_chimera as Node2D).global_position = player.global_position
 		return
 
-	var n = (player.chimera_scene as PackedScene).instantiate()
+	var n: Node = (player.chimera_scene as PackedScene).instantiate()
 	if not (n is Node2D):
 		return
 
-	var chim := n as Node2D
+	var chim: Node2D = n as Node2D
 	player.get_parent().add_child(chim)
 	chim.global_position = player.global_position
 
-	var body := chim as CollisionObject2D
+	var body: CollisionObject2D = chim as CollisionObject2D
 	var cs: CollisionShape2D = chim.get_node_or_null(^"CollisionShape2D") as CollisionShape2D
 	if body == null or cs == null or cs.shape == null:
 		_post_spawn_setup(chim)
@@ -550,32 +670,34 @@ func _spawn_chimera_at_player() -> void:
 	_post_spawn_setup(chim)
 	_chimera = chim
 
+
 func _find_safe_spawn_pos(shape: Shape2D, chim_xform: Transform2D, base: Vector2, mask: int) -> Vector2:
-	var space := player.get_world_2d().direct_space_state
+	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
 
 	var candidates: Array[Vector2] = []
-	for k in range(1, player.spawn_try_up_count + 1):
-		var up := Vector2(0.0, -player.spawn_try_up_step * float(k))
+	for k: int in range(1, player.spawn_try_up_count + 1):
+		var up: Vector2 = Vector2(0.0, -player.spawn_try_up_step * float(k))
 		candidates.append(base + up)
 		candidates.append(base + up + Vector2(player.spawn_try_side, 0.0))
 		candidates.append(base + up + Vector2(-player.spawn_try_side, 0.0))
 	candidates.append(base)
 
-	var q := PhysicsShapeQueryParameters2D.new()
+	var q: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
 	q.shape = shape
 	q.collide_with_areas = false
 	q.collide_with_bodies = true
 	q.collision_mask = mask
 	q.exclude = [player.get_rid()]
 
-	for p in candidates:
-		var xf := chim_xform
+	for p: Vector2 in candidates:
+		var xf: Transform2D = chim_xform
 		xf.origin = p
 		q.transform = xf
-		var hits := space.intersect_shape(q, 8)
+		var hits: Array = space.intersect_shape(q, 8)
 		if hits.size() == 0:
 			return p
 	return base
+
 
 func _post_spawn_setup(chim: Node2D) -> void:
 	if chim.has_method("setup"):
@@ -583,15 +705,17 @@ func _post_spawn_setup(chim: Node2D) -> void:
 	elif chim.has_method("set_player"):
 		chim.call("set_player", player)
 
+
 func _reset_rope_line(c: ChainSlot, start_world: Vector2, end_world: Vector2) -> void:
 	var n: int = c.pts.size()
 	if n < 2:
 		return
-	for k in range(n):
+	for k: int in range(n):
 		var t: float = float(k) / float(n - 1)
 		var p: Vector2 = start_world.lerp(end_world, t)
 		c.pts[k] = p
 		c.prev[k] = p
+
 
 func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float) -> void:
 	var n: int = c.pts.size()
@@ -607,14 +731,14 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 	c.prev_start = start_world
 	c.prev_end = end_world
 
-	for k in range(1, last):
+	for k: int in range(1, last):
 		var cur: Vector2 = c.pts[k]
 		var vel: Vector2 = (cur - c.prev[k]) * player.rope_damping
 		c.prev[k] = cur
 		c.pts[k] = cur + vel + Vector2(0.0, player.rope_gravity)
 
 	_rebuild_weight_cache_if_needed(c)
-	for k in range(1, last):
+	for k: int in range(1, last):
 		c.pts[k] += end_delta * (player.end_motion_inject * c.w_end[k])
 		c.pts[k] += start_delta * (player.hand_motion_inject * c.w_start[k])
 
@@ -626,7 +750,7 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 		var perp: Vector2 = Vector2(-dir.y, dir.x)
 		perp = (Vector2.UP if perp.length() < 0.001 else perp.normalized())
 
-		for k in range(1, last):
+		for k: int in range(1, last):
 			var t2: float = float(k) / float(last)
 			var phase: float = c.wave_phase + (t2 * player.rope_wave_along_segments * TAU) + c.wave_seed * 10.0
 			c.pts[k] += perp * (sin(phase) * c.wave_amp * c.w_end[k])
@@ -634,11 +758,11 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 	var total_len: float = start_world.distance_to(end_world)
 	var seg_len: float = total_len / float(last)
 
-	for _it in range(player.rope_iterations):
+	for _it: int in range(player.rope_iterations):
 		c.pts[0] = start_world
 		c.pts[last] = end_world
 
-		for k in range(last):
+		for k: int in range(last):
 			var a: Vector2 = c.pts[k]
 			var b: Vector2 = c.pts[k + 1]
 			var delta: Vector2 = b - a
@@ -651,15 +775,16 @@ func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float
 			if k + 1 != last:
 				c.pts[k + 1] -= adj
 
+
 func _apply_rope_to_line_fast(c: ChainSlot) -> void:
 	var n: int = c.pts.size()
 	if c.line.get_point_count() != n:
 		_prealloc_line_points(c)
 
 	if player.texture_anchor_at_hook:
-		for i in range(n):
+		for i: int in range(n):
 			var src: int = (n - 1) - i
 			c.line.set_point_position(i, c.line.to_local(c.pts[src]))
 	else:
-		for i in range(n):
+		for i: int in range(n):
 			c.line.set_point_position(i, c.line.to_local(c.pts[i]))

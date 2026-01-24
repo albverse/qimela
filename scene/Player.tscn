@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=13 format=3 uid="uid://m7ts2uye3c05"]
 
 [ext_resource type="Script" uid="uid://br2eby52784yh" path="res://scene/player.gd" id="1_y30ri"]
 [ext_resource type="PackedScene" uid="uid://dsyys0748arks" path="res://scene/ChimeraA.tscn" id="2_ea7gk"]
@@ -8,6 +8,7 @@
 [ext_resource type="Shader" uid="uid://dsseho82equsg" path="res://shaders/burn_dissolve.gdshader" id="5_ea7gk"]
 [ext_resource type="Script" uid="uid://b1205jsvplo4w" path="res://scene/components/player_movement.gd" id="7_kqvfm"]
 [ext_resource type="Script" uid="uid://c38lcxf3unva2" path="res://scene/components/player_chain_system.gd" id="8_63jwq"]
+[ext_resource type="Script" uid="uid://li8l6bxvudvm" path="res://scene/components/player_health.gd" id="9_63jwq"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
 radius = 12.0
@@ -33,10 +34,12 @@ shader_parameter/sand_color = Vector4(0.85, 0.78, 0.62, 1)
 shader_parameter/darken = 0.85
 
 [node name="Player" type="CharacterBody2D"]
+z_index = 1
 collision_layer = 2
 script = ExtResource("1_y30ri")
 chimera_scene = ExtResource("2_ea7gk")
 chain_hit_mask = 9
+chain_interact_mask = 64
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, -42)
@@ -46,6 +49,7 @@ shape = SubResource("CapsuleShape2D_dc1pm")
 position = Vector2(0, -42)
 
 [node name="Sprite2D" type="Sprite2D" parent="Visual"]
+z_index = 1
 position = Vector2(1, 0)
 scale = Vector2(0.3533654, 0.35703868)
 texture = ExtResource("2_waelg")
@@ -80,3 +84,6 @@ script = ExtResource("7_kqvfm")
 
 [node name="ChainSystem" type="Node" parent="Components"]
 script = ExtResource("8_63jwq")
+
+[node name="Health" type="Node" parent="Components"]
+script = ExtResource("9_63jwq")
