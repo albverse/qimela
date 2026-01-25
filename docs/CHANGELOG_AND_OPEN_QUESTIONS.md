@@ -9,6 +9,7 @@
 6. 引入融合：两链分别 LINKED 虚弱怪物 -> Space 融合 -> 生成 ChimeraA。
 7. 处理过多次脚本报错（类型推断/Variant、class_name 冲突、rope.gd “running” 未声明、shader fragment return 错误等）；当前工程已“正常运行但融合不生成 ChimeraA”。
 8. 物理碰撞调整：玩家与怪物/奇美拉可设置为不互撞，但锁链仍可命中（通过 Ray mask 或 Hurtbox）。
+9. 玩家受击弹飞：新增独立“落地后僵直时间”，将弹飞飞行时间/距离与僵直完全解耦。
 
 ## 仍不确定 / 待用户补充的信息清单
 1. **具体场景路径**：MainTest.tscn、Player.tscn、MonsterFly.tscn、MonsterWalk.tscn、ChimeraA.tscn 的实际路径（目前仅有文件名/概念）。
@@ -23,4 +24,3 @@
 3. 命中对象类型：在 Player 的命中处打印 `hit.collider` 的 `get_class()` 与 `get_script()`；若为 CharacterBody2D 且无脚本，则说明打的是实体而非 Hurtbox。
 4. ChimeraA 接链：在 ChimeraA.gd 的 `on_chain_attached` 打印；在 Player 链接成功时必须调用该函数并能看到日志。
 5. 闪白验证：给 Monster 的视觉节点加一个临时 `Label` 或在 `_flash_white` 内打印 `_visual.name`；若 modulate 被动画覆盖，在 AnimationPlayer 里搜 `modulate` 轨道并临时禁用。
-
