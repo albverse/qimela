@@ -2,7 +2,7 @@ extends Node
 class_name PlayerHealth
 
 @export var max_hp: int = 5
-@export var invincible_time: float = 0.1  # 文档要求=0.1s :contentReference[oaicite:4]{index=4}
+@export var invincible_time: float = 0.1  # 文档要求=0.1s
 
 # 击退：短时间锁定水平输入并强推（你已确认）
 @export var knockback_strength: float = 550.0

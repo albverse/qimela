@@ -5,7 +5,7 @@ class_name WeatherController
 @export var interval_max: float = 30.0 #打雷的最大间隔
 @export var start_delay: float = 1.0
 
-# requirements: thunder_burst(add_seconds=3) :contentReference[oaicite:3]{index=3}
+# requirements: thunder_burst(add_seconds=3)
 @export var thunder_add_seconds: float = 3.0
 
 # 动画名（AnimationPlayer里需要存在同名动画）
@@ -64,7 +64,7 @@ func _emit_thunder_burst_once() -> void:
 		return
 	_emitted_this_cycle = true
 
-	# 每次打雷只触发一次事件（验收关键）:contentReference[oaicite:4]{index=4}
+	# 每次打雷只触发一次事件（验收关键）
 	if typeof(EventBus) != TYPE_NIL:
 		if EventBus.has_method("emit_thunder_burst"):
 			EventBus.emit_thunder_burst(thunder_add_seconds)

@@ -10,7 +10,7 @@ extends CharacterBody2D
 @export var chain_line0_path: NodePath = ^"Chains/ChainLine0" # 锁链0的Line2D
 @export var chain_line1_path: NodePath = ^"Chains/ChainLine1" # 锁链1的Line2D
 @onready var movement = $Components/Movement
-@onready var chain = $Components/ChainSystem
+@onready var chain: PlayerChainSystem = $Components/ChainSystem as PlayerChainSystem
 @onready var health: PlayerHealth = $Components/Health
 # =========================
 # 融合 / 生成
@@ -97,10 +97,12 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 var facing: int = 1
 var _player_locked: bool = false
 
-@onready var _movement: Node = $Components/Movement
-@onready var _chain: Node = $Components/ChainSystem
-
 func _ready() -> void:
+	if chain == null:
+		push_error("[Player] Components/ChainSystem missing or not PlayerChainSystem.")
+		set_physics_process(false)
+		set_process(false)
+		return
 	if health != null:
 		health.setup(self)
 
@@ -128,19 +130,23 @@ func is_horizontal_input_locked() -> bool:
 		return true
 	return health != null and health.is_knockback_active()
 # 需求接口（文档要求）
-func apply_damage(amount: int, source_global_pos: Vector2) -> void: # :contentReference[oaicite:5]{index=5}
+func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if health != null:
 		health.apply_damage(amount, source_global_pos)
 			
 func _unhandled_input(event: InputEvent) -> void:
-	_chain.call("handle_unhandled_input", event)
-func heal(amount: int) -> void: # :contentReference[oaicite:6]{index=6}
+	if chain != null:
+		chain.handle_unhandled_input(event)
+
+func heal(amount: int) -> void:
 	if health != null:
 		health.heal(amount)
 		
 # 给 MonsterBase 用的对外接口：保持不变
 func force_dissolve_chain(slot: int) -> void:
-	_chain.call("force_dissolve_chain", slot)
+	if chain != null:
+		chain.force_dissolve_chain(slot)
 
 func force_dissolve_all_chains() -> void:
-	_chain.call("force_dissolve_all_chains")
+	if chain != null:
+		chain.force_dissolve_all_chains()
