@@ -6,6 +6,7 @@ class_name PlayerHealth
 
 # 击退：短时间锁定水平输入并强推（你已确认）
 @export var hit_stun_time: float = 0.2
+@export var knockback_air_time: float = 0.25
 @export var knockback_distance: float = 110.0
 @export var knockback_arc_height: float = 40.0
 
@@ -18,6 +19,7 @@ var hp: int
 var _player: Player
 var _inv_t: float = 0.0
 var _kb_t: float = 0.0
+var _kb_fly_t: float = 0.0
 var _kb_dir_x: float = 0.0
 var _kb_vel: Vector2 = Vector2.ZERO
 var _kb_gravity: float = 0.0
@@ -57,12 +59,14 @@ func tick(dt: float) -> void:
 
 	if _kb_t > 0.0:
 		_kb_t -= dt
+	if _kb_fly_t > 0.0:
+		_kb_fly_t -= dt
 		if _player != null:
-			# 命中后击退：轨迹为抛物线，位移不随 hit_stun_time 变化
+			# 命中后击退：轨迹为抛物线，飞行时间与僵直时间分离
 			_player.velocity.x = _kb_vel.x
 			_player.velocity.y = _kb_vel.y
 			_kb_vel.y += _kb_gravity * dt
-		if _kb_t <= 0.0:
+		if _kb_fly_t <= 0.0:
 			_kb_dir_x = 0.0
 			_kb_vel = Vector2.ZERO
 			_kb_gravity = 0.0
@@ -89,11 +93,17 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 		if is_zero_approx(_kb_dir_x):
 			_kb_dir_x = -float(_player.facing)  # 极端重合时给个合理方向
 		_kb_t = hit_stun_time
-		var safe_time := maxf(hit_stun_time, 0.0001)
-		var horizontal_speed := knockback_distance / safe_time
-		var up_speed := (4.0 * knockback_arc_height) / safe_time
-		_kb_vel = Vector2(_kb_dir_x * horizontal_speed, -up_speed)
-		_kb_gravity = (8.0 * knockback_arc_height) / (safe_time * safe_time)
+		var fly_time := maxf(knockback_air_time, 0.0)
+		_kb_fly_t = fly_time
+		if fly_time > 0.0:
+			var safe_time := maxf(fly_time, 0.0001)
+			var horizontal_speed := knockback_distance / safe_time
+			var up_speed := (4.0 * knockback_arc_height) / safe_time
+			_kb_vel = Vector2(_kb_dir_x * horizontal_speed, -up_speed)
+			_kb_gravity = (8.0 * knockback_arc_height) / (safe_time * safe_time)
+		else:
+			_kb_vel = Vector2.ZERO
+			_kb_gravity = 0.0
 
 	_sync_ui_instant()
 
