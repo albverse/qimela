@@ -6,7 +6,7 @@ class_name PlayerHealth
 
 # 击退：短时间锁定水平输入并强推（你已确认）
 @export var knockback_strength: float = 550.0
-@export var knockback_time: float = 0.2
+@export var hit_stun_time: float = 0.2
 
 # UI
 @export var hearts_ui_scene: PackedScene = preload("res://ui/hearts_ui.tscn")
@@ -81,7 +81,7 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 		_kb_dir_x = signf(dx)
 		if is_zero_approx(_kb_dir_x):
 			_kb_dir_x = -float(_player.facing)  # 极端重合时给个合理方向
-		_kb_t = knockback_time
+		_kb_t = hit_stun_time
 
 	_sync_ui_instant()
 
