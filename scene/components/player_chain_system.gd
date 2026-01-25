@@ -36,7 +36,6 @@ class ChainSlot:
 	# RayQuery（阻挡 / 交互分离）
 	var ray_q_block: PhysicsRayQueryParameters2D
 	var ray_q_interact: PhysicsRayQueryParameters2D
-	var point_q_interact: PhysicsPointQueryParameters2D
 
 	# 每条链预创建溶解材质（避免串台）
 	var burn_mat: ShaderMaterial
@@ -57,6 +56,8 @@ class ChainSlot:
 
 
 var chains: Array[ChainSlot] = []
+
+@export var debug_interact: bool = false
 
 
 func _ready() -> void:
@@ -172,12 +173,6 @@ func _setup_chain_slot(c: ChainSlot) -> void:
 	c.ray_q_interact.hit_from_inside = true
 	c.ray_q_interact.collision_mask = player.chain_interact_mask
 	c.ray_q_interact.exclude = [player.get_rid()]
-
-	c.point_q_interact = PhysicsPointQueryParameters2D.new()
-	c.point_q_interact.collide_with_areas = true
-	c.point_q_interact.collide_with_bodies = false
-	c.point_q_interact.collision_mask = player.chain_interact_mask
-	c.point_q_interact.exclude = [player.get_rid()]
 
 	if _burn_shader != null:
 		c.burn_mat = ShaderMaterial.new()
@@ -298,13 +293,21 @@ func _try_interact_from_inside(slot: int, start: Vector2) -> void:
 		return
 	var c: ChainSlot = chains[slot]
 	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
-	if c.point_q_interact == null:
-		return
-	c.point_q_interact.position = start
-	var hits := space.intersect_point(c.point_q_interact)
+	var circle := CircleShape2D.new()
+	circle.radius = 6.0
+
+	var qp := PhysicsShapeQueryParameters2D.new()
+	qp.shape = circle
+	qp.transform = Transform2D(0.0, start)
+	qp.collide_with_areas = true
+	qp.collide_with_bodies = false
+	qp.collision_mask = player.chain_interact_mask
+	qp.exclude = [player.get_rid()]
+
+	var hits := space.intersect_shape(qp, 16)
 	for hit in hits:
 		var area := hit.get("collider") as Area2D
-		_handle_interact_area(slot, area)
+		_handle_interact_area(slot, area, "inside")
 
 
 func _update_chain(i: int, dt: float) -> void:
@@ -426,20 +429,25 @@ func _update_chain_flying(i: int, dt: float) -> void:
 
 
 func _process_interact_hit(slot: int, hit_interact: Dictionary) -> void:
-	var c: ChainSlot = chains[slot]
-
 	var col_obj: Object = hit_interact.get("collider")
 	var area: Area2D = col_obj as Area2D
-	_handle_interact_area(slot, area)
+	_handle_interact_area(slot, area, "ray")
 
 
-func _handle_interact_area(slot: int, area: Area2D) -> void:
+func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 	if area == null:
 		return
 	var c: ChainSlot = chains[slot]
 	var rid: RID = area.get_rid()
 	if c.interacted.has(rid):
 		return
+
+	if debug_interact:
+		var host: Node = area.owner
+		if host == null:
+			host = area.get_parent()
+		var host_name := host.name if host != null else "null"
+		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
 	c.interacted[rid] = true
 
 	var host: Node = area.get_parent()
