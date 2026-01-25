@@ -12,7 +12,6 @@ var _base_y: float = 0.0
 var _t: float = 0.0
 var _dir: int = 1
 var _is_visible: bool = false
-var _stunned_after_invisible: float = 0.0
 var _visible_sources: Dictionary = {} # source_id -> true
 var _pending_light_sources: Dictionary = {} # source_id -> {area, remaining}
 
@@ -33,7 +32,6 @@ func _ready() -> void:
 func _physics_process(dt: float) -> void:
 	_update_light_sources(dt)
 	_update_visibility(dt)
-	_update_stun_after_invisible(dt)
 	super._physics_process(dt)
 
 
@@ -142,19 +140,6 @@ func _switch_to_invisible() -> void:
 			_linked_player.call("force_dissolve_chain", slot)
 		_linked_slots.clear()
 		_linked_player = null
-
-	stunned_t = 3.0
-	_stunned_after_invisible = 3.0
-
-
-func _update_stun_after_invisible(dt: float) -> void:
-	if _stunned_after_invisible <= 0.0:
-		return
-	_stunned_after_invisible -= dt
-	if _stunned_after_invisible <= 0.0:
-		_stunned_after_invisible = 0.0
-		hp = max_hp
-		_update_weak_state()
 
 func _do_move(dt: float) -> void:
 	if weak:
