@@ -446,7 +446,7 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 		var host: Node = area.owner
 		if host == null:
 			host = area.get_parent()
-		var host_name := host.name if host != null else "null"
+		var host_name: String = host.name if host != null else "null"
 		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
 	c.interacted[rid] = true
 
