@@ -10,6 +10,104 @@ var hand_r: Node2D
 var _burn_shader: Shader = null
 var _chimera: Node = null
 
+class ChainHitResolver:
+	var system: PlayerChainSystem
+
+	func _init(owner: PlayerChainSystem) -> void:
+		system = owner
+
+	func resolve_chain_hits(c: ChainSlot, prev_pos: Vector2, end_pos: Vector2) -> Dictionary:
+		var space: PhysicsDirectSpaceState2D = system.player.get_world_2d().direct_space_state
+
+		c.ray_q_block.from = prev_pos
+		c.ray_q_block.to = end_pos
+		c.ray_q_interact.from = prev_pos
+		c.ray_q_interact.to = end_pos
+
+		var hit_interact: Dictionary = space.intersect_ray(c.ray_q_interact)
+
+		var hit_block: Dictionary = {}
+		var block_pos: Vector2 = Vector2.ZERO
+		var ex: Array[RID] = [system.player.get_rid()]
+		for _k: int in range(6):
+			c.ray_q_block.exclude = ex
+			var hb: Dictionary = space.intersect_ray(c.ray_q_block)
+			if hb.size() == 0:
+				break
+
+			var col_obj_b: Object = hb.get("collider")
+			var col_b: CollisionObject2D = col_obj_b as CollisionObject2D
+			if col_b != null:
+				if (col_b.collision_layer & system.player.chain_interact_mask) != 0:
+					ex.append(col_b.get_rid())
+					continue
+
+			hit_block = hb
+			block_pos = hb["position"]
+			break
+
+		var allow_interact: bool = true
+		if hit_interact.size() > 0 and hit_block.size() > 0:
+			var interact_pos: Vector2 = hit_interact["position"]
+			var db: float = prev_pos.distance_to(block_pos)
+			var di: float = prev_pos.distance_to(interact_pos)
+			allow_interact = (di <= db + 0.001)
+
+		return {
+			"hit_interact": hit_interact,
+			"hit_block": hit_block,
+			"allow_interact": allow_interact,
+		}
+
+class ChainAttachPolicy:
+	var system: PlayerChainSystem
+
+	func _init(owner: PlayerChainSystem) -> void:
+		system = owner
+
+	func handle_interact_hit(slot: int, hit_interact: Dictionary) -> void:
+		var col_obj: Object = hit_interact.get("collider")
+		var area: Area2D = col_obj as Area2D
+		system._handle_interact_area(slot, area, "ray")
+
+	func handle_block_hit(slot: int, hit_block: Dictionary) -> void:
+		var c: ChainSlot = system.chains[slot]
+
+		c.end_pos = hit_block["position"]
+
+		var col_obj: Object = hit_block.get("collider")
+		var col_node: Node = col_obj as Node
+
+		var host_node: Node = col_node
+
+		if col_node != null and col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
+			var h: Node = col_node.call("get_host") as Node
+			if h != null:
+				host_node = h
+
+		if col_node is Area2D and (not col_node.is_in_group("enemy_hurtbox")):
+			var p: Node = (col_node as Area2D).get_parent()
+			if p != null:
+				host_node = p
+
+		c.wave_amp = maxf(c.wave_amp, system.player.rope_wave_amp * 0.6)
+
+		if host_node != null:
+			var mb: MonsterBase = system._resolve_monster(host_node)
+			if mb != null and mb.has_method("on_chain_hit"):
+				var ret_i: int = int(mb.call("on_chain_hit", system.player, slot))
+				if ret_i == 1:
+					system._attach_link(slot, mb as Node2D, c.end_pos)
+					return
+				system._begin_burn_dissolve(slot)
+				return
+
+		if host_node != null and host_node.has_method("on_chain_attached"):
+			system._attach_link(slot, host_node as Node2D, c.end_pos)
+			return
+
+		system._begin_burn_dissolve(slot)
+
 class ChainSlot:
 	var state: int = ChainState.IDLE
 	var use_right_hand: bool = true
@@ -59,6 +157,8 @@ var chains: Array[ChainSlot] = []
 
 @export var debug_interact: bool = false
 
+var _hit_resolver: ChainHitResolver
+var _attach_policy: ChainAttachPolicy
 
 func _ready() -> void:
 	player = _find_player()
@@ -100,6 +200,9 @@ func _ready() -> void:
 	c1.wave_seed = 0.81
 	_setup_chain_slot(c1)
 	chains[1] = c1
+
+	_hit_resolver = ChainHitResolver.new(self)
+	_attach_policy = ChainAttachPolicy.new(self)
 
 
 func tick(dt: float) -> void:
@@ -372,54 +475,16 @@ func _update_chain_flying(i: int, dt: float) -> void:
 	c.end_pos = c.end_pos + c.end_vel * dt
 	c.fly_t += dt
 
-	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
+	var hit_result: Dictionary = _hit_resolver.resolve_chain_hits(c, prev_pos, c.end_pos)
+	var hit_interact: Dictionary = hit_result["hit_interact"]
+	var hit_block: Dictionary = hit_result["hit_block"]
+	var allow_interact: bool = hit_result["allow_interact"]
 
-	# 同步两条 ray 的 from/to
-	c.ray_q_block.from = prev_pos
-	c.ray_q_block.to = c.end_pos
-	c.ray_q_interact.from = prev_pos
-	c.ray_q_interact.to = c.end_pos
+	if hit_interact.size() > 0 and allow_interact:
+		_attach_policy.handle_interact_hit(i, hit_interact)
 
-	# 交互命中（最近的交互体）
-	var hit_interact: Dictionary = space.intersect_ray(c.ray_q_interact)
-
-	# 阻挡命中：做一个“小循环”，把所有落在 chain_interact_mask 的 collider 统统跳过
-	var hit_block: Dictionary = {}
-	var ex: Array[RID] = [player.get_rid()]
-	var block_pos: Vector2 = Vector2.ZERO
-	for _k: int in range(6):
-		c.ray_q_block.exclude = ex
-		var hb: Dictionary = space.intersect_ray(c.ray_q_block)
-		if hb.size() == 0:
-			break
-
-		var col_obj_b: Object = hb.get("collider")
-		var col_b: CollisionObject2D = col_obj_b as CollisionObject2D
-		if col_b != null:
-			# ✅ 只要它在“交互层”，就永远不让它阻挡（即便你误勾进了 chain_hit_mask）
-			if (col_b.collision_layer & player.chain_interact_mask) != 0:
-				ex.append(col_b.get_rid())
-				continue
-
-		hit_block = hb
-		block_pos = hb["position"]
-		break
-
-	# 如果交互命中发生在阻挡命中之前（或没有阻挡命中），就触发交互（但不停止、不溶解）
-	if hit_interact.size() > 0:
-		var interact_pos: Vector2 = hit_interact["position"]
-		var allow_interact: bool = true
-		if hit_block.size() > 0:
-			var db: float = prev_pos.distance_to(block_pos)
-			var di: float = prev_pos.distance_to(interact_pos)
-			allow_interact = (di <= db + 0.001)
-
-		if allow_interact:
-			_process_interact_hit(i, hit_interact)
-
-	# 处理阻挡命中（怪物/墙等）
 	if hit_block.size() > 0:
-		_process_block_hit(i, hit_block)
+		_attach_policy.handle_block_hit(i, hit_block)
 		return
 
 	if c.fly_t >= player.chain_max_fly_time:
@@ -429,9 +494,7 @@ func _update_chain_flying(i: int, dt: float) -> void:
 
 
 func _process_interact_hit(slot: int, hit_interact: Dictionary) -> void:
-	var col_obj: Object = hit_interact.get("collider")
-	var area: Area2D = col_obj as Area2D
-	_handle_interact_area(slot, area, "ray")
+	_attach_policy.handle_interact_hit(slot, hit_interact)
 
 
 func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
@@ -460,47 +523,7 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 
 
 func _process_block_hit(slot: int, hit_block: Dictionary) -> void:
-	var c: ChainSlot = chains[slot]
-
-	c.end_pos = hit_block["position"]
-
-	var col_obj: Object = hit_block.get("collider")
-	var col_node: Node = col_obj as Node
-
-	var host_node: Node = col_node
-
-	# 命中 enemy_hurtbox（独立 Area2D）→ 取宿主
-	if col_node != null and col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
-		var h: Node = col_node.call("get_host") as Node
-		if h != null:
-			host_node = h
-
-	# 命中的是“独立 Area2D”（非 enemy_hurtbox）→ 宿主取父节点
-	if col_node is Area2D and (not col_node.is_in_group("enemy_hurtbox")):
-		var p: Node = (col_node as Area2D).get_parent()
-		if p != null:
-			host_node = p
-
-	c.wave_amp = maxf(c.wave_amp, player.rope_wave_amp * 0.6)
-
-	# ① 怪物：走 on_chain_hit(player, slot) → 返回 1 则 LINKED
-	if host_node != null:
-		var mb: MonsterBase = _resolve_monster(host_node)
-		if mb != null and mb.has_method("on_chain_hit"):
-			var ret_i: int = int(mb.call("on_chain_hit", player, slot))
-			if ret_i == 1:
-				_attach_link(slot, mb as Node2D, c.end_pos)
-				return
-			_begin_burn_dissolve(slot)
-			return
-
-	# ② 其它可挂对象：走 on_chain_attached
-	if host_node != null and host_node.has_method("on_chain_attached"):
-		_attach_link(slot, host_node as Node2D, c.end_pos)
-		return
-
-	# ③ 默认：溶解
-	_begin_burn_dissolve(slot)
+	_attach_policy.handle_block_hit(slot, hit_block)
 
 
 func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
