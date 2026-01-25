@@ -5,7 +5,7 @@ class_name PlayerHealth
 @export var invincible_time: float = 0.1  # 文档要求=0.1s
 
 # 击退：短时间锁定水平输入并强推（你已确认）
-@export var hit_stun_time: float = 0.2
+@export var post_hit_stun_time: float = 0.2
 @export var knockback_air_time: float = 0.25
 @export var knockback_distance: float = 110.0
 @export var knockback_arc_height: float = 40.0
@@ -22,6 +22,7 @@ var _kb_t: float = 0.0
 var _kb_fly_t: float = 0.0
 var _kb_vel: Vector2 = Vector2.ZERO
 var _kb_gravity: float = 0.0
+var _pending_land_stun: float = 0.0
 
 var _ui: Node = null
 
@@ -63,6 +64,9 @@ func tick(dt: float) -> void:
 			_kb_fly_t = 0.0
 			_kb_vel = Vector2.ZERO
 			_kb_gravity = 0.0
+			if _pending_land_stun > 0.0:
+				_kb_t = maxf(_kb_t, _pending_land_stun)
+				_pending_land_stun = 0.0
 			return
 		_kb_fly_t -= dt
 		if _player != null:
@@ -73,9 +77,12 @@ func tick(dt: float) -> void:
 		if _kb_fly_t <= 0.0:
 			_kb_vel = Vector2.ZERO
 			_kb_gravity = 0.0
+			if _pending_land_stun > 0.0:
+				_kb_t = maxf(_kb_t, _pending_land_stun)
+				_pending_land_stun = 0.0
 
 func is_knockback_active() -> bool:
-	return _kb_t > 0.0
+	return _kb_t > 0.0 or _kb_fly_t > 0.0
 
 func is_invincible() -> bool:
 	return _inv_t > 0.0
@@ -95,7 +102,8 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 		var dir_x := signf(dx)
 		if is_zero_approx(dir_x):
 			dir_x = -float(_player.facing)  # 极端重合时给个合理方向
-		_kb_t = hit_stun_time
+		_kb_t = 0.0
+		_pending_land_stun = maxf(post_hit_stun_time, 0.0)
 		var fly_time := maxf(knockback_air_time, 0.0)
 		_kb_fly_t = fly_time
 		if fly_time > 0.0:
@@ -107,6 +115,9 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 		else:
 			_kb_vel = Vector2.ZERO
 			_kb_gravity = 0.0
+			if _pending_land_stun > 0.0:
+				_kb_t = maxf(_kb_t, _pending_land_stun)
+				_pending_land_stun = 0.0
 
 	_sync_ui_instant()
 
