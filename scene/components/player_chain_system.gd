@@ -518,7 +518,7 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 
 	# 约束：交互对象要自己实现 on_chain_hit(player, slot)
 	if host.has_method("on_chain_hit"):
-		var ret := host.call("on_chain_hit", player, slot)
+		var ret: Variant = host.call("on_chain_hit", player, slot)
 		var consumed: bool = true
 		match typeof(ret):
 			TYPE_INT, TYPE_BOOL:
