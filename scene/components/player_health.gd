@@ -20,7 +20,6 @@ var _player: Player
 var _inv_t: float = 0.0
 var _kb_t: float = 0.0
 var _kb_fly_t: float = 0.0
-var _kb_dir_x: float = 0.0
 var _kb_vel: Vector2 = Vector2.ZERO
 var _kb_gravity: float = 0.0
 
@@ -60,6 +59,11 @@ func tick(dt: float) -> void:
 	if _kb_t > 0.0:
 		_kb_t -= dt
 	if _kb_fly_t > 0.0:
+		if _player != null and _player.is_on_floor() and _kb_vel.y >= 0.0:
+			_kb_fly_t = 0.0
+			_kb_vel = Vector2.ZERO
+			_kb_gravity = 0.0
+			return
 		_kb_fly_t -= dt
 		if _player != null:
 			# 命中后击退：轨迹为抛物线，飞行时间与僵直时间分离
@@ -67,7 +71,6 @@ func tick(dt: float) -> void:
 			_player.velocity.y = _kb_vel.y
 			_kb_vel.y += _kb_gravity * dt
 		if _kb_fly_t <= 0.0:
-			_kb_dir_x = 0.0
 			_kb_vel = Vector2.ZERO
 			_kb_gravity = 0.0
 
@@ -89,9 +92,9 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	# 计算击退方向：从伤害源 -> 玩家
 	if _player != null:
 		var dx := _player.global_position.x - source_global_pos.x
-		_kb_dir_x = signf(dx)
-		if is_zero_approx(_kb_dir_x):
-			_kb_dir_x = -float(_player.facing)  # 极端重合时给个合理方向
+		var dir_x := signf(dx)
+		if is_zero_approx(dir_x):
+			dir_x = -float(_player.facing)  # 极端重合时给个合理方向
 		_kb_t = hit_stun_time
 		var fly_time := maxf(knockback_air_time, 0.0)
 		_kb_fly_t = fly_time
@@ -99,7 +102,7 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 			var safe_time := maxf(fly_time, 0.0001)
 			var horizontal_speed := knockback_distance / safe_time
 			var up_speed := (4.0 * knockback_arc_height) / safe_time
-			_kb_vel = Vector2(_kb_dir_x * horizontal_speed, -up_speed)
+			_kb_vel = Vector2(dir_x * horizontal_speed, -up_speed)
 			_kb_gravity = (8.0 * knockback_arc_height) / (safe_time * safe_time)
 		else:
 			_kb_vel = Vector2.ZERO
