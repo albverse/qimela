@@ -100,7 +100,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		if energy <= 0:
 			return 0
 		_release_light_with_energy(energy)
-	return 0
+	return 1
 
 func _release_light_with_energy(release_energy: int) -> void:
 	if _is_emitting:

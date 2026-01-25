@@ -511,7 +511,6 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 			host = area.get_parent()
 		var host_name: String = host.name if host != null else "null"
 		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
-	c.interacted[rid] = true
 
 	var host: Node = area.get_parent()
 	if host == null:
@@ -519,7 +518,20 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 
 	# 约束：交互对象要自己实现 on_chain_hit(player, slot)
 	if host.has_method("on_chain_hit"):
-		host.call("on_chain_hit", player, slot)
+		var ret: Variant = host.call("on_chain_hit", player, slot)
+		var consumed: bool = true
+		match typeof(ret):
+			TYPE_INT, TYPE_BOOL:
+				consumed = bool(ret)
+			TYPE_NIL:
+				consumed = true
+			_:
+				consumed = true
+		if consumed:
+			c.interacted[rid] = true
+		return
+
+	c.interacted[rid] = true
 
 
 func _process_block_hit(slot: int, hit_block: Dictionary) -> void:
