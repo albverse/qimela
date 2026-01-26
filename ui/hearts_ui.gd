@@ -59,8 +59,8 @@ func play_heal_fill(from_hp: int, to_hp: int, step_time: float = 0.18) -> void:
 		if i >= _slots.size():
 			break
 		var slot: Control = _slots[i]["slot"]
-		var wrap: Control = _slots[i]["wrap"]
-		_animate_fill(slot, wrap, step_time)
+		var wrap_node: Control = _slots[i]["wrap"]
+		_animate_fill(slot, wrap_node, step_time)
 		await get_tree().create_timer(step_time).timeout
 
 	set_hp_instant(to_hp)
@@ -99,12 +99,12 @@ func _rebuild() -> void:
 		empty.offset_bottom = empty_pixel_offset.y
 
 		# wrap：满心层容器，也必须 FULL_RECT（关键修复点）
-		var wrap := Control.new()
-		wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wrap.offset_left = 0
-		wrap.offset_right = 0
-		wrap.offset_top = 0
-		wrap.offset_bottom = 0
+		var wrap_node := Control.new()
+		wrap_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+		wrap_node.offset_left = 0
+		wrap_node.offset_right = 0
+		wrap_node.offset_top = 0
+		wrap_node.offset_bottom = 0
 
 		# 满心：FULL_RECT + KEEP_CENTERED，和 empty 同一套对齐规则
 		var full := TextureRect.new()
@@ -116,34 +116,34 @@ func _rebuild() -> void:
 		full.offset_top = full_pixel_offset.y
 		full.offset_bottom = full_pixel_offset.y
 
-		wrap.add_child(full)
+		wrap_node.add_child(full)
 		slot.add_child(empty)
-		slot.add_child(wrap)
+		slot.add_child(wrap_node)
 		_box.add_child(slot)
 
-		_slots.append({ "slot": slot, "wrap": wrap, "min_h": slot_sz.y })
+		_slots.append({ "slot": slot, "wrap": wrap_node, "min_h": slot_sz.y })
 
 func _apply_hp_instant(hp: int) -> void:
 	for i in range(_slots.size()):
 		var slot: Control = _slots[i]["slot"]
-		var wrap: Control = _slots[i]["wrap"]
+		var wrap_node: Control = _slots[i]["wrap"]
 		var min_h: float = _slots[i]["min_h"]
 
 		var h := slot.size.y
 		if h <= 0.0:
 			h = min_h
 
-		wrap.position = Vector2(0, 0) if i < hp else Vector2(0, h)
+		wrap_node.position = Vector2(0, 0) if i < hp else Vector2(0, h)
 
-func _animate_fill(slot: Control, wrap: Control, t: float) -> void:
+func _animate_fill(slot: Control, wrap_node: Control, t: float) -> void:
 	var h := slot.size.y
 	if h <= 0.0:
-		h = wrap.size.y
+		h = wrap_node.size.y
 		if h <= 0.0:
 			h = 32.0 # 兜底，不应触发
 
-	wrap.position = Vector2(0, h)
+	wrap_node.position = Vector2(0, h)
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_SINE)
 	tw.set_ease(Tween.EASE_OUT)
-	tw.tween_property(wrap, "position", Vector2(0, 0), t)
+	tw.tween_property(wrap_node, "position", Vector2(0, 0), t)

@@ -139,7 +139,6 @@ grow_vertical = 2
 color = Color(1, 1, 0, 0.6)
 
 [node name="Icon" type="TextureRect" parent="SlotA"]
-visible = false
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -153,6 +152,23 @@ offset_bottom = 40.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("3_koah0")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MonsterIcon" type="TextureRect" parent="SlotA"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
 
@@ -229,7 +245,6 @@ grow_vertical = 2
 color = Color(1, 1, 0, 0.6)
 
 [node name="Icon" type="TextureRect" parent="SlotB"]
-visible = false
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -243,6 +258,23 @@ offset_bottom = 40.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("3_koah0")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MonsterIcon" type="TextureRect" parent="SlotB"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
 

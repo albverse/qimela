@@ -226,7 +226,7 @@ func _apply_light_energy_after_delay(delay_seconds: float) -> void:
 func _on_light_finished(_any_source_id: int) -> void:
 	pass
 
-func _apply_visual_state(emitting: bool) -> void:
+func _apply_visual_state(_emitting: bool) -> void:
 	var idx: int = int(clamp(energy, 0, 5))
 	_apply_energy_texture(idx)
 

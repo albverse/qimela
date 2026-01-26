@@ -100,7 +100,7 @@ func _on_thunder_burst(add_seconds: float) -> void:
 	_thunder_processed_this_frame = true
 	
 	var old_counter = light_counter
-	light_counter += thunder_add_seconds
+	light_counter += add_seconds
 	light_counter = min(light_counter, light_counter_max)
 	
 	if light_counter != old_counter:

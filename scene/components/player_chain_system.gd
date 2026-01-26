@@ -9,7 +9,6 @@ var hand_r: Node2D
 
 var _burn_shader: Shader = null
 var _chimera: Node = null
-signal chain_bound(chain_id: int, target: Node, attribute_type: int, icon_id: int, is_chimera: bool, show_anim: bool)
 class ChainHitResolver:
 	var system: PlayerChainSystem
 
@@ -367,15 +366,21 @@ func _switch_slot() -> void:
 	active_slot = 1 - active_slot
 	EventBus.slot_switched.emit(active_slot)
 
+func _switch_to_available_slot(from_slot: int) -> void:
+	var other_slot: int = 1 - from_slot
+	if chains[other_slot].state == ChainState.IDLE and active_slot != other_slot:
+		active_slot = other_slot
+		EventBus.slot_switched.emit(active_slot)
+
 func _try_fire_chain() -> void:
 	if chains.size() < 2:
 		return
 
 	var idx: int = -1
-	if chains[0].state == ChainState.IDLE:
-		idx = 0
-	elif chains[1].state == ChainState.IDLE:
-		idx = 1
+	if chains[active_slot].state == ChainState.IDLE:
+		idx = active_slot
+	elif chains[1 - active_slot].state == ChainState.IDLE:
+		idx = 1 - active_slot
 	else:
 		return
 
@@ -414,6 +419,7 @@ func _try_fire_chain() -> void:
 	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
+	_switch_to_available_slot(idx)
 
 
 func _try_interact_from_inside(slot: int, start: Vector2) -> void:
@@ -600,16 +606,15 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 		if target.has_method("get_icon_id"):
 			icon_id = target.call("get_icon_id")
 	
-	EventBus.chain_bound.emit(slot, target, attr_type, icon_id, c.is_chimera)
-	
-	var should_show_anim: bool = false
+	var should_show_anim: bool = c.is_chimera
 	if not c.is_chimera:
 		# 只有weak或stunned才显示动画
 		if target != null and target.has_method("get_weak_state"):
 			should_show_anim = target.call("get_weak_state")
 		elif target != null and target.has_method("is_stunned"):
 			should_show_anim = target.call("is_stunned")
-	EventBus.chain_bound.emit(slot, target, attr_type, icon_id, c.is_chimera,  should_show_anim)
+	EventBus.emit_chain_bound(slot, target, attr_type, icon_id, c.is_chimera, should_show_anim)
+	_switch_to_available_slot(slot)
 
 
 func _detach_link_if_needed(slot: int) -> void:
@@ -717,7 +722,7 @@ func _finish_chain(i: int) -> void:
 	
 	# 挣脱后自动切换到空槽位
 	var other_slot: int = 1 - i
-	if chains[other_slot].state == ChainState.LINKED:
+	if chains[other_slot].state == ChainState.LINKED and not chains[other_slot].is_chimera:
 		if active_slot != i:
 			_switch_slot()
 
