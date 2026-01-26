@@ -75,7 +75,7 @@ func _emit_thunder_burst_once() -> void:
 	if debug_print:
 		print("[Thunder] thunder_burst +", thunder_add_seconds)
 
-func _on_animation_finished(name: StringName) -> void:
-	if name == thunder_animation:
+func _on_animation_finished(anim_name: StringName) -> void:
+	if anim_name == thunder_animation:
 		# 动画结束后再安排下一次随机雷击
 		_schedule_next()

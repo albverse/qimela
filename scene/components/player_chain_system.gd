@@ -9,7 +9,6 @@ var hand_r: Node2D
 
 var _burn_shader: Shader = null
 var _chimera: Node = null
-signal chain_bound(chain_id: int, target: Node, attribute_type: int, icon_id: int, is_chimera: bool, show_anim: bool)
 class ChainHitResolver:
 	var system: PlayerChainSystem
 

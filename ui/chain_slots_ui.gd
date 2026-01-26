@@ -84,7 +84,7 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 	_shake_node(slot_node)
 	_check_fusion_available()
 
-func _on_chain_released(slot: int, reason: StringName) -> void:
+func _on_chain_released(slot: int, _reason: StringName) -> void:
 	var played_anim: String = slot_states[slot].get("anim_played", "")
 	slot_states[slot] = {}
 	
