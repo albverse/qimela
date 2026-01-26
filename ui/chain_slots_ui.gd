@@ -15,6 +15,7 @@ var _burn_tweens: Array[Tween] = [null, null]
 var _burn_duration: float = 0.5
 var _burn_noise_texture: Texture2D
 var _burn_curve_texture: Texture2D
+var _player: Node
 @export var ui_no: Texture2D = preload("res://art/UI_NO.png")
 @export var ui_die: Texture2D = preload("res://art/UI_DIE.png")
 @export var ui_yes: Texture2D = preload("res://art/UI_yes.png")
@@ -126,23 +127,37 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	
 	if icon:
 		icon.visible = true
-	if monster_icon:
-		_play_monster_burn(slot, monster_icon)
-	var reverse_duration: float = 0.0
-	if anim and played_anim != "" and anim.has_animation(played_anim):
-		anim.stop()
-		anim.play_backwards(played_anim)
-		var anim_ref: Animation = anim.get_animation(played_anim)
-		reverse_duration = anim_ref.length if anim_ref != null else 0.0
-		if reverse_duration <= 0.0:
-			reverse_duration = anim.current_animation_length
-	if reverse_duration > 0.0:
-		var tw: Tween = create_tween()
-		tw.tween_callback(func() -> void:
+	var is_fusion: bool = _is_fusion_release()
+	var reverse_duration: float = _play_reverse_animation(anim, played_anim, not is_fusion)
+	var should_burn: bool = monster_icon != null and monster_icon.texture != null and burn_shader != null
+	var burn_duration: float = _burn_duration if should_burn else 0.0
+	if is_fusion:
+		if should_burn:
+			_play_monster_burn(slot, monster_icon)
+		var tw_fusion: Tween = create_tween()
+		if burn_duration > 0.0:
+			tw_fusion.tween_interval(burn_duration)
+		tw_fusion.tween_callback(func() -> void:
+			_play_reverse_animation(anim, played_anim, false)
+		)
+		if reverse_duration > 0.0:
+			tw_fusion.tween_interval(reverse_duration)
+		tw_fusion.tween_callback(func() -> void:
 			_start_cooldown(slot)
-		).set_delay(reverse_duration)
+		)
 	else:
-		_start_cooldown(slot)
+		var tw_release: Tween = create_tween()
+		if reverse_duration > 0.0:
+			tw_release.tween_interval(reverse_duration)
+		tw_release.tween_callback(func() -> void:
+			if should_burn:
+				_play_monster_burn(slot, monster_icon)
+		)
+		if burn_duration > 0.0:
+			tw_release.tween_interval(burn_duration)
+		tw_release.tween_callback(func() -> void:
+			_start_cooldown(slot)
+		)
 	
 	_check_fusion_available()
 
@@ -231,6 +246,8 @@ func _process(_delta: float) -> void:
 		var next_texture: Texture2D = _resolve_target_icon(target)
 		if next_texture != null and not is_instance_valid(next_texture):
 			next_texture = null
+		if next_texture != null and next_texture.get_rid().is_valid() == false:
+			next_texture = null
 		if next_texture != _cached_target_textures[slot]:
 			_cached_target_textures[slot] = next_texture
 			monster_icon.texture = next_texture
@@ -250,10 +267,10 @@ func _resolve_cooldown_duration() -> void:
 	var players: Array = get_tree().get_nodes_in_group("player")
 	if players.is_empty():
 		return
-	var player: Node = players[0] as Node
-	if player == null:
+	_player = players[0] as Node
+	if _player == null:
 		return
-	var value: Variant = player.get("burn_time")
+	var value: Variant = _player.get("burn_time")
 	if typeof(value) == TYPE_FLOAT:
 		_cooldown_duration = maxf(value, 0.0)
 		_burn_duration = _cooldown_duration
@@ -319,6 +336,25 @@ func _play_monster_burn(slot: int, monster_icon: TextureRect) -> void:
 		monster_icon.texture = null
 		monster_icon.material = null
 	)
+
+func _play_reverse_animation(anim: AnimationPlayer, anim_name: String, play_now: bool = true) -> float:
+	if anim == null or anim_name == "" or not anim.has_animation(anim_name):
+		return 0.0
+	var anim_ref: Animation = anim.get_animation(anim_name)
+	var anim_length: float = anim_ref.length if anim_ref != null else 0.0
+	var current_pos: float = anim.current_animation_position
+	if anim.current_animation != anim_name and anim_length > 0.0:
+		current_pos = anim_length
+	if play_now:
+		anim.play_backwards(anim_name)
+	return clamp(current_pos, 0.0, anim_length)
+
+func _is_fusion_release() -> bool:
+	if _player == null:
+		return false
+	if _player.has_method("is_player_locked"):
+		return bool(_player.call("is_player_locked"))
+	return false
 
 func _stop_cooldown_tween(slot: int) -> void:
 	var tw: Tween = _cooldown_tweens[slot]
