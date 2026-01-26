@@ -11,10 +11,15 @@ var slot_anim_playing: Array[bool] = [false, false]  # 追踪动画状态
 var _cooldown_tweens: Array[Tween] = [null, null]
 var _cooldown_duration: float = 0.5
 var _cached_target_textures: Array[Texture2D] = [null, null]
+var _burn_tweens: Array[Tween] = [null, null]
+var _burn_duration: float = 0.5
+var _burn_noise_texture: Texture2D
+var _burn_curve_texture: Texture2D
 @export var ui_no: Texture2D = preload("res://art/UI_NO.png")
 @export var ui_die: Texture2D = preload("res://art/UI_DIE.png")
 @export var ui_yes: Texture2D = preload("res://art/UI_yes.png")
 @export var cooldown_shader: Shader = preload("res://shaders/chain_cooldown_fill.gdshader")
+@export var burn_shader: Shader = preload("res://shaders/fire_Burn_shader.gdshader")
 
 
 
@@ -29,6 +34,7 @@ func _ready() -> void:
 	_update_active_indicator(1)
 	connection_line.visible = false
 	_resolve_cooldown_duration()
+	_setup_burn_assets()
 	_setup_slot_cooldown(slot_a)
 	_setup_slot_cooldown(slot_b)
 
@@ -121,9 +127,7 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	if icon:
 		icon.visible = true
 	if monster_icon:
-		monster_icon.visible = false
-		monster_icon.texture = null
-	_cached_target_textures[slot] = null
+		_play_monster_burn(slot, monster_icon)
 	var reverse_duration: float = 0.0
 	if anim and played_anim != "" and anim.has_animation(played_anim):
 		anim.stop()
@@ -252,6 +256,69 @@ func _resolve_cooldown_duration() -> void:
 	var value: Variant = player.get("burn_time")
 	if typeof(value) == TYPE_FLOAT:
 		_cooldown_duration = maxf(value, 0.0)
+		_burn_duration = _cooldown_duration
+
+func _setup_burn_assets() -> void:
+	if burn_shader == null:
+		return
+	if _burn_noise_texture == null:
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+		noise.frequency = 6.0
+		var noise_tex := NoiseTexture2D.new()
+		noise_tex.noise = noise
+		noise_tex.width = 128
+		noise_tex.height = 128
+		noise_tex.generate_mipmaps = true
+		_burn_noise_texture = noise_tex
+	if _burn_curve_texture == null:
+		var gradient := Gradient.new()
+		gradient.add_point(0.0, Color(0.0, 0.0, 0.0, 0.0))
+		gradient.add_point(0.2, Color(0.8, 0.2, 0.0, 0.9))
+		gradient.add_point(0.6, Color(1.0, 0.6, 0.2, 1.0))
+		gradient.add_point(1.0, Color(1.0, 1.0, 1.0, 0.0))
+		var gradient_tex := GradientTexture1D.new()
+		gradient_tex.gradient = gradient
+		gradient_tex.width = 256
+		_burn_curve_texture = gradient_tex
+
+func _play_monster_burn(slot: int, monster_icon: TextureRect) -> void:
+	if monster_icon == null or not is_instance_valid(monster_icon):
+		return
+	if _burn_tweens[slot] != null:
+		_burn_tweens[slot].kill()
+		_burn_tweens[slot] = null
+	_cached_target_textures[slot] = null
+	if monster_icon.texture == null or burn_shader == null:
+		monster_icon.visible = false
+		monster_icon.texture = null
+		monster_icon.material = null
+		return
+	var mat := ShaderMaterial.new()
+	mat.shader = burn_shader
+	if _burn_noise_texture != null:
+		mat.set_shader_parameter("noise", _burn_noise_texture)
+	if _burn_curve_texture != null:
+		mat.set_shader_parameter("colorCurve", _burn_curve_texture)
+	mat.set_shader_parameter("timed", false)
+	mat.set_shader_parameter("progress", 0.0)
+	monster_icon.material = mat
+	monster_icon.visible = true
+	if _burn_duration <= 0.0:
+		monster_icon.visible = false
+		monster_icon.texture = null
+		monster_icon.material = null
+		return
+	var tw: Tween = create_tween()
+	_burn_tweens[slot] = tw
+	tw.tween_property(mat, "shader_parameter/progress", 2.0, _burn_duration)
+	tw.tween_callback(func() -> void:
+		if not is_instance_valid(monster_icon):
+			return
+		monster_icon.visible = false
+		monster_icon.texture = null
+		monster_icon.material = null
+	)
 
 func _stop_cooldown_tween(slot: int) -> void:
 	var tw: Tween = _cooldown_tweens[slot]
