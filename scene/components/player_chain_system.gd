@@ -714,7 +714,7 @@ func _finish_chain(i: int) -> void:
 	
 	# 挣脱后自动切换到空槽位
 	var other_slot: int = 1 - i
-	if chains[other_slot].state == ChainState.LINKED:
+	if chains[other_slot].state == ChainState.LINKED and not chains[other_slot].is_chimera:
 		if active_slot != i:
 			_switch_slot()
 
