@@ -29,6 +29,7 @@ var _active_light_sources: Dictionary = {}
 
 # ===== 视觉 =====
 @export var visual_item_path: NodePath = NodePath("")
+@export var ui_icon: Texture2D = null
 @onready var sprite: CanvasItem = _find_visual()
 
 # ===== 运行时状态 =====
@@ -293,3 +294,11 @@ func on_chain_detached(slot: int) -> void:
 	_linked_slots.erase(slot)
 	if _linked_slots.is_empty():
 		_linked_player = null
+
+func get_ui_icon() -> Texture2D:
+	return ui_icon
+
+func get_attribute_type() -> int:
+	return attribute_type
+func get_weak_state() -> bool:
+	return weak or stunned_t > 0.0

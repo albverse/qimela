@@ -8,9 +8,12 @@ class_name ChimeraA
 @export var stop_threshold_x: float = 6.0
 @export var x_offset: float = 0.0
 
+var _hurtbox_original_layer: int = -1
+@onready var _hurtbox: Area2D = get_node_or_null("Hurtbox") as Area2D
+
 var _player: Node2D = null
 var _linked: bool = false
-var _linked_slot: int = -1
+var _linked_slot: int = -1  # -1表示未被链接
 var _wander_dir: int = 0
 var _wander_t: float = 0.0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -20,6 +23,8 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 @onready var sprite: CanvasItem = _find_visual()
 var _flash_tw: Tween = null
+@export var ui_icon: Texture2D = preload("res://yaoshi.png")
+
 
 func _ready() -> void:
 	# 让 Player 的锁链射线识别它（Player 里检测 group: "chimera"）
@@ -46,13 +51,24 @@ func on_chain_attached(slot: int) -> void:
 	_linked = true
 	_linked_slot = slot
 	_flash_once()
+	
+	# 禁用Hurtbox让另一条链穿透
+	if _hurtbox != null:
+		_hurtbox_original_layer = _hurtbox.collision_layer
+		_hurtbox.collision_layer = 0
 
-# Player：锁链断裂/溶解/结束时调用
 func on_chain_detached(slot: int) -> void:
 	if slot == _linked_slot:
 		_linked = false
 		_linked_slot = -1
+		
+		# 恢复Hurtbox
+		if _hurtbox != null and _hurtbox_original_layer >= 0:
+			_hurtbox.collision_layer = _hurtbox_original_layer
 
+func is_occupied_by_other_chain(requesting_slot: int) -> bool:
+	return _linked_slot >= 0 and _linked_slot != requesting_slot
+	
 func _physics_process(dt: float) -> void:
 	velocity.y += gravity * dt
 
@@ -119,3 +135,14 @@ func _flash_once() -> void:
 func _pick_next_wander() -> void:
 	_wander_dir = _rng.randi_range(-1, 1)
 	_wander_t = _rng.randf_range(1.0, 4.0)
+
+func get_ui_icon() -> Texture2D:
+	return ui_icon
+
+func get_attribute_type() -> int:
+	return 0
+func on_player_interact(p: Player) -> void:
+	# 奇美拉互动逻辑（例如治疗、增益等）
+	if p.has_method("heal"):
+		p.call("heal", 1)
+	print("[ChimeraA] 玩家互动：回复1心")
