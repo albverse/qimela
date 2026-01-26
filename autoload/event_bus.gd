@@ -29,8 +29,8 @@ func emit_light_finished(source_id: int) -> void:
 func emit_chain_fired(chain_id: int) -> void:
 	chain_fired.emit(chain_id)
 
-func emit_chain_bound(chain_id: int, target: Node, attribute_type: int, icon_id: int) -> void:
-	chain_bound.emit(chain_id, target, attribute_type, icon_id)
+func emit_chain_bound(chain_id: int, target: Node, attribute_type: int, icon_id: int, is_chimera: bool = false, show_anim: bool = false) -> void:
+	chain_bound.emit(chain_id, target, attribute_type, icon_id, is_chimera, show_anim)
 
 func emit_chain_released(chain_id: int, reason: StringName) -> void:
 	chain_released.emit(chain_id, reason)

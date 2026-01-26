@@ -600,16 +600,14 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 		if target.has_method("get_icon_id"):
 			icon_id = target.call("get_icon_id")
 	
-	EventBus.chain_bound.emit(slot, target, attr_type, icon_id, c.is_chimera)
-	
-	var should_show_anim: bool = false
+	var should_show_anim: bool = c.is_chimera
 	if not c.is_chimera:
 		# 只有weak或stunned才显示动画
 		if target != null and target.has_method("get_weak_state"):
 			should_show_anim = target.call("get_weak_state")
 		elif target != null and target.has_method("is_stunned"):
 			should_show_anim = target.call("is_stunned")
-	EventBus.chain_bound.emit(slot, target, attr_type, icon_id, c.is_chimera,  should_show_anim)
+	EventBus.emit_chain_bound(slot, target, attr_type, icon_id, c.is_chimera, should_show_anim)
 
 
 func _detach_link_if_needed(slot: int) -> void:
