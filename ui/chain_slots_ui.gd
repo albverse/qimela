@@ -10,6 +10,7 @@ var slot_states: Array[Dictionary] = [{}, {}]
 var slot_anim_playing: Array[bool] = [false, false]  # 追踪动画状态
 var _cooldown_tweens: Array[Tween] = [null, null]
 var _cooldown_duration: float = 0.5
+var _cached_target_textures: Array[Texture2D] = [null, null]
 @export var ui_no: Texture2D = preload("res://art/UI_NO.png")
 @export var ui_die: Texture2D = preload("res://art/UI_DIE.png")
 @export var ui_yes: Texture2D = preload("res://art/UI_yes.png")
@@ -65,6 +66,7 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 	
 	var slot_node: Control = slot_a if slot == 0 else slot_b
 	var icon: TextureRect = slot_node.get_node_or_null("Icon") as TextureRect
+	var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
 
 	var anim_path: NodePath = NodePath("Control/AnimationPlayer")
 	var anim: AnimationPlayer = slot_node.get_node_or_null(anim_path) as AnimationPlayer
@@ -72,6 +74,10 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 	if icon:
 		icon.visible = true
 		_set_cooldown_progress(slot, 0.0)
+	if monster_icon:
+		monster_icon.texture = _resolve_target_icon(target)
+		_cached_target_textures[slot] = monster_icon.texture
+		monster_icon.visible = (monster_icon.texture != null)
 
 	if anim and show_anim:
 		var anim_name: String = ""
@@ -107,12 +113,17 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	
 	var slot_node: Control = slot_a if slot == 0 else slot_b
 	var icon: TextureRect = slot_node.get_node_or_null("Icon") as TextureRect
+	var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
 	
 	var anim_path: NodePath = NodePath("Control/AnimationPlayer")
 	var anim: AnimationPlayer = slot_node.get_node_or_null(anim_path) as AnimationPlayer
 	
 	if icon:
 		icon.visible = true
+	if monster_icon:
+		monster_icon.visible = false
+		monster_icon.texture = null
+	_cached_target_textures[slot] = null
 	_start_cooldown(slot)
 	
 	if anim and played_anim != "" and anim.has_animation(played_anim):
@@ -191,6 +202,33 @@ func _set_icon_progress(icon: TextureRect, t01: float) -> void:
 	if mat == null:
 		return
 	mat.set_shader_parameter("progress", clamp(t01, 0.0, 1.0))
+
+func _process(_delta: float) -> void:
+	for slot in range(2):
+		if slot_states[slot].is_empty():
+			continue
+		var target: Node = slot_states[slot].get("target", null)
+		if target == null or not is_instance_valid(target):
+			continue
+		var slot_node: Control = slot_a if slot == 0 else slot_b
+		var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
+		if monster_icon == null:
+			continue
+		var next_texture: Texture2D = _resolve_target_icon(target)
+		if next_texture != _cached_target_textures[slot]:
+			_cached_target_textures[slot] = next_texture
+			monster_icon.texture = next_texture
+			monster_icon.visible = (next_texture != null)
+
+func _resolve_target_icon(target: Node) -> Texture2D:
+	if target != null and target.has_method("get_ui_icon"):
+		var tex: Texture2D = target.call("get_ui_icon")
+		if tex != null:
+			return tex
+	var sprite: Sprite2D = target.get_node_or_null("Sprite2D") as Sprite2D
+	if sprite != null:
+		return sprite.texture
+	return null
 
 func _resolve_cooldown_duration() -> void:
 	var players: Array = get_tree().get_nodes_in_group("player")
