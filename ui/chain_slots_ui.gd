@@ -57,8 +57,7 @@ func _on_chain_fired(slot: int) -> void:
 		flash.modulate.a = 1.0
 		var tw: Tween = create_tween()
 		tw.tween_property(flash, "modulate:a", 0.0, 0.2)
-	_set_cooldown_progress(slot, 0.0)
-	_stop_cooldown_tween(slot)
+	_start_cooldown(slot)
 
 func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_chimera: bool, show_anim: bool) -> void:
 	slot_states[slot] = {
@@ -128,7 +127,7 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	if icon:
 		icon.visible = true
 	var is_fusion: bool = _is_fusion_release()
-	var reverse_duration: float = _play_reverse_animation(anim, played_anim, not is_fusion)
+	var reverse_duration: float = _get_reverse_duration(anim, played_anim)
 	var should_burn: bool = monster_icon != null and monster_icon.texture != null and burn_shader != null
 	var burn_duration: float = _burn_duration if should_burn else 0.0
 	if is_fusion:
@@ -138,7 +137,7 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 		if burn_duration > 0.0:
 			tw_fusion.tween_interval(burn_duration)
 		tw_fusion.tween_callback(func() -> void:
-			_play_reverse_animation(anim, played_anim, false)
+			_play_reverse_animation(anim, played_anim)
 		)
 		if reverse_duration > 0.0:
 			tw_fusion.tween_interval(reverse_duration)
@@ -146,6 +145,7 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 			_start_cooldown(slot)
 		)
 	else:
+		_play_reverse_animation(anim, played_anim)
 		var tw_release: Tween = create_tween()
 		if reverse_duration > 0.0:
 			tw_release.tween_interval(reverse_duration)
@@ -249,9 +249,16 @@ func _process(_delta: float) -> void:
 		if next_texture != null and next_texture.get_rid().is_valid() == false:
 			next_texture = null
 		if next_texture != _cached_target_textures[slot]:
-			_cached_target_textures[slot] = next_texture
-			monster_icon.texture = next_texture
-			monster_icon.visible = (next_texture != null)
+			var safe_texture: Texture2D = null
+			if next_texture != null:
+				var img: Image = next_texture.get_image()
+				if img != null:
+					safe_texture = ImageTexture.create_from_image(img)
+				else:
+					safe_texture = next_texture
+			_cached_target_textures[slot] = safe_texture
+			monster_icon.texture = safe_texture
+			monster_icon.visible = (safe_texture != null)
 
 func _resolve_target_icon(target: Node) -> Texture2D:
 	if target != null and target.has_method("get_ui_icon"):
@@ -348,6 +355,15 @@ func _play_reverse_animation(anim: AnimationPlayer, anim_name: String, play_now:
 	if play_now:
 		anim.play_backwards(anim_name)
 	return clamp(current_pos, 0.0, anim_length)
+
+func _get_reverse_duration(anim: AnimationPlayer, anim_name: String) -> float:
+	if anim == null or anim_name == "" or not anim.has_animation(anim_name):
+		return 0.0
+	var anim_ref: Animation = anim.get_animation(anim_name)
+	var anim_length: float = anim_ref.length if anim_ref != null else 0.0
+	if anim.current_animation == anim_name:
+		return clamp(anim.current_animation_position, 0.0, anim_length)
+	return anim_length
 
 func _is_fusion_release() -> bool:
 	if _player == null:
