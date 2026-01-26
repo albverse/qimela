@@ -394,7 +394,7 @@ func _try_fire_chain() -> void:
 func _try_interact_from_inside(slot: int, start: Vector2) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
-	var c: ChainSlot = chains[slot]
+	var _c: ChainSlot = chains[slot]  # ← 改为 _c
 	var space: PhysicsDirectSpaceState2D = player.get_world_2d().direct_space_state
 	var circle := CircleShape2D.new()
 	circle.radius = 6.0
@@ -504,22 +504,22 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 	var rid: RID = area.get_rid()
 	if c.interacted.has(rid):
 		return
-
+	
 	if debug_interact:
-		var host: Node = area.owner
-		if host == null:
-			host = area.get_parent()
-		var host_name: String = host.name if host != null else "null"
+		var debug_host: Node = area.owner  #← 改名避免冲突
+		if debug_host == null:
+			debug_host = area.get_parent()
+		var host_name: String = String(debug_host.name) if debug_host != null else ""
 		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
-	c.interacted[rid] = true
-
+	
 	var host: Node = area.get_parent()
 	if host == null:
 		return
-
-	# 约束：交互对象要自己实现 on_chain_hit(player, slot)
+	
 	if host.has_method("on_chain_hit"):
-		host.call("on_chain_hit", player, slot)
+		var result: int = int(host.call("on_chain_hit", player, slot))  #← 显式转int
+		if result != 0:
+			c.interacted[rid] = true
 
 
 func _process_block_hit(slot: int, hit_block: Dictionary) -> void:
@@ -529,7 +529,7 @@ func _process_block_hit(slot: int, hit_block: Dictionary) -> void:
 func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 	if slot < 0 or slot >= chains.size():
 		return
-	var c: ChainSlot = chains[slot]
+	var c: ChainSlot = chains[slot]  # ← 改为 _c
 
 	_detach_link_if_needed(slot)
 

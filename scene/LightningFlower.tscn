@@ -20,7 +20,7 @@ radius = 56.0
 height = 171.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_200k4"]
-radius = 218.00229
+radius = 170.02647
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_0gdle"]
 radius = 112.01785
@@ -57,7 +57,7 @@ collision_layer = 16
 collision_mask = 16
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LightArea"]
-position = Vector2(-21, -142)
+position = Vector2(-17, -135)
 shape = SubResource("CircleShape2D_200k4")
 debug_color = Color(0.7529412, 1, 0.105882354, 0.41960785)
 

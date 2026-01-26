@@ -1,14 +1,18 @@
-[gd_scene load_steps=6 format=3 uid="uid://j7xkrffio8i4"]
+[gd_scene load_steps=8 format=3 uid="uid://j7xkrffio8i4"]
 
 [ext_resource type="Script" uid="uid://d1bjllgs223dv" path="res://scene/MonsterFly.gd" id="1_ipemx"]
 [ext_resource type="Texture2D" uid="uid://b6hccfl630f0o" path="res://tori.png" id="2_0oa28"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_0oa28"]
+[ext_resource type="Script" uid="uid://b81748dw2qmab" path="res://scene/LightReceiver.gd" id="4_f52wq"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pe88y"]
 radius = 34.839813
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_ipemx"]
 radius = 16.124516
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_wsrwy"]
+radius = 61.008198
 
 [node name="Fly1" type="CharacterBody2D"]
 collision_layer = 4
@@ -32,3 +36,11 @@ script = ExtResource("3_0oa28")
 position = Vector2(-1, 5)
 shape = SubResource("CircleShape2D_ipemx")
 debug_color = Color(0.9387655, 1.4631748e-05, 0.6244296, 0.41960785)
+
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("4_f52wq")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("CircleShape2D_wsrwy")

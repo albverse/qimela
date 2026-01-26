@@ -7,7 +7,13 @@ class_name MonsterWalk
 var _dir: int = -1
 
 func _ready() -> void:
+	# 设置属性为 DARK
+	attribute_type = AttributeType.DARK
+	
+	# 设置最大HP
 	max_hp = 5
+	
+	# 调用父类_ready
 	super._ready()
 
 func _do_move(dt: float) -> void:

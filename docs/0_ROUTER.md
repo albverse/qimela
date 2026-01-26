@@ -1,0 +1,67 @@
+# 0_ROUTER.md（入口/路由文档，2026-01-26）
+
+> **使用方式（最省 token）**：默认只输入本文件。  
+> 只有当本文件的“触发器”命中时，才去读对应模块文档（B/C/D）。  
+> 目的：避免模型为了自洽把工程“全巡检”，导致输出暴涨或卡住。
+
+---
+
+## 1) 输出契约（必须遵守）
+- 默认只输出：**步骤 + 关键代码片段**（必须标注：脚本路径 + 函数名 + 可定位的注释关键词）。
+- 只有当用户明确说“给我完整文件/给我可下载工程”时，才允许输出整段脚本或打包。
+- 每次只处理**一个核心任务**；若出现矛盾，先列“矛盾点 → 当前选择 → 如何验证”。
+
+---
+
+## 2) 当前真实待办（只保留未完成）
+1. 锁链槽位 UI（AB 槽）：显示当前链接怪物属性图标、挣扎进度条、属性提示（阶段2）
+2. 回血精灵（阶段3）：最多2只；按 C 使用；每只回 2.5 心；运动/拖尾对标《GRIS》
+
+> 其它历史问题（融合 ChimeraA / 闪白 / light_counter）已验收，不再当作缺口。
+
+---
+
+## 3) 最危险歧义（硬规则：不遵守就会把模型喂炸）
+### Layer/Mask 的写法
+- **禁止**写：“Layer=5 / Mask=5”（会被误读成 bitmask=5）。
+- **必须**写成：“bitmask 数值 + 注释（层名(层号) / Inspector 第N层）”
+  - 示例：`collision_layer = 16  # ObjectSense(5) / Inspector 第5层`
+
+换算公式（写死在这里，避免模型自推）：  
+**第N层 → bitmask = 1 << (N-1)**（例：第5层 → 16）
+
+---
+
+## 4) 文档读取协议（Router → Modules）
+默认只允许使用本文件的信息回答。  
+当且仅当需要更细节时，才允许请求读取其它文档。
+
+### 请求格式（固定一行）
+`NEED_DOC: B|C|D | 目的: <一句话> | 关键词: <最多3个>`
+
+- B：A_PHYSICS_LAYER_TABLE.md（碰撞层/bitmask/射线/Area2D）
+- C：B_GAMEPLAY_RULES.md（玩法规则：雷花/光照/LightReceiver/飞怪显隐/锁链规则）
+- D：ERRORS_INDEX.md（仅报错时检索；只取命中条目，不读整份）
+
+---
+
+## 5) 触发器（命中才读）
+### 触发 B（Physics）
+出现任一关键词：  
+`collision_layer` / `collision_mask` / `layer` / `mask` / `bitmask` / `RayCast` / `Area2D` / `get_overlapping_areas` / `is_on_wall`
+
+### 触发 C（Gameplay）
+出现任一关键词：  
+`雷花` / `光照` / `LightReceiver` / `MonsterFly` / `潜行` / `显形` / `thunder_burst` / `chain_interact` / `weak` / `stun`
+
+### 触发 D（Errors）
+出现 Godot 报错原文（如 `E 0:00:`、`Invalid call`、`Parser Error`、`Nonexistent function` 等）。
+
+---
+
+## 6) 工程事实（只放最短“定位信息”）
+- 主场景：`res://scene/MainTest.tscn`
+- 常用脚本：
+  - `res://scene/components/player_chain_system.gd`
+  - `res://scene/lightning_flower.gd`
+  - `res://scene/LightReceiver.gd`
