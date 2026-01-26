@@ -366,15 +366,21 @@ func _switch_slot() -> void:
 	active_slot = 1 - active_slot
 	EventBus.slot_switched.emit(active_slot)
 
+func _switch_to_available_slot(from_slot: int) -> void:
+	var other_slot: int = 1 - from_slot
+	if chains[other_slot].state == ChainState.IDLE and active_slot != other_slot:
+		active_slot = other_slot
+		EventBus.slot_switched.emit(active_slot)
+
 func _try_fire_chain() -> void:
 	if chains.size() < 2:
 		return
 
 	var idx: int = -1
-	if chains[0].state == ChainState.IDLE:
-		idx = 0
-	elif chains[1].state == ChainState.IDLE:
-		idx = 1
+	if chains[active_slot].state == ChainState.IDLE:
+		idx = active_slot
+	elif chains[1 - active_slot].state == ChainState.IDLE:
+		idx = 1 - active_slot
 	else:
 		return
 
@@ -413,6 +419,7 @@ func _try_fire_chain() -> void:
 	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
+	_switch_to_available_slot(idx)
 
 
 func _try_interact_from_inside(slot: int, start: Vector2) -> void:
@@ -607,6 +614,7 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 		elif target != null and target.has_method("is_stunned"):
 			should_show_anim = target.call("is_stunned")
 	EventBus.emit_chain_bound(slot, target, attr_type, icon_id, c.is_chimera, should_show_anim)
+	_switch_to_available_slot(slot)
 
 
 func _detach_link_if_needed(slot: int) -> void:

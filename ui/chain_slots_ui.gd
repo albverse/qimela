@@ -11,6 +11,7 @@ var slot_anim_playing: Array[bool] = [false, false]  # 追踪动画状态
 @export var ui_no: Texture2D = preload("res://art/UI_NO.png")
 @export var ui_die: Texture2D = preload("res://art/UI_DIE.png")
 @export var ui_yes: Texture2D = preload("res://art/UI_yes.png")
+@export var cooldown_shader: Shader = preload("res://shaders/chain_cooldown_fill.gdshader")
 
 
 
@@ -19,10 +20,13 @@ func _ready() -> void:
 	EventBus.chain_fired.connect(_on_chain_fired)
 	EventBus.chain_bound.connect(_on_chain_bound)
 	EventBus.chain_released.connect(_on_chain_released)
+	EventBus.chain_struggle_progress.connect(_on_chain_struggle_progress)
 
 	EventBus.fusion_rejected.connect(_on_fusion_rejected)
 	_update_active_indicator(1)
 	connection_line.visible = false
+	_setup_slot_cooldown(slot_a)
+	_setup_slot_cooldown(slot_b)
 
 func _on_slot_switched(active_slot: int) -> void:
 	_update_active_indicator(active_slot)
@@ -42,6 +46,7 @@ func _on_chain_fired(slot: int) -> void:
 		flash.modulate.a = 1.0
 		var tw: Tween = create_tween()
 		tw.tween_property(flash, "modulate:a", 0.0, 0.2)
+	_set_cooldown_progress(slot, 0.0)
 
 func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_chimera: bool, show_anim: bool) -> void:
 	slot_states[slot] = {
@@ -50,7 +55,8 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 		"icon": icon_id,
 		"progress": 0.0,
 		"is_chimera": is_chimera,
-		"anim_played": ""  # 记录播放的动画名
+		"anim_played": "",  # 记录播放的动画名
+		"anim_length": 0.0
 	}
 	
 	var slot_node: Control = slot_a if slot == 0 else slot_b
@@ -64,6 +70,7 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 		if tex != null:
 			icon.texture = tex
 			icon.visible = true
+			_set_cooldown_progress(slot, 1.0 if is_chimera else 0.0)
 			
 			if anim and show_anim:
 				var anim_name: String = ""
@@ -79,7 +86,16 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 				
 				if anim_name != "":
 					slot_states[slot]["anim_played"] = anim_name
-					anim.play(anim_name)
+					if anim_name == "appear":
+						var anim_ref: Animation = anim.get_animation(anim_name)
+						var anim_length: float = anim_ref.length if anim_ref != null else 0.0
+						slot_states[slot]["anim_length"] = anim_length
+						anim.play(anim_name)
+						anim.pause()
+						if anim_length > 0.0:
+							anim.seek(anim_length, true)
+					else:
+						anim.play(anim_name)
 
 	_shake_node(slot_node)
 	_check_fusion_available()
@@ -95,13 +111,35 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	var anim: AnimationPlayer = slot_node.get_node_or_null(anim_path) as AnimationPlayer
 	
 	if icon:
-		icon.visible = false
+		icon.visible = true
+	_set_cooldown_progress(slot, 1.0)
 	
 	if anim and played_anim != "" and anim.has_animation(played_anim):
-		anim.stop()
-		anim.play_backwards(played_anim)
+		if played_anim == "appear":
+			anim.stop()
+		else:
+			anim.stop()
+			anim.play_backwards(played_anim)
 	
 	_check_fusion_available()
+
+func _on_chain_struggle_progress(slot: int, t01: float) -> void:
+	if slot_states[slot].is_empty():
+		return
+	slot_states[slot]["progress"] = t01
+	_set_cooldown_progress(slot, t01)
+	var played_anim: String = slot_states[slot].get("anim_played", "")
+	if played_anim != "appear":
+		return
+	var slot_node: Control = slot_a if slot == 0 else slot_b
+	var anim: AnimationPlayer = slot_node.get_node_or_null(NodePath("Control/AnimationPlayer")) as AnimationPlayer
+	if anim and anim.has_animation(played_anim):
+		var anim_length: float = slot_states[slot].get("anim_length", 0.0)
+		if anim_length <= 0.0:
+			var anim_ref: Animation = anim.get_animation(played_anim)
+			anim_length = anim_ref.length if anim_ref != null else 0.0
+		if anim_length > 0.0:
+			anim.seek(anim_length * (1.0 - t01), true)
 
 func _check_fusion_available() -> void:
 	if slot_states[0].is_empty() or slot_states[1].is_empty():
@@ -129,6 +167,29 @@ func _on_fusion_rejected() -> void:
 		_shake_node(slot_a)
 	if not slot_states[1].is_empty():
 		_shake_node(slot_b)
+
+func _setup_slot_cooldown(slot_node: Control) -> void:
+	var icon: TextureRect = slot_node.get_node_or_null("Icon") as TextureRect
+	if icon == null or cooldown_shader == null:
+		return
+	if icon.material == null:
+		var mat := ShaderMaterial.new()
+		mat.shader = cooldown_shader
+		icon.material = mat
+	_set_icon_progress(icon, 1.0)
+
+func _set_cooldown_progress(slot: int, t01: float) -> void:
+	var slot_node: Control = slot_a if slot == 0 else slot_b
+	var icon: TextureRect = slot_node.get_node_or_null("Icon") as TextureRect
+	if icon == null:
+		return
+	_set_icon_progress(icon, t01)
+
+func _set_icon_progress(icon: TextureRect, t01: float) -> void:
+	var mat: ShaderMaterial = icon.material as ShaderMaterial
+	if mat == null:
+		return
+	mat.set_shader_parameter("progress", clamp(t01, 0.0, 1.0))
 
 func _shake_node(node: Control) -> void:
 	var original_pos: Vector2 = node.position
