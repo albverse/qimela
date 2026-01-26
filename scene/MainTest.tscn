@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=16 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://1gk18xvlf41r" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://cksllf24tarj2" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -8,6 +8,8 @@
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="3_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://j7xkrffio8i4" path="res://scene/MonsterFly.tscn" id="4_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_00cx3"]
+[ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="6_ui"]
+[ext_resource type="Texture2D" uid="uid://b1nxj7ilolc17" path="res://yaoshi.png" id="8_pe88y"]
 
 [sub_resource type="Animation" id="Animation_acqgf"]
 length = 0.001
@@ -99,6 +101,18 @@ position = Vector2(475.0001, 611)
 scale = Vector2(9.687166, 0.18983957)
 texture = ExtResource("1_71n5o")
 
+[node name="CollisionShape2D6" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+position = Vector2(1283, 563)
+shape = SubResource("RectangleShape2D_7qdox")
+
+[node name="CollisionShape2D5" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+position = Vector2(359, 564)
+shape = SubResource("RectangleShape2D_7qdox")
+
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+position = Vector2(1184, 455)
+shape = SubResource("RectangleShape2D_7qdox")
+
 [node name="CollisionShape2D3" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
 position = Vector2(315, 393)
 shape = SubResource("RectangleShape2D_7qdox")
@@ -121,9 +135,14 @@ position = Vector2(238, 571)
 
 [node name="Walk1" parent="World" instance=ExtResource("3_7qdox")]
 position = Vector2(666, 561)
+ui_icon = ExtResource("8_pe88y")
 
 [node name="Fly1" parent="World" instance=ExtResource("4_ngg7y")]
 position = Vector2(490, 397)
 
 [node name="Fly2" parent="World" instance=ExtResource("4_ngg7y")]
 position = Vector2(595, 465)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="ChainSlotsUI" parent="HUD" instance=ExtResource("6_ui")]
