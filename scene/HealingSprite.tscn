@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://csr6ywph1si8b"]
+
+[ext_resource type="Script" uid="uid://wubw7f8sjr1b" path="res://scene/HealingSprite.gd" id="1_7ojs6"]
+[ext_resource type="Texture2D" uid="uid://dp2kne0f285v8" path="res://hp_sprite.png" id="2_4crdb"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_132pn"]
+radius = 70.34202
+
+[node name="HealingSprite" type="Node2D"]
+script = ExtResource("1_7ojs6")
+orbit_radius_y = 20.0
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.5372549, 0.24705882, 1, 1)
+texture = ExtResource("2_4crdb")
+
+[node name="ChainInteract" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ChainInteract"]
+shape = SubResource("CircleShape2D_132pn")
+debug_color = Color(0.26632845, 0.6214568, 0.3607909, 0.41960785)

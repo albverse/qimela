@@ -12,6 +12,11 @@ extends CharacterBody2D
 @onready var movement = $Components/Movement
 @onready var chain: PlayerChainSystem = $Components/ChainSystem as PlayerChainSystem
 @onready var health: PlayerHealth = $Components/Health
+var healing_sprites: Array[Node2D] = []
+const MAX_HEALING_SPRITES: int = 2
+@export var action_use_healing: StringName = &"use_healing"  # C键
+
+
 # =========================
 # 融合 / 生成
 # =========================
@@ -98,6 +103,7 @@ var facing: int = 1
 var _player_locked: bool = false
 
 func _ready() -> void:
+	add_to_group("player")
 	if chain == null:
 		push_error("[Player] Components/ChainSystem missing or not PlayerChainSystem.")
 		set_physics_process(false)
@@ -135,8 +141,40 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 		health.apply_damage(amount, source_global_pos)
 			
 func _unhandled_input(event: InputEvent) -> void:
+	# 原有的锁链逻辑
 	if chain != null:
 		chain.handle_unhandled_input(event)
+	
+	# ✅ 新增：使用回血精灵
+	if event is InputEventKey:
+		var ek: InputEventKey = event as InputEventKey
+		if ek.pressed and ek.keycode == KEY_C:
+			use_healing_sprite()
+
+# 尝试收集精灵（返回orbit_index，-1表示已满）
+func try_collect_healing_sprite(sprite: Node2D) -> int:
+	if healing_sprites.size() >= MAX_HEALING_SPRITES:
+		return -1
+	
+	var index = healing_sprites.size()
+	healing_sprites.append(sprite)
+	print("[Player] 收集回血精灵，当前: %d/%d" % [healing_sprites.size(), MAX_HEALING_SPRITES])
+	return index
+# 使用回血精灵
+func use_healing_sprite() -> void:
+	if healing_sprites.is_empty():
+		print("[Player] 没有回血精灵")
+		return
+	
+	var sprite = healing_sprites.pop_back()
+	
+	if sprite != null and is_instance_valid(sprite):
+		heal(2)  # 回复2颗心
+		sprite.call("consume")
+		print("[Player] 使用回血精灵，剩余: %d" % healing_sprites.size())
+# 精灵被销毁时清理引用
+func remove_healing_sprite(sprite: Node2D) -> void:
+	healing_sprites.erase(sprite)
 
 func heal(amount: int) -> void:
 	if health != null:
