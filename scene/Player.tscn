@@ -61,6 +61,16 @@ position = Vector2(-2, 2)
 [node name="HandR" type="Marker2D" parent="Visual"]
 position = Vector2(5, 2)
 
+[node name="center1" type="Marker2D" parent="Visual"]
+position = Vector2(1, 7)
+
+[node name="center2" type="Marker2D" parent="Visual"]
+position = Vector2(0, -26)
+scale = Vector2(0.3533654, 0.35703868)
+
+[node name="center3" type="Marker2D" parent="Visual"]
+position = Vector2(0, -8)
+
 [node name="Chains" type="Node2D" parent="."]
 
 [node name="ChainLine0" type="Line2D" parent="Chains"]
