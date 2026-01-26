@@ -124,14 +124,21 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 		monster_icon.visible = false
 		monster_icon.texture = null
 	_cached_target_textures[slot] = null
-	_start_cooldown(slot)
-	
+	var reverse_duration: float = 0.0
 	if anim and played_anim != "" and anim.has_animation(played_anim):
-		if played_anim == "appear":
-			anim.stop()
-		else:
-			anim.stop()
-			anim.play_backwards(played_anim)
+		anim.stop()
+		anim.play_backwards(played_anim)
+		var anim_ref: Animation = anim.get_animation(played_anim)
+		reverse_duration = anim_ref.length if anim_ref != null else 0.0
+		if reverse_duration <= 0.0:
+			reverse_duration = anim.current_animation_length
+	if reverse_duration > 0.0:
+		var tw: Tween = create_tween()
+		tw.tween_callback(func() -> void:
+			_start_cooldown(slot)
+		).set_delay(reverse_duration)
+	else:
+		_start_cooldown(slot)
 	
 	_check_fusion_available()
 
@@ -208,13 +215,18 @@ func _process(_delta: float) -> void:
 		if slot_states[slot].is_empty():
 			continue
 		var target: Node = slot_states[slot].get("target", null)
-		if target == null or not is_instance_valid(target):
-			continue
 		var slot_node: Control = slot_a if slot == 0 else slot_b
 		var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
-		if monster_icon == null:
+		if monster_icon == null or not is_instance_valid(monster_icon):
+			continue
+		if target == null or not is_instance_valid(target):
+			monster_icon.visible = false
+			monster_icon.texture = null
+			_cached_target_textures[slot] = null
 			continue
 		var next_texture: Texture2D = _resolve_target_icon(target)
+		if next_texture != null and not is_instance_valid(next_texture):
+			next_texture = null
 		if next_texture != _cached_target_textures[slot]:
 			_cached_target_textures[slot] = next_texture
 			monster_icon.texture = next_texture
