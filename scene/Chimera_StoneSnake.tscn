@@ -1,0 +1,46 @@
+[gd_scene load_steps=7 format=3 uid="uid://deyycj5v2hjaq"]
+
+[ext_resource type="Script" uid="uid://dstsvqmr1wwd0" path="res://scene/chimera_stone_snake.gd" id="1_wdnlg"]
+[ext_resource type="Texture2D" uid="uid://c482stxx2k463" path="res://stone_snake.png" id="2_aph0o"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="2_wdnlg"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_aph0o"]
+radius = 40.706264
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_krika"]
+radius = 47.26521
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_detect"]
+radius = 200.0
+
+[node name="ChimeraStoneSnake" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_wdnlg")
+ui_icon = ExtResource("2_aph0o")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, -55)
+scale = Vector2(0.23581558, 0.26439786)
+texture = ExtResource("2_aph0o")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-2, -52)
+shape = SubResource("CircleShape2D_aph0o")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_wdnlg")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(-1, -52)
+shape = SubResource("CircleShape2D_krika")
+
+[node name="DetectionArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectionArea"]
+position = Vector2(0, -52)
+shape = SubResource("CircleShape2D_detect")
+debug_color = Color(0.2, 0.8, 0.2, 0.2)

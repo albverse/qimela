@@ -1,9 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://j7xkrffio8i4"]
+[gd_scene load_steps=10 format=3 uid="uid://j7xkrffio8i4"]
 
-[ext_resource type="Script" uid="uid://d1bjllgs223dv" path="res://scene/MonsterFly.gd" id="1_ipemx"]
-[ext_resource type="Texture2D" uid="uid://b6hccfl630f0o" path="res://tori.png" id="2_0oa28"]
+[ext_resource type="Script" uid="uid://bjlgidmnssd6" path="res://scene/monster_fly.gd" id="1_ipemx"]
+[ext_resource type="Texture2D" uid="uid://bcbmimbccum85" path="res://tori.png" id="2_0oa28"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_0oa28"]
-[ext_resource type="Script" uid="uid://b81748dw2qmab" path="res://scene/LightReceiver.gd" id="4_f52wq"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/LightReceiver.gd" id="4_f52wq"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pe88y"]
 radius = 34.839813
@@ -13,6 +13,15 @@ radius = 16.124516
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_wsrwy"]
 radius = 61.008198
+
+[sub_resource type="Gradient" id="Gradient_f52wq"]
+offsets = PackedFloat32Array(0.3127413, 0.7297297)
+colors = PackedColorArray(0.46666667, 0.8509804, 0.39607844, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_wsrwy"]
+gradient = SubResource("Gradient_f52wq")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
 
 [node name="Fly1" type="CharacterBody2D"]
 collision_layer = 4
@@ -45,3 +54,8 @@ script = ExtResource("4_f52wq")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
 shape = SubResource("CircleShape2D_wsrwy")
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(1.9073486e-06, 3.0000005)
+scale = Vector2(1.28125, 1.265625)
+texture = SubResource("GradientTexture2D_wsrwy")

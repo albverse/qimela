@@ -41,7 +41,6 @@ var healing_slots: Array[HealingSprite] = [null, null, null]
 @export var action_cancel_chains: StringName = &"cancel_chains"  # X：强制消失锁链
 @export var fusion_lock_time: float = 0.5                        # 融合演出期间锁玩家
 @export var fusion_chain_dissolve_time: float = 0.5              # 融合时两条链溶解用时（更快）
-@export var chimera_scene: PackedScene                           # 指向 ChimeraA.tscn
 
 # =========================
 # 角色移动参数
@@ -62,9 +61,9 @@ var healing_slots: Array[HealingSprite] = [null, null, null]
 # =========================
 # 锁链行为参数
 # =========================
-@export var chain_speed: float = 1200.0
-@export var chain_max_length: float = 550.0
-@export var chain_max_fly_time: float = 0.2
+@export var chain_speed: float = 2000.0
+@export var chain_max_length: float = 650.0
+@export var chain_max_fly_time: float = 0.25
 @export var hold_time: float = 0.3
 @export var burn_time: float = 0.5
 @export var cancel_dissolve_time: float = 0.3
@@ -85,10 +84,10 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 # =========================
 # “自然抖动”参数
 # =========================
-@export var rope_wave_amp: float = 44.0
+@export var rope_wave_amp: float = 77.0
 @export var rope_wave_freq: float = 10.0
 @export var rope_wave_decay: float = 7.5
-@export var rope_wave_hook_power: float = 2.2
+@export var rope_wave_hook_power: float = 6.2
 @export var rope_wave_along_segments: float = 8.0
 @export var end_motion_inject: float = 0.5
 @export var hand_motion_inject: float = 0.15
@@ -265,3 +264,17 @@ func force_dissolve_chain(slot: int) -> void:
 func force_dissolve_all_chains() -> void:
 	if chain != null:
 		chain.force_dissolve_all_chains()
+
+
+# 被子弹击中时的僵直效果
+func apply_stun(stun_time: float) -> void:
+	if health != null and health.has_method("apply_stun"):
+		health.call("apply_stun", stun_time)
+	else:
+		# 简单实现：锁定玩家一段时间
+		set_player_locked(true)
+		var tw: Tween = create_tween()
+		tw.tween_interval(stun_time)
+		tw.tween_callback(func() -> void:
+			set_player_locked(false)
+		)
