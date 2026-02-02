@@ -1,10 +1,11 @@
 extends Node
 class_name WeatherController
 
-@export var interval_min: float = 10.0 #打雷的最小间隔
-@export var interval_max: float = 30.0 #打雷的最大间隔
+@export var interval_min: float = 0.0 #打雷的最小间隔
+@export var interval_max: float = 7.0 #打雷的最大间隔
 @export var start_delay: float = 1.0
-
+@export var thunder_fx_path: NodePath
+@onready var _thunder_fx: ThunderPostFX = get_node_or_null(thunder_fx_path)
 # requirements: thunder_burst(add_seconds=3)
 @export var thunder_add_seconds: float = 3.0
 
@@ -64,17 +65,18 @@ func _emit_thunder_burst_once() -> void:
 		return
 	_emitted_this_cycle = true
 
-	# 每次打雷只触发一次事件（验收关键）
 	if typeof(EventBus) != TYPE_NIL:
 		if EventBus.has_method("emit_thunder_burst"):
 			EventBus.emit_thunder_burst(thunder_add_seconds)
 		else:
-			# 兼容：若你EventBus没有封装函数
 			EventBus.thunder_burst.emit(thunder_add_seconds)
+
+	if is_instance_valid(_thunder_fx):
+		_thunder_fx.thunder_flash()
 
 	if debug_print:
 		print("[Thunder] thunder_burst +", thunder_add_seconds)
-
+		
 func _on_animation_finished(anim_name: StringName) -> void:
 	if anim_name == thunder_animation:
 		# 动画结束后再安排下一次随机雷击

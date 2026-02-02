@@ -1,15 +1,31 @@
-[gd_scene load_steps=16 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=23 format=3 uid="uid://qyjtn0637hdi"]
 
-[ext_resource type="Texture2D" uid="uid://1gk18xvlf41r" path="res://color.jpg" id="1_71n5o"]
-[ext_resource type="Script" uid="uid://cksllf24tarj2" path="res://systems/weather_controller.gd" id="1_ngg7y"]
-[ext_resource type="Texture2D" uid="uid://h8rv6cioem6j" path="res://Thunder.png" id="2_55hp2"]
+[ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
+[ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
+[ext_resource type="Shader" uid="uid://of0uekjti6ov" path="res://shaders/thunder_post_fx.gdshader" id="1_rrjcl"]
+[ext_resource type="Texture2D" uid="uid://c75cd5rw2fry7" path="res://Thunder.png" id="2_55hp2"]
+[ext_resource type="Script" uid="uid://54q4w6d2v40a" path="res://scene/thunder_post_fx.gd" id="2_hutgn"]
 [ext_resource type="PackedScene" uid="uid://drfu4onteuxd3" path="res://scene/MonsterWalk.tscn" id="3_7qdox"]
 [ext_resource type="PackedScene" uid="uid://clq5t538kdf2a" path="res://scene/LightningFlower.tscn" id="3_acqgf"]
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="3_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://j7xkrffio8i4" path="res://scene/MonsterFly.tscn" id="4_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_00cx3"]
 [ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="6_ui"]
-[ext_resource type="Texture2D" uid="uid://b1nxj7ilolc17" path="res://yaoshi.png" id="8_pe88y"]
+[ext_resource type="PackedScene" path="res://scene/MonsterNeutral.tscn" id="7_neutral"]
+[ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="8_pe88y"]
+[ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
+[ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
+[ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
+shader = ExtResource("1_rrjcl")
+shader_parameter/amount = 0.60800002888
+shader_parameter/flash = 0.0970000046075
+shader_parameter/contrast = 4.0
+shader_parameter/gray_low = 0.0
+shader_parameter/gray_high = 1.0
+shader_parameter/color_retain = 0.0110000005225
+shader_parameter/flash_strength = 0.18
 
 [sub_resource type="Animation" id="Animation_acqgf"]
 length = 0.001
@@ -57,10 +73,25 @@ size = Vector2(90.6875, 62.5)
 
 [node name="MainTest" type="Node2D"]
 
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer"]
+visible = false
+material = SubResource("ShaderMaterial_hutgn")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_hutgn")
+fall_time = 1.0
+
 [node name="WeatherController" type="Node" parent="."]
 script = ExtResource("1_ngg7y")
 interval_min = 2.0
-interval_max = 7.0
+thunder_fx_path = NodePath("../CanvasLayer/ThunderPostFX")
 
 [node name="ThunderTimer" type="Timer" parent="WeatherController"]
 
@@ -114,7 +145,7 @@ position = Vector2(1184, 455)
 shape = SubResource("RectangleShape2D_7qdox")
 
 [node name="CollisionShape2D3" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
-position = Vector2(315, 393)
+position = Vector2(115, 385)
 shape = SubResource("RectangleShape2D_7qdox")
 
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
@@ -133,16 +164,50 @@ position = Vector2(396, 362)
 [node name="Player" parent="World" instance=ExtResource("3_ngg7y")]
 position = Vector2(238, 571)
 
+[node name="Camera2D" type="Camera2D" parent="World/Player"]
+position = Vector2(50, -446)
+
 [node name="Walk1" parent="World" instance=ExtResource("3_7qdox")]
-position = Vector2(666, 561)
+position = Vector2(780, 586)
+size_tier = 2
 ui_icon = ExtResource("8_pe88y")
 
 [node name="Fly1" parent="World" instance=ExtResource("4_ngg7y")]
 position = Vector2(490, 397)
 
 [node name="Fly2" parent="World" instance=ExtResource("4_ngg7y")]
-position = Vector2(595, 465)
+position = Vector2(410, 396)
+
+[node name="Neutral1" parent="World" instance=ExtResource("7_neutral")]
+position = Vector2(290, 507)
+
+[node name="WalkB1" parent="World" instance=ExtResource("8_walkb")]
+position = Vector2(440, 507)
+
+[node name="FlyB1" parent="World" instance=ExtResource("9_flyb")]
+position = Vector2(190, 296)
+
+[node name="Walk2" parent="World" instance=ExtResource("3_7qdox")]
+position = Vector2(488, 589)
+size_tier = 2
+
+[node name="MonsterHand" parent="World" instance=ExtResource("13_g5v7j")]
+position = Vector2(372, 467)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="ChainSlotsUI" parent="HUD" instance=ExtResource("6_ui")]
+[node name="SafeFrame" type="MarginContainer" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 125
+theme_override_constants/margin_top = 60
+theme_override_constants/margin_right = 125
+theme_override_constants/margin_bottom = 950
+
+[node name="ChainSlotsUI" parent="HUD/SafeFrame" instance=ExtResource("6_ui")]
+layout_mode = 2
+mouse_filter = 2

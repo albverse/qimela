@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3 uid="uid://de1pps8jdbyfa"]
+
+[ext_resource type="Script" uid="uid://c35rax05fmbdg" path="res://scene/monster_hand.gd" id="1_6mggw"]
+[ext_resource type="Texture2D" uid="uid://cud0jd8i1dhh3" path="res://yure.png" id="2_rf1mo"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_mvbf0"]
+radius = 16.03122
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_h4mih"]
+radius = 27.018513
+
+[node name="MonsterHand" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_6mggw")
+ui_icon = ExtResource("2_rf1mo")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(1, 0)
+texture = ExtResource("2_rf1mo")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(4, 0)
+shape = SubResource("CircleShape2D_mvbf0")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(3, -2)
+shape = SubResource("CircleShape2D_h4mih")
+debug_color = Color(0.8386625, 0.3219508, 0.55225575, 0.41960785)

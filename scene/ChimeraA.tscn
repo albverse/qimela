@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://dsyys0748arks"]
 
-[ext_resource type="Script" uid="uid://cfw301easht5" path="res://scene/ChimeraA.gd" id="1_7bd0c"]
-[ext_resource type="Texture2D" uid="uid://b1nxj7ilolc17" path="res://yaoshi.png" id="2_iljuf"]
+[ext_resource type="Script" uid="uid://by8ppqcgos54e" path="res://scene/chimera_a.gd" id="1_7bd0c"]
+[ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="2_iljuf"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_iljuf"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_7bd0c"]
@@ -10,7 +10,7 @@ radius = 40.706264
 [sub_resource type="CircleShape2D" id="CircleShape2D_iljuf"]
 radius = 47.26521
 
-[node name="ChimeraA" type="CharacterBody2D" groups=["hurtbox_enemy"]]
+[node name="ChimeraA" type="CharacterBody2D"]
 collision_layer = 4
 script = ExtResource("1_7bd0c")
 

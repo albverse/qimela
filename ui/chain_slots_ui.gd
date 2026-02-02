@@ -53,11 +53,29 @@ func _update_active_indicator(active_slot: int) -> void:
 func _on_chain_fired(slot: int) -> void:
 	var slot_node: Control = slot_a if slot == 0 else slot_b
 	var flash: ColorRect = slot_node.get_node_or_null("FlashOverlay") as ColorRect
+	var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
+	var anim: AnimationPlayer = slot_node.get_node_or_null(NodePath("Control/AnimationPlayer")) as AnimationPlayer
+	
+	# 停止正在进行的动画
+	if anim != null:
+		anim.stop()
+	_stop_all_slot_animations(slot)
+	
+	# 立即清空monster icon
+	_clear_monster_icon(monster_icon)
+	
+	# 清空slot状态
+	slot_states[slot] = {}
+	
+	# 播放闪光效果
 	if flash:
 		flash.modulate.a = 1.0
 		var tw: Tween = create_tween()
 		tw.tween_property(flash, "modulate:a", 0.0, 0.2)
+	
+	# 立即开始cooldown
 	_start_cooldown(slot)
+	_check_fusion_available()
 
 func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_chimera: bool, show_anim: bool) -> void:
 	slot_states[slot] = {
@@ -115,6 +133,8 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 
 func _on_chain_released(slot: int, _reason: StringName) -> void:
 	var played_anim: String = slot_states[slot].get("anim_played", "")
+	var had_target: bool = not slot_states[slot].is_empty() and slot_states[slot].get("target", null) != null
+	var current_progress: float = slot_states[slot].get("progress", 1.0)  # 挣扎进度
 	slot_states[slot] = {}
 	
 	var slot_node: Control = slot_a if slot == 0 else slot_b
@@ -126,40 +146,157 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	
 	if icon:
 		icon.visible = true
-	var is_fusion: bool = _is_fusion_release()
-	var reverse_duration: float = _get_reverse_duration(anim, played_anim)
+	
+	# =================================================================
+	# 没有绑定目标时 → 立即播放cooldown，无任何等待
+	# =================================================================
+	if not had_target:
+		_clear_monster_icon(monster_icon)
+		# 停止可能正在播放的动画
+		if anim != null:
+			anim.stop()
+		_start_cooldown(slot)
+		_check_fusion_available()
+		return
+	
+	# =================================================================
+	# 有目标时：严格串行播放
+	# 顺序：倒放动画剩余部分(完成后) → burn shader(完成后) → cooldown shader
+	# =================================================================
+	
+	var has_anim: bool = (anim != null and played_anim != "" and anim.has_animation(played_anim))
 	var should_burn: bool = monster_icon != null and monster_icon.texture != null and burn_shader != null
+	
+	# 获取动画时长和当前位置
+	var anim_length: float = 0.0
+	var current_anim_pos: float = 0.0
+	if has_anim:
+		var anim_ref: Animation = anim.get_animation(played_anim)
+		anim_length = anim_ref.length if anim_ref != null else 0.0
+		# 根据挣扎进度计算当前动画位置
+		# progress=1.0时动画在末尾(anim_length)，progress=0.0时动画在开头(0)
+		current_anim_pos = anim_length * (1.0 - current_progress)
+	
+	# 倒放剩余时间 = 当前位置到0的时间
+	var reverse_duration: float = current_anim_pos
+	
 	var burn_duration: float = _burn_duration if should_burn else 0.0
-	if is_fusion:
-		if should_burn:
-			_play_monster_burn(slot, monster_icon)
-		var tw_fusion: Tween = create_tween()
-		if burn_duration > 0.0:
-			tw_fusion.tween_interval(burn_duration)
-		tw_fusion.tween_callback(func() -> void:
-			_play_reverse_animation(anim, played_anim)
+	
+	# 停止所有正在进行的相关tween和动画
+	_stop_all_slot_animations(slot)
+	
+	# 使用单一tween严格串行控制所有步骤
+	var tw: Tween = create_tween()
+	_release_tweens[slot] = tw
+	
+	# ===== 步骤1：播放倒放动画（仅剩余部分）=====
+	if has_anim and reverse_duration > 0.01:  # 大于10ms才播放
+		# 从当前位置开始倒放
+		anim.play_backwards(played_anim)
+		anim.seek(current_anim_pos, true)
+		# 等待倒放完成（只等剩余时间）
+		tw.tween_interval(reverse_duration)
+		# 动画结束后停止AnimationPlayer防止重复
+		tw.tween_callback(func() -> void:
+			if anim != null and is_instance_valid(anim):
+				anim.stop()
 		)
-		if reverse_duration > 0.0:
-			tw_fusion.tween_interval(reverse_duration)
-		tw_fusion.tween_callback(func() -> void:
-			_start_cooldown(slot)
+	elif anim != null:
+		# 动画已经结束或很短，直接停止
+		anim.stop()
+	
+	# ===== 步骤2：播放burn shader =====
+	if should_burn and burn_duration > 0.0:
+		# 初始化burn shader
+		tw.tween_callback(func() -> void:
+			_setup_burn_shader_on_icon(slot, monster_icon)
+		)
+		# 动画化burn progress参数（直接在主tween中）
+		tw.tween_method(
+			func(progress: float) -> void:
+				_update_burn_progress(slot, monster_icon, progress),
+			0.0, 2.0, burn_duration
+		)
+		# burn完成后清理图标
+		tw.tween_callback(func() -> void:
+			_clear_monster_icon(monster_icon)
 		)
 	else:
-		_play_reverse_animation(anim, played_anim)
-		var tw_release: Tween = create_tween()
-		if reverse_duration > 0.0:
-			tw_release.tween_interval(reverse_duration)
-		tw_release.tween_callback(func() -> void:
-			if should_burn:
-				_play_monster_burn(slot, monster_icon)
-		)
-		if burn_duration > 0.0:
-			tw_release.tween_interval(burn_duration)
-		tw_release.tween_callback(func() -> void:
-			_start_cooldown(slot)
+		# 无burn时直接清理图标
+		tw.tween_callback(func() -> void:
+			_clear_monster_icon(monster_icon)
 		)
 	
+	# ===== 步骤3：播放cooldown shader =====
+	tw.tween_callback(func() -> void:
+		_start_cooldown(slot)
+	)
+	
 	_check_fusion_available()
+
+# =============================================================================
+# 释放动画辅助函数
+# =============================================================================
+
+# 释放过程专用tween数组
+var _release_tweens: Array[Tween] = [null, null]
+
+# 保存burn shader材质引用
+var _burn_materials: Array[ShaderMaterial] = [null, null]
+
+func _stop_all_slot_animations(slot: int) -> void:
+	# 停止release tween
+	if _release_tweens[slot] != null:
+		_release_tweens[slot].kill()
+		_release_tweens[slot] = null
+	
+	# 停止burn tween
+	if _burn_tweens[slot] != null:
+		_burn_tweens[slot].kill()
+		_burn_tweens[slot] = null
+	
+	# 停止cooldown tween
+	_stop_cooldown_tween(slot)
+	
+	# 清理burn材质引用
+	_burn_materials[slot] = null
+
+func _clear_monster_icon(monster_icon: TextureRect) -> void:
+	if monster_icon != null and is_instance_valid(monster_icon):
+		monster_icon.visible = false
+		monster_icon.texture = null
+		monster_icon.material = null
+
+func _setup_burn_shader_on_icon(slot: int, monster_icon: TextureRect) -> void:
+	# 设置burn shader材质
+	if monster_icon == null or not is_instance_valid(monster_icon):
+		return
+	if monster_icon.texture == null or burn_shader == null:
+		return
+	
+	var mat := ShaderMaterial.new()
+	mat.shader = burn_shader
+	if _burn_noise_texture != null:
+		mat.set_shader_parameter("noise", _burn_noise_texture)
+	if _burn_curve_texture != null:
+		mat.set_shader_parameter("colorCurve", _burn_curve_texture)
+	mat.set_shader_parameter("timed", false)
+	mat.set_shader_parameter("progress", 0.0)
+	monster_icon.material = mat
+	monster_icon.visible = true
+	
+	# 保存材质引用以便更新progress
+	_burn_materials[slot] = mat
+	_cached_target_textures[slot] = null
+
+func _update_burn_progress(slot: int, monster_icon: TextureRect, progress: float) -> void:
+	# 更新burn shader的progress参数
+	if _burn_materials[slot] != null:
+		_burn_materials[slot].set_shader_parameter("progress", progress)
+	elif monster_icon != null and is_instance_valid(monster_icon):
+		var mat: ShaderMaterial = monster_icon.material as ShaderMaterial
+		if mat != null:
+			mat.set_shader_parameter("progress", progress)
 
 func _on_chain_struggle_progress(slot: int, t01: float) -> void:
 	if slot_states[slot].is_empty():
@@ -179,23 +316,50 @@ func _on_chain_struggle_progress(slot: int, t01: float) -> void:
 			anim.seek(anim_length * (1.0 - t01), true)
 
 func _check_fusion_available() -> void:
+	# 检查两个槽位是否都有目标
 	if slot_states[0].is_empty() or slot_states[1].is_empty():
 		connection_line.visible = false
+		center_icon.visible = false
 		return
 	
 	connection_line.visible = true
 	
-	var target0: Node = slot_states[0].target
-	var target1: Node = slot_states[1].target
-	var attr0: int = slot_states[0].attribute
-	var attr1: int = slot_states[1].attribute
+	var target0: Node = slot_states[0].get("target", null)
+	var target1: Node = slot_states[1].get("target", null)
 	
+	# 相同目标 → 无法合成
 	if target0 == target1:
 		center_icon.texture = ui_no
-	elif (attr0 == 1 and attr1 == 2) or (attr0 == 2 and attr1 == 1):
-		center_icon.texture = ui_die
-	else:
-		center_icon.texture = ui_yes
+		center_icon.visible = true
+		return
+	
+	# 获取EntityBase
+	var entity0: EntityBase = target0 as EntityBase
+	var entity1: EntityBase = target1 as EntityBase
+	
+	if entity0 == null or entity1 == null:
+		center_icon.texture = ui_no
+		center_icon.visible = true
+		return
+	
+	# 使用FusionRegistry检查融合结果
+	var result: Dictionary = FusionRegistry.check_fusion(entity0, entity1)
+	
+	# 根据结果类型选择图标
+	# FusionResultType: SUCCESS=0, FAIL_HOSTILE=1, FAIL_VANISH=2, FAIL_EXPLODE=3, HEAL_LARGE=4, REJECTED=5, WEAKEN_BOSS=6
+	var result_type: int = result.get("type", -1)
+	
+	match result_type:
+		FusionRegistry.FusionResultType.SUCCESS:
+			# 成功融合 → ui_yes
+			center_icon.texture = ui_yes
+		FusionRegistry.FusionResultType.REJECTED:
+			# 拒绝（无规则/不兼容）→ ui_no
+			center_icon.texture = ui_no
+		_:
+			# 其他类型（FAIL_HOSTILE, FAIL_VANISH, FAIL_EXPLODE, HEAL_LARGE, WEAKEN_BOSS）
+			# 有规则但会有负面/特殊效果 → ui_die
+			center_icon.texture = ui_die
 	
 	center_icon.visible = true
 
@@ -306,64 +470,7 @@ func _setup_burn_assets() -> void:
 		gradient_tex.width = 256
 		_burn_curve_texture = gradient_tex
 
-func _play_monster_burn(slot: int, monster_icon: TextureRect) -> void:
-	if monster_icon == null or not is_instance_valid(monster_icon):
-		return
-	if _burn_tweens[slot] != null:
-		_burn_tweens[slot].kill()
-		_burn_tweens[slot] = null
-	_cached_target_textures[slot] = null
-	if monster_icon.texture == null or burn_shader == null:
-		monster_icon.visible = false
-		monster_icon.texture = null
-		monster_icon.material = null
-		return
-	var mat := ShaderMaterial.new()
-	mat.shader = burn_shader
-	if _burn_noise_texture != null:
-		mat.set_shader_parameter("noise", _burn_noise_texture)
-	if _burn_curve_texture != null:
-		mat.set_shader_parameter("colorCurve", _burn_curve_texture)
-	mat.set_shader_parameter("timed", false)
-	mat.set_shader_parameter("progress", 0.0)
-	monster_icon.material = mat
-	monster_icon.visible = true
-	if _burn_duration <= 0.0:
-		monster_icon.visible = false
-		monster_icon.texture = null
-		monster_icon.material = null
-		return
-	var tw: Tween = create_tween()
-	_burn_tweens[slot] = tw
-	tw.tween_property(mat, "shader_parameter/progress", 2.0, _burn_duration)
-	tw.tween_callback(func() -> void:
-		if not is_instance_valid(monster_icon):
-			return
-		monster_icon.visible = false
-		monster_icon.texture = null
-		monster_icon.material = null
-	)
-
-func _play_reverse_animation(anim: AnimationPlayer, anim_name: String, play_now: bool = true) -> float:
-	if anim == null or anim_name == "" or not anim.has_animation(anim_name):
-		return 0.0
-	var anim_ref: Animation = anim.get_animation(anim_name)
-	var anim_length: float = anim_ref.length if anim_ref != null else 0.0
-	var current_pos: float = anim.current_animation_position
-	if anim.current_animation != anim_name and anim_length > 0.0:
-		current_pos = anim_length
-	if play_now:
-		anim.play_backwards(anim_name)
-	return clamp(current_pos, 0.0, anim_length)
-
-func _get_reverse_duration(anim: AnimationPlayer, anim_name: String) -> float:
-	if anim == null or anim_name == "" or not anim.has_animation(anim_name):
-		return 0.0
-	var anim_ref: Animation = anim.get_animation(anim_name)
-	var anim_length: float = anim_ref.length if anim_ref != null else 0.0
-	if anim.current_animation == anim_name:
-		return clamp(anim.current_animation_position, 0.0, anim_length)
-	return anim_length
+# 注意：旧的_play_monster_burn已被_setup_burn_shader_on_icon和_update_burn_progress替代
 
 func _is_fusion_release() -> bool:
 	if _player == null:
