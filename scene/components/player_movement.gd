@@ -8,6 +8,7 @@ var _visual: Node2D
 # 跳跃状态追踪
 var _was_on_floor: bool = true
 var _is_jumping: bool = false  # 是否处于跳跃上升阶段
+var _fall_loop_started: bool = false
 
 # 双击检测（用于奔跑）
 var _last_left_time: float = -1.0
@@ -81,6 +82,7 @@ func tick(dt: float) -> void:
 		if _player.is_on_floor() and jump_pressed:
 			_player.velocity.y = -_player.jump_speed
 			_is_jumping = true
+			_fall_loop_started = false
 			# 播放跳跃起跳动画
 			_play_anim_jump_up()
 	
@@ -102,27 +104,33 @@ func _update_animation() -> void:
 	# 刚落地
 	if on_floor and not _was_on_floor:
 		_is_jumping = false
+		_fall_loop_started = false
 		_player.animator.play_jump_down()
 		return
 	
 	# 空中
 	if not on_floor:
-		# 开始下落（速度向下且不是刚起跳）
-		if _player.velocity.y > 0 and not _is_jumping:
+		# 上升结束后，进入下落循环
+		if _player.velocity.y <= 0:
+			_is_jumping = false
+		# 仅在真正下落时播放 jump_loop
+		if _player.velocity.y > 0 and not _fall_loop_started:
 			_player.animator.play_jump_loop()
+			_fall_loop_started = true
 		# 跳跃上升阶段由 play_jump_up 处理
 		return
 	
 	# 地面状态
 	if moving:
+		if _player.animator.is_one_shot_playing():
+			return
 		if _is_running:
 			_player.animator.play_run()
 		else:
 			_player.animator.play_walk()
 	else:
-		# 只有在不是播放一次性动画时才切换到idle
-		var current := _player.animator.get_current_anim()
-		if current != _player.animator.anim_jump_down:  # 落地动画播完会自动切
+		# 一次性动画期间不要强制切 idle
+		if not _player.animator.is_one_shot_playing():
 			_player.animator.play_idle()
 
 

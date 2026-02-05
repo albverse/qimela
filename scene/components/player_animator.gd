@@ -12,7 +12,7 @@ class_name PlayerAnimator
 # 动画名称配置（可在Inspector覆盖）
 # ============================================================
 @export_group("基础动画")
-@export var anim_idle: StringName = &"idle"              ## 静止站立（修正拼写）
+@export var anim_idle: StringName = &"idel"              ## 静止站立（资源里当前拼写为 idel）
 @export var anim_walk: StringName = &"walk"              ## 行走
 @export var anim_run: StringName = &"run"                ## 奔跑（双击方向键）
 
@@ -45,6 +45,7 @@ var _player: Player = null
 var _spine: Node = null  # SpineSprite
 var _current_anim: StringName = &""
 var _current_track: int = 0
+var _is_one_shot_playing: bool = false
 
 # 动画队列：一次性动画播完后回到的动画
 var _return_anim: StringName = &""
@@ -123,6 +124,7 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	_current_anim = anim_name
 	_current_track = track
+	_is_one_shot_playing = not loop
 	_return_anim = anim_idle if return_to_idle else &""
 	
 	# 获取AnimationState并播放
@@ -137,11 +139,8 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	if anim_state.has_method("set_animation"):
 		print("[PlayerAnimator] Playing: %s (loop=%s, track=%d)" % [anim_name_str, loop, track])
-		# ✅ 直接调用，不用 call()（更安全）
-		if anim_state.has_method("set_animation"):
-			anim_state.set_animation(anim_name_str, track, loop)
-		else:
-			anim_state.call("set_animation", track, anim_name_str, loop)
+		# Spine API：set_animation(track, animation_name, loop)
+		anim_state.call("set_animation", track, anim_name_str, loop)
 	else:
 		push_error("[PlayerAnimator] AnimationState missing set_animation method!")
 
@@ -149,6 +148,7 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 func _on_animation_completed(_track_entry: Variant) -> void:
 	"""动画播放完毕回调"""
 	# 如果设置了返回动画，自动切换
+	_is_one_shot_playing = false
 	if _return_anim != &"":
 		var return_to := _return_anim
 		_return_anim = &""
@@ -323,6 +323,11 @@ func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
 func get_current_anim() -> StringName:
 	"""获取当前播放的动画名称"""
 	return _current_anim
+
+
+func is_one_shot_playing() -> bool:
+	"""是否正在播放一次性动画（用于阻止移动逻辑覆盖）"""
+	return _is_one_shot_playing
 
 
 func is_playing(anim_name: StringName) -> bool:
