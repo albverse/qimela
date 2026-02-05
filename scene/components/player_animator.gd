@@ -12,7 +12,7 @@ class_name PlayerAnimator
 # 动画名称配置（可在Inspector覆盖）
 # ============================================================
 @export_group("基础动画")
-@export var anim_idle: StringName = &"idle"              ## 静止站立（修正拼写）
+@export var anim_idle: StringName = &"idle"              ## 静止站立（需求统一为 idle）
 @export var anim_walk: StringName = &"walk"              ## 行走
 @export var anim_run: StringName = &"run"                ## 奔跑（双击方向键）
 
@@ -45,6 +45,12 @@ var _player: Player = null
 var _spine: Node = null  # SpineSprite
 var _current_anim: StringName = &""
 var _current_track: int = 0
+var _is_one_shot_playing: bool = false
+var _one_shot_timer: float = 0.0
+var _has_completion_signal: bool = false
+
+@export_group("一次性动画回收")
+@export var one_shot_fallback_timeout: float = 1.2  ## 仅在无completion信号时启用的兜底时长
 
 # 动画队列：一次性动画播完后回到的动画
 var _return_anim: StringName = &""
@@ -72,9 +78,11 @@ func _ready() -> void:
 		# 连接动画完成信号
 		if _spine.has_signal("animation_completed"):
 			_spine.connect("animation_completed", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_completed")
 		elif _spine.has_signal("animation_complete"):
 			_spine.connect("animation_complete", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_complete")
 		else:
 			push_warning("[PlayerAnimator] No animation completion signal found")
@@ -82,6 +90,20 @@ func _ready() -> void:
 	# 初始播放idle
 	print("[PlayerAnimator] Playing initial animation: %s" % anim_idle)
 	play_idle()
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	# 兜底：仅在没有completion信号时启用超时回收，避免提前截断真实一次性动画
+	if _has_completion_signal:
+		return
+	if not _is_one_shot_playing:
+		return
+	if _one_shot_timer <= 0.0:
+		return
+	_one_shot_timer -= delta
+	if _one_shot_timer <= 0.0:
+		_finish_one_shot()
 
 
 func _find_player() -> Player:
@@ -123,6 +145,8 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	_current_anim = anim_name
 	_current_track = track
+	_is_one_shot_playing = not loop
+	_one_shot_timer = one_shot_fallback_timeout if (not loop and not _has_completion_signal) else 0.0
 	_return_anim = anim_idle if return_to_idle else &""
 	
 	# 获取AnimationState并播放
@@ -137,18 +161,24 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	if anim_state.has_method("set_animation"):
 		print("[PlayerAnimator] Playing: %s (loop=%s, track=%d)" % [anim_name_str, loop, track])
-		# ✅ 直接调用，不用 call()（更安全）
-		if anim_state.has_method("set_animation"):
-			anim_state.set_animation(anim_name_str, track, loop)
-		else:
-			anim_state.call("set_animation", track, anim_name_str, loop)
+		# Spine Godot绑定参数顺序：set_animation(animation_name, loop, track)
+		# 若把 track/loop 传反，会出现：循环动画只播一次、一次性动画时序异常
+		anim_state.set_animation(anim_name_str, loop, track)
 	else:
 		push_error("[PlayerAnimator] AnimationState missing set_animation method!")
 
 
 func _on_animation_completed(_track_entry: Variant) -> void:
 	"""动画播放完毕回调"""
-	# 如果设置了返回动画，自动切换
+	_finish_one_shot()
+
+
+func _finish_one_shot() -> void:
+	"""一次性动画结束后的统一收尾（信号/超时共用）"""
+	if not _is_one_shot_playing and _return_anim == &"":
+		return
+	_is_one_shot_playing = false
+	_one_shot_timer = 0.0
 	if _return_anim != &"":
 		var return_to := _return_anim
 		_return_anim = &""
@@ -323,6 +353,11 @@ func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
 func get_current_anim() -> StringName:
 	"""获取当前播放的动画名称"""
 	return _current_anim
+
+
+func is_one_shot_playing() -> bool:
+	"""是否正在播放一次性动画（用于阻止移动逻辑覆盖）"""
+	return _is_one_shot_playing
 
 
 func is_playing(anim_name: StringName) -> bool:
