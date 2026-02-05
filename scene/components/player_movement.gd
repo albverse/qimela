@@ -24,6 +24,7 @@ func _ready() -> void:
 		return
 
 	_visual = _player.get_node_or_null(_player.visual_path) as Node2D
+	_was_on_floor = _player.is_on_floor()
 
 func tick(dt: float) -> void:
 	var left: bool = Input.is_action_pressed(_player.action_left) if _has_action(_player.action_left) else Input.is_key_pressed(KEY_A)
