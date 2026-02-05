@@ -47,9 +47,10 @@ var _current_anim: StringName = &""
 var _current_track: int = 0
 var _is_one_shot_playing: bool = false
 var _one_shot_timer: float = 0.0
+var _has_completion_signal: bool = false
 
 @export_group("一次性动画回收")
-@export var one_shot_fallback_timeout: float = 0.6  ## completion信号丢失时，最多阻塞这么久
+@export var one_shot_fallback_timeout: float = 1.2  ## 仅在无completion信号时启用的兜底时长
 
 # 动画队列：一次性动画播完后回到的动画
 var _return_anim: StringName = &""
@@ -77,9 +78,11 @@ func _ready() -> void:
 		# 连接动画完成信号
 		if _spine.has_signal("animation_completed"):
 			_spine.connect("animation_completed", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_completed")
 		elif _spine.has_signal("animation_complete"):
 			_spine.connect("animation_complete", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_complete")
 		else:
 			push_warning("[PlayerAnimator] No animation completion signal found")
@@ -91,7 +94,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	# 兜底：如果Spine completion信号没触发，超时后自动结束一次性动画
+	# 兜底：仅在没有completion信号时启用超时回收，避免提前截断真实一次性动画
+	if _has_completion_signal:
+		return
 	if not _is_one_shot_playing:
 		return
 	if _one_shot_timer <= 0.0:
@@ -141,7 +146,7 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	_current_anim = anim_name
 	_current_track = track
 	_is_one_shot_playing = not loop
-	_one_shot_timer = one_shot_fallback_timeout if not loop else 0.0
+	_one_shot_timer = one_shot_fallback_timeout if (not loop and not _has_completion_signal) else 0.0
 	_return_anim = anim_idle if return_to_idle else &""
 	
 	# 获取AnimationState并播放
