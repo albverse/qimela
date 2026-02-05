@@ -1,6 +1,7 @@
-[gd_scene load_steps=13 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=15 format=3 uid="uid://m7ts2uye3c05"]
 
 [ext_resource type="Script" uid="uid://btlkrf7tvnl0s" path="res://scene/player.gd" id="1_y30ri"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://bjsiupofvndxl" path="res://art/player/spine/player_spine.tres" id="2_63jwq"]
 [ext_resource type="Texture2D" uid="uid://bal53d1ex2ekj" path="res://character.png" id="2_waelg"]
 [ext_resource type="Texture2D" uid="uid://cxpwuegv2sp8t" path="res://scene/chain.png" id="3_82gks"]
 [ext_resource type="Shader" uid="uid://djjbe2mxwgpqf" path="res://shaders/chain_sand_dissolve.gdshader" id="3_dc1pm"]
@@ -8,6 +9,7 @@
 [ext_resource type="Script" uid="uid://bjblrfsckeueb" path="res://scene/components/player_movement.gd" id="7_kqvfm"]
 [ext_resource type="Script" uid="uid://dn7yc7dv7fq8w" path="res://scene/components/player_chain_system.gd" id="8_63jwq"]
 [ext_resource type="Script" uid="uid://cq08x3g40oedh" path="res://scene/components/player_health.gd" id="9_63jwq"]
+[ext_resource type="Script" uid="uid://canimator001" path="res://scene/components/player_animator.gd" id="10_anim"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
 radius = 26.0
@@ -48,7 +50,17 @@ shape = SubResource("CapsuleShape2D_dc1pm")
 [node name="Visual" type="Node2D" parent="."]
 position = Vector2(0, -42)
 
+[node name="SpineSprite" type="SpineSprite" parent="Visual"]
+position = Vector2(8, 56)
+scale = Vector2(0.5, 0.5)
+skeleton_data_res = ExtResource("2_63jwq")
+preview_skin = "Default"
+preview_animation = "idle"
+preview_frame = false
+preview_time = 0.0
+
 [node name="Sprite2D" type="Sprite2D" parent="Visual"]
+visible = false
 z_index = 1
 position = Vector2(3, -41.999996)
 scale = Vector2(0.445, 0.445)
@@ -98,6 +110,10 @@ script = ExtResource("8_63jwq")
 [node name="Health" type="Node" parent="Components"]
 script = ExtResource("9_63jwq")
 max_hp = 6
+
+[node name="Animator" type="Node" parent="Components"]
+script = ExtResource("10_anim")
+spine_path = NodePath("../../Visual/SpineSprite")
 
 [node name="HealingBurstArea" type="Area2D" parent="."]
 collision_layer = 0

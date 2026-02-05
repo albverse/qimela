@@ -13,6 +13,7 @@ extends CharacterBody2D
 @onready var movement = $Components/Movement
 @onready var chain: PlayerChainSystem = $Components/ChainSystem as PlayerChainSystem
 @onready var health: PlayerHealth = $Components/Health
+@onready var animator: PlayerAnimator = $Components/Animator as PlayerAnimator  # Spine动画控制器
 
 # =========================
 # Healing 精灵中心点（你会在Player场景创建 center1/2/3）
@@ -55,9 +56,10 @@ var healing_slots: Array[HealingSprite] = [null, null, null]
 # 角色移动参数
 # =========================
 @export var move_speed: float = 260.0
+@export var run_speed_mult: float = 1.3            ## 奔跑速度倍率（双击方向键）
 @export var jump_speed: float = 520.0
 @export var gravity: float = 1500.0
-@export var facing_visual_sign: float = 1.0
+@export var facing_visual_sign: float = -1.0  # Spine朝右，需要-1翻转
 
 # =========================
 # 输入映射名（有就用，没有就读按键）
