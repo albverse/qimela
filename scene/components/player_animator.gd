@@ -12,7 +12,7 @@ class_name PlayerAnimator
 # 动画名称配置（可在Inspector覆盖）
 # ============================================================
 @export_group("基础动画")
-@export var anim_idle: StringName = &"idel"              ## 静止站立（资源里当前拼写为 idel）
+@export var anim_idle: StringName = &"idle"              ## 静止站立（需求统一为 idle）
 @export var anim_walk: StringName = &"walk"              ## 行走
 @export var anim_run: StringName = &"run"                ## 奔跑（双击方向键）
 
