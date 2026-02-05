@@ -161,15 +161,20 @@ func _ready() -> void:
 		set_process(false)
 		return
 
+	# 保留Marker2D作为fallback（Spine骨骼不可用时）
 	hand_l = player.get_node_or_null(player.hand_l_path) as Node2D
 	hand_r = player.get_node_or_null(player.hand_r_path) as Node2D
 	var line0: Line2D = player.get_node_or_null(player.chain_line0_path) as Line2D
 	var line1: Line2D = player.get_node_or_null(player.chain_line1_path) as Line2D
 
-	if hand_l == null or hand_r == null or line0 == null or line1 == null:
-		push_error("[ChainSystem] hand/line node paths invalid.")
+	if line0 == null or line1 == null:
+		push_error("[ChainSystem] chain line paths invalid.")
 		set_process(false)
 		return
+	
+	# hand_l/hand_r可以为null（会使用animator骨骼）
+	if hand_l == null and hand_r == null:
+		push_warning("[ChainSystem] HandL/HandR Marker2D not found, will use Spine bone anchors.")
 
 	if player.chain_shader_path == "" or player.chain_shader_path == null:
 		player.chain_shader_path = player.DEFAULT_CHAIN_SHADER_PATH
@@ -194,6 +199,20 @@ func _ready() -> void:
 
 	_hit_resolver = ChainHitResolver.new(self)
 	_attach_policy = ChainAttachPolicy.new(self)
+
+
+## 获取手部锁链发射点位置（优先使用Spine骨骼，fallback到Marker2D）
+func _get_hand_position(use_right_hand: bool) -> Vector2:
+	# 优先从animator获取骨骼位置
+	if player.animator != null:
+		return player.animator.get_chain_anchor_position(use_right_hand)
+	
+	# Fallback: 使用Marker2D
+	var hand: Node2D = hand_r if use_right_hand else hand_l
+	if hand != null:
+		return hand.global_position
+	
+	return player.global_position
 
 
 func tick(dt: float) -> void:
@@ -369,7 +388,7 @@ func _try_fire_chain() -> void:
 		return
 
 	var c: ChainSlot = chains[idx]
-	var start: Vector2 = (hand_r.global_position if c.use_right_hand else hand_l.global_position)
+	var start: Vector2 = _get_hand_position(c.use_right_hand)
 	var target: Vector2 = player.get_global_mouse_position()
 
 	var dir: Vector2 = target - start
@@ -388,6 +407,8 @@ func _try_fire_chain() -> void:
 	_try_interact_from_inside(idx, start)
 
 	c.state = ChainState.FLYING
+	if player.animator != null:
+		player.animator.play_chain_fire(idx, chains[1-idx].state)
 	c.end_pos = start
 	c.end_vel = dir * player.chain_speed
 	c.fly_t = 0.0
@@ -405,6 +426,11 @@ func _try_fire_chain() -> void:
 	
 	# ========== 修复问题3：发射时立即发送chain_fired信号 ==========
 	EventBus.emit_chain_fired(idx)
+	
+	# ========== Spine动画：播放锁链发射动画 ==========
+	if player.animator != null:
+		var other_state: int = chains[1 - idx].state
+		player.animator.play_chain_fire(idx, other_state)
 	
 	_switch_to_available_slot(idx)
 
@@ -438,7 +464,7 @@ func _update_chain(i: int, dt: float) -> void:
 	if c.state == ChainState.IDLE:
 		return
 
-	var start: Vector2 = (hand_r.global_position if c.use_right_hand else hand_l.global_position)
+	var start: Vector2 = _get_hand_position(c.use_right_hand)
 
 	if c.state != ChainState.DISSOLVING:
 		_apply_break_warning_color(c, start)
@@ -647,6 +673,10 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 
 
 func _force_dissolve_all_chains() -> void:
+	# 检测哪些链是激活的（用于播放取消动画）
+	var right_active := chains[0].state != ChainState.IDLE and chains[0].state != ChainState.DISSOLVING
+	var left_active := chains[1].state != ChainState.IDLE and chains[1].state != ChainState.DISSOLVING
+	
 	for i: int in range(chains.size()):
 		var c: ChainSlot = chains[i]
 		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
@@ -654,6 +684,12 @@ func _force_dissolve_all_chains() -> void:
 		c.wave_amp = 0.0
 		c.wave_phase = 0.0
 		_begin_burn_dissolve(i, player.cancel_dissolve_time, true)
+	
+	# ========== Spine动画：播放取消锁链动画 ==========
+	if player.animator != null and (right_active or left_active):
+		var r_active := chains[0].state != ChainState.IDLE
+		var l_active := chains[1].state != ChainState.IDLE
+		player.animator.play_chain_cancel(r_active, l_active)
 
 
 func force_dissolve_chain(slot: int) -> void:
