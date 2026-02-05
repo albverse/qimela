@@ -139,8 +139,9 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	if anim_state.has_method("set_animation"):
 		print("[PlayerAnimator] Playing: %s (loop=%s, track=%d)" % [anim_name_str, loop, track])
-		# Spine API：set_animation(track, animation_name, loop)
-		anim_state.call("set_animation", track, anim_name_str, loop)
+		# Spine Godot绑定参数顺序：set_animation(animation_name, track, loop)
+		# 使用直接调用避免 Variant.call() 的参数类型错位（会把 track 当成动画名 "0"）
+		anim_state.set_animation(anim_name_str, track, loop)
 	else:
 		push_error("[PlayerAnimator] AnimationState missing set_animation method!")
 
