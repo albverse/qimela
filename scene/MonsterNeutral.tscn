@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scene/monster_neutral.gd" id="1_neutral"]
 [ext_resource type="Texture2D" uid="uid://b6hccfl630f0o" path="res://tori.png" id="2_tex"]
-[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_hurtbox"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="3_hurtbox"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_body"]
 radius = 20.0

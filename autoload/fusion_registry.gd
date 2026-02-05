@@ -91,9 +91,11 @@ func _load_rules() -> void:
 			# 无属性可与任何属性融合
 			"result_scene": "res://scene/ChimeraA.tscn",
 			"result_type": FusionResultType.SUCCESS
-		},"fly_light + hand_light": {
-			# 飞怪(光属性) + 走怪(暗属性) → 奇美拉A
-			# 光暗组合但有特殊规则允许融合
+		},
+		
+		"fly_light + hand_light": {
+			# 飞怪(光属性) + 手怪(光属性) → 石蛇奇美拉
+			# 同属性特殊组合：可融合
 			"result_scene": "res://scene/Chimera_StoneSnake.tscn",
 			"result_type": FusionResultType.SUCCESS
 		},

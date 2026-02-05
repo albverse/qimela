@@ -1,5 +1,4 @@
 extends Area2D
-class_name EnemyHurtbox
 # 受击盒：锁链射线只需要命中这个 Area2D（而不需要与怪物本体发生刚体碰撞）
 # 约定：把该节点加入组 "enemy_hurtbox"
 

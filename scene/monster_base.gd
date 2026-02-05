@@ -14,6 +14,9 @@ class_name MonsterBase
 @export var stun_duration: float = 2.0
 # 【问题6】可配置的眩晕持续时间（被光花等击中时使用）
 
+@export var healing_burst_stun_time: float = 3.0
+# 被治愈精灵大爆炸击中时的眩晕时长（可在Inspector中调整）
+
 var stunned_t: float = 0.0
 # 当前眩晕剩余时间
 
@@ -48,6 +51,7 @@ func _ready() -> void:
 		EventBus.thunder_burst.connect(_on_thunder_burst)
 		EventBus.light_started.connect(_on_light_started)
 		EventBus.light_finished.connect(_on_light_finished)
+		EventBus.healing_burst.connect(_on_healing_burst)
 	
 	if _light_receiver:
 		_light_receiver.area_entered.connect(_on_light_area_entered)
@@ -89,6 +93,11 @@ func _on_thunder_burst(add_seconds: float) -> void:
 		return
 	_thunder_processed_this_frame = true
 	light_counter += add_seconds
+	light_counter = min(light_counter, light_counter_max)
+
+func _on_healing_burst(light_energy: float) -> void:
+	# 治愈精灵大爆炸：增加光照能量（全场效果）
+	light_counter += light_energy
 	light_counter = min(light_counter, light_counter_max)
 
 func on_light_exposure(remaining_time: float) -> void:
@@ -175,6 +184,11 @@ func apply_stun(seconds: float, do_flash: bool = true) -> void:
 	if do_flash:
 		_flash_once()
 	stunned_t = max(stunned_t, stun_time)
+
+func apply_healing_burst_stun() -> void:
+	# 被治愈精灵大爆炸击中时的眩晕（使用怪物自身配置的时长）
+	if healing_burst_stun_time > 0.0:
+		apply_stun(healing_burst_stun_time, true)
 
 # ===== 锁链交互 =====
 func on_chain_hit(_player: Node, slot: int) -> int:

@@ -1,104 +1,155 @@
-# B_GAMEPLAY_RULES.md（玩法规则模块，2026-01-26）
+# B_GAMEPLAY_RULES.md（玩法规则，2026-02-02更新）
 
-> 只在 Router 触发 C 时阅读。  
-> 这里写的都是“必须保持”的规则，避免模型自作主张改动系统行为。
-
----
-
-## 1) 输入与锁链（核心）
-- W：跳跃
-- 鼠标左键：发射锁链
-- X：取消锁链（正式功能，已实现；**取消也属于锁链物理逻辑**，应走溶解/消失流程，不是简单 free）
-- C：使用回血精灵（待办）
+> 只在 Router 触发 B 时阅读。
 
 ---
 
-## 2) 锁链视觉/溶解约束（必须保持）
-- Line2D 的 width/texture/gradient 由 Inspector 控制，脚本不得重置
-- burn 溶解：tween `shader_parameter/burn`
-- shader 路径固定：`res://shaders/chain_sand_dissolve.gdshader`
+## 1. 输入系统
+
+| 功能 | action名 | 按键 | 状态 |
+|------|---------|------|------|
+| 移动左 | move_left | A | ✅ |
+| 移动右 | move_right | D | ✅ |
+| 跳跃 | jump | W | ✅ |
+| 发射锁链 | (鼠标事件) | 鼠标左键 | ✅ |
+| 取消锁链 | cancel_chains | X | ✅ |
+| 融合 | fuse | Space | ✅ |
+| 使用回血精灵 | use_healing | C | ✅ |
 
 ---
 
-## 3) 状态：weak 与 stun 必须区分（保持现状）
-- weak（用于链接/融合）
-  - 结束：恢复移动、HP 回满、所有链 slot 溶解消失（保持现状）
-- stun（例如雷花 Hurt）
-  - 眩晕结束：恢复移动
-  - **眩晕期间被锁链命中/链接，不应立刻解除眩晕**
+## 2. 锁链系统 ✅
 
----
-
-## 4) 玩家 HP 与受击（已完成）
-- 5 心 UI：空心为底，满心裁剪层；数值变化立即刷新
-- 受击：扣心 + 0.1s 无敌 + 击退 + 短时禁输入（参数化）
-
----
-
-## 5) 天气：雷击 thunder_burst（已完成）
-- 打雷定义为“一次事件” thunder_burst（非持续态）
-- 触发点：打雷动画开始或指定帧（按当前实现）
-
----
-
-## 6) 雷花（LightningFlower）（已完成，必须保持）
-### 6.1 能量与贴图（0–5）
-- 0：`res://art/lightflower/lightflower_0.png`
-- 1：`res://art/lightflower/lightflower_1.png`
-- 2：`res://art/lightflower/lightflower_2.png`
-- 3：`res://art/lightflower/lightflower_3.png`
-- 4：`res://art/lightflower/lightflower_4.png`
-- 5：`res://art/lightflower/lightflower_5.png`
-能量变化必须立即刷新贴图（禁止延迟刷新）。
-
-### 6.2 释放与连锁
-1) 自身能量立刻清零（贴图立刻变 0）
-2) 强光：强度 +10 → tween 到 0
-3) 周围花能量 +1（上限 5），满能可继续连锁（按实现）
-
-### 6.3 光照事件统一设计（必须）
-- 雷击：全局广播（EventBus）
-- 光照：光花主动 `get_overlapping_areas()` → 对怪物调用 `on_light_exposure(...)`
-
-### 6.4 锁链触发释放（已完成）
-- `on_chain_hit()` 成功释放返回 1
-- interacted 去重：只有返回非 0 才标记
-- 删除 `_is_emitting` 的二次触发拦截，使用 `_emit_id` 处理并发
-
----
-
-## 7) LightReceiver（与 zip 对齐）
-### 7.1 目的
-让“隐身态不可被锁链命中”的飞怪仍可被光照系统识别并累加显形能量。
-
-### 7.2 MonsterFly.tscn 真实配置
-- 节点：`LightReceiver (Area2D)`（脚本：`res://scene/LightReceiver.gd`）
-- 碰撞（注意：必须写 bitmask + 注释）：
-```gdscript
-collision_layer = 16  # ObjectSense(5) / Inspector 第5层
-collision_mask  = 16  # ObjectSense(5) / Inspector 第5层
+### 状态机
 ```
-- 形状：CircleShape2D 半径 ≈ 61.008（Inspector 约 61）
-  - **允许浮动**：不是硬约束，只要稳定覆盖怪物并能被光花检测到即可
+IDLE → FLYING → STUCK/LINKED → DISSOLVING → IDLE
+```
+
+### 视觉约束
+- Line2D 的 width/texture/gradient 由 Inspector 控制，脚本不重置
+- 溶解：tween `shader_parameter/burn`
+- shader 路径：`res://shaders/chain_sand_dissolve.gdshader`
+
+### 断裂预警
+- 接近最大长度时颜色渐变为红色
+- warn_start_ratio: 0.80
+- warn_color: (1.0, 0.259, 0.475)
 
 ---
 
-## 8) MonsterFly 潜行/显形（已实现）
-- 显形条件：雷击或光照
-- 隐身态（visible_time <= 0）：
-  - 仍移动、仍碰墙（is_on_wall 有效）
-  - 不可被锁链命中：`collision_layer = 0`
-  - 仍可接收光照：通过 LightReceiver
-- visible_time 归零后立即隐身，无昏迷时间
+## 3. 状态系统 ✅
+
+### weak（虚弱）
+- 触发：HP ≤ weak_hp
+- 表现：停止移动
+- 锁链交互：可进入 LINKED 状态
+- 结束：恢复移动 + HP 回满 + 所有链 slot 溶解
+
+### stun（眩晕）
+- 触发：被雷花 HurtArea 命中 / 被链命中
+- 表现：停止移动
+- 锁链交互：眩晕期间被链命中可链接
+- 眩晕期间可融合
+- 结束：恢复移动
 
 ---
 
-## 9) HurtArea 伤害链路（已完成）
-- 雷花 HurtArea：可伤害玩家与 walk 类怪（fly 默认不受影响）
-- walk：被 Hurt 进入眩晕，不掉血
+## 4. 玩家HP系统 ✅
+
+- 最大HP：5心
+- UI：空心为底，满心裁剪层
+- 受击：扣心 + 0.1s无敌 + 击退 + 短时禁输入
 
 ---
 
-## 10) 当前未完成（真实待办）
-- 锁链槽位 UI（AB 槽）：未完成
-- 回血精灵：未完成
+## 5. 回血精灵 ✅
+
+### 收集
+- 靠近自动吸附（150px范围）
+- 锁链命中立即吸附
+- 最多携带3只
+
+### 使用
+- 按 C 键消耗1只
+- 每只回复2心
+
+### 行为
+- 状态机：IDLE_IN_WORLD → ACQUIRE → ORBIT → CONSUMED
+- 环绕玩家，3只各有不同center点
+- 跳跃时有0.3秒滞后
+
+---
+
+## 6. 天气系统 ✅
+
+### 雷击（thunder_burst）
+- 定义为"一次事件"（非持续态）
+- 触发点：动画 Call Method Track 调用 `anim_emit_thunder_burst()`
+- 全局广播：EventBus.thunder_burst
+
+### 雷花（LightningFlower）
+- 能量：0-5格，每格对应不同贴图
+- 雷击：能量+1
+- 满能量：自动释放光照
+- 锁链命中：释放当前能量的光照
+- 光照时间 = 能量 × light_time_per_energy
+
+---
+
+## 7. 怪物光照系统 ✅
+
+### 飞怪（MonsterFly）
+- 隐身态：visible_time ≤ 0
+  - 不可见
+  - collision_layer = 0（不可被锁链命中）
+  - 仍可移动、碰墙
+- 显形：雷击/光照增加 visible_time
+- visible_time 归零后立即隐身，断开所有链接
+
+### LightReceiver
+- 用于让隐身怪物仍能接收光照
+- collision_layer/mask = 16 (ObjectSense)
+
+---
+
+## 8. 融合系统 ✅
+
+### UI预览
+- SUCCESS → ui_yes（绿色勾）
+- REJECTED → ui_no（红色叉）
+- 其他失败 → ui_die（骷髅）
+
+### 融合条件
+- 两条锁链都处于 LINKED 状态
+- 链接目标都是 MonsterBase
+- 两个目标都处于 weak 或 stun 状态
+- 不是同一个目标
+
+### 眩晕融合
+- 眩晕状态的怪物可以参与融合
+- 融合时检查 is_weak_or_stunned()
+
+详见 D_FUSION_RULES.md
+
+---
+
+## 9. 奇美拉行为 ✅
+
+### ChimeraA（跟随型）
+- 跟随玩家移动
+- 被锁链命中：闪白 + 跟随链接槽对应的手
+
+### ChimeraStoneSnake（攻击型）
+- 跟随玩家
+- 定时发射子弹
+- 子弹命中敌人：造成伤害
+- 子弹命中玩家：僵直效果
+
+---
+
+## 10. HurtArea 伤害链路 ✅
+
+雷花 HurtArea：
+- 伤害玩家：1点
+- Walk怪：眩晕（不掉血）
+- Fly怪：免疫（不受伤害）

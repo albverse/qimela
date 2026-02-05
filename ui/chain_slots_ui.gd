@@ -155,7 +155,6 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 		# 停止可能正在播放的动画
 		if anim != null:
 			anim.stop()
-		_start_cooldown(slot)
 		_check_fusion_available()
 		return
 	
