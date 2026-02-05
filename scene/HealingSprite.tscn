@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://csr6ywph1si8b"]
 
-[ext_resource type="Script" uid="uid://wubw7f8sjr1b" path="res://scene/HealingSprite.gd" id="1_7ojs6"]
+[ext_resource type="Script" uid="uid://wubw7f8sjr1b" path="res://scene/healing_sprite.gd" id="1_7ojs6"]
 [ext_resource type="Texture2D" uid="uid://dp2kne0f285v8" path="res://hp_sprite.png" id="2_4crdb"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_132pn"]

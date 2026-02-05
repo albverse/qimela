@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://bjlgidmnssd6" path="res://scene/monster_fly.gd" id="1_ipemx"]
 [ext_resource type="Texture2D" uid="uid://bcbmimbccum85" path="res://tori.png" id="2_0oa28"]
-[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_0oa28"]
-[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/LightReceiver.gd" id="4_f52wq"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="3_0oa28"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="4_f52wq"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pe88y"]
 radius = 34.839813

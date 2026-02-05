@@ -29,6 +29,15 @@ extends CharacterBody2D
 @export var action_use_healing: StringName = &"use_healing"  # C键（推荐在InputMap里也建同名action）
 
 # =========================
+# 治愈精灵大爆炸（Q键触发）
+# =========================
+@export var action_healing_burst: StringName = &"healing_burst"  # Q键触发大爆炸
+@export var healing_burst_light_energy: float = 5.0              # 大爆炸提供的全场光照能量
+@export var healing_burst_area_path: NodePath = ^"HealingBurstArea"  # 爆炸范围检测Area2D的路径
+
+@onready var _burst_area: Area2D = get_node_or_null(healing_burst_area_path) as Area2D
+
+# =========================
 # Healing 槽位（3只）
 # =========================
 const MAX_HEALING_SPRITES: int = 3
@@ -61,15 +70,15 @@ var healing_slots: Array[HealingSprite] = [null, null, null]
 # =========================
 # 锁链行为参数
 # =========================
-@export var chain_speed: float = 2000.0
-@export var chain_max_length: float = 650.0
-@export var chain_max_fly_time: float = 0.25
-@export var hold_time: float = 0.3
+@export var chain_speed: float = 1500.0
+@export var chain_max_length: float = 550.0
+@export var chain_max_fly_time: float = 0.20
+@export var hold_time: float = 0.1
 @export var burn_time: float = 0.5
 @export var cancel_dissolve_time: float = 0.3
 const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gdshader"
 @export var chain_shader_path: String = DEFAULT_CHAIN_SHADER_PATH
-@export_flags_2d_physics var chain_hit_mask: int = 0xFFFFFFFF
+@export_flags_2d_physics var chain_hit_mask: int = 9
 @export_flags_2d_physics var chain_interact_mask: int = 0
 
 # =========================
@@ -175,15 +184,39 @@ func _unhandled_input(event: InputEvent) -> void:
 	if chain != null:
 		chain.handle_unhandled_input(event)
 
+	# 治愈精灵大爆炸：Q键
+	var burst_action := String(action_healing_burst)
+	if InputMap.has_action(burst_action):
+		if event.is_action_pressed(action_healing_burst):
+			if event is InputEventKey:
+				var ek := event as InputEventKey
+				if ek.echo:
+					return
+			try_healing_burst()
+			return
+	else:
+		if event is InputEventKey:
+			var ek := event as InputEventKey
+			if ek.pressed and not ek.echo and ek.keycode == KEY_Q:
+				try_healing_burst()
+				return
+
 	# 使用回血精灵：优先 action，否则回退 C
 	var action_name := String(action_use_healing)
+
 	if InputMap.has_action(action_name):
 		if event.is_action_pressed(action_use_healing):
+			# 关键：过滤键盘回响，避免按住触发多次
+			if event is InputEventKey:
+				var ek := event as InputEventKey
+				if ek.echo:
+					return
 			use_healing_sprite()
 	else:
 		if event is InputEventKey:
 			var ek := event as InputEventKey
-			if ek.pressed and ek.keycode == KEY_C:
+			# 关键：加 not ek.echo
+			if ek.pressed and not ek.echo and ek.keycode == KEY_C:
 				use_healing_sprite()
 
 
@@ -241,6 +274,49 @@ func use_healing_sprite() -> void:
 	heal(2) # 2颗心/只（整数）
 	if s != null and is_instance_valid(s):
 		s.consume()
+
+
+# 治愈精灵大爆炸（Q键）：需要收集满3个精灵才能触发
+func try_healing_burst() -> void:
+	# 检查是否收集满3个精灵
+	var count: int = 0
+	for i in range(MAX_HEALING_SPRITES):
+		if healing_slots[i] != null and is_instance_valid(healing_slots[i]):
+			count += 1
+	
+	if count < MAX_HEALING_SPRITES:
+		print("[Player] 治愈精灵不足，无法触发大爆炸（当前：%d/%d）" % [count, MAX_HEALING_SPRITES])
+		return
+	
+	# 触发大爆炸
+	_execute_healing_burst()
+
+
+# 执行治愈精灵大爆炸
+func _execute_healing_burst() -> void:
+	print("[Player] 治愈精灵大爆炸！")
+	
+	# 1. 清空所有治愈精灵
+	for i in range(MAX_HEALING_SPRITES):
+		var s: HealingSprite = healing_slots[i]
+		if s != null and is_instance_valid(s):
+			s.consume()
+		healing_slots[i] = null
+	
+	# 2. 范围内怪物眩晕
+	if _burst_area != null:
+		var bodies: Array[Node2D] = _burst_area.get_overlapping_bodies()
+		for body in bodies:
+			if body is MonsterBase:
+				var monster: MonsterBase = body as MonsterBase
+				monster.apply_healing_burst_stun()
+				print("[Player] 大爆炸击中怪物：%s" % monster.name)
+	else:
+		push_warning("[Player] HealingBurstArea 未设置，无法检测范围内怪物")
+	
+	# 3. 全场光照事件
+	EventBus.emit_healing_burst(healing_burst_light_energy)
+	print("[Player] 释放全场光照能量：%.1f" % healing_burst_light_energy)
 
 
 # 精灵被销毁时清理引用

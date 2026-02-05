@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://by8ppqcgos54e" path="res://scene/chimera_a.gd" id="1_7bd0c"]
 [ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="2_iljuf"]
-[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="3_iljuf"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="3_iljuf"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_7bd0c"]
 radius = 40.706264

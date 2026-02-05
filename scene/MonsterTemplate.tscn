@@ -1,0 +1,31 @@
+[gd_scene load_steps=5 format=3 uid="uid://d156xsibvouk5"]
+
+[ext_resource type="Script" uid="uid://ca0o5bxwbrapx" path="res://scene/monster_template.gd" id="1_wh22k"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
+radius = 20.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hurtbox"]
+radius = 28.0
+
+[node name="MonsterTemplate" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_wh22k")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, -25)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -15)
+shape = SubResource("CircleShape2D_body")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(0, -20)
+shape = SubResource("CircleShape2D_hurtbox")
+debug_color = Color(0.9, 0.2, 0.3, 0.4)

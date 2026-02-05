@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dstsvqmr1wwd0" path="res://scene/chimera_stone_snake.gd" id="1_wdnlg"]
 [ext_resource type="Texture2D" uid="uid://c482stxx2k463" path="res://stone_snake.png" id="2_aph0o"]
-[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/EnemyHurtbox.gd" id="2_wdnlg"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_wdnlg"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_aph0o"]
 radius = 40.706264

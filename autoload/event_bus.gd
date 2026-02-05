@@ -4,6 +4,9 @@ extends Node
 # 雷击
 signal thunder_burst(add_seconds: float)
 
+# 治愈精灵大爆炸（全场光照事件）
+signal healing_burst(light_energy: float)
+
 # 光照（例如打雷花的LightArea）
 signal light_started(source_id: int, remaining_time: float, source_light_area: Area2D)
 signal light_finished(source_id: int)
@@ -21,6 +24,9 @@ signal fusion_rejected()
 # ——可选：统一出口（推荐用这些函数发事件，便于以后加日志/断点）
 func emit_thunder_burst(add_seconds: float) -> void:
 	thunder_burst.emit(add_seconds)
+
+func emit_healing_burst(light_energy: float) -> void:
+	healing_burst.emit(light_energy)
 
 func emit_light_started(source_id: int, remaining_time: float, source_light_area: Area2D) -> void:
 	light_started.emit(source_id, remaining_time, source_light_area)

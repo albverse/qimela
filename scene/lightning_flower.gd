@@ -62,6 +62,7 @@ func _ready() -> void:
 	EventBus.thunder_burst.connect(_on_thunder_burst)
 	EventBus.light_started.connect(_on_light_started)
 	EventBus.light_finished.connect(_on_light_finished)
+	EventBus.healing_burst.connect(_on_healing_burst)
 
 	_apply_visual_state(false)
 
@@ -80,6 +81,31 @@ func _on_thunder_burst(_add_seconds: float) -> void:
 		return
 
 	_release_light_with_energy(ENERGY_MAX)
+
+func _on_healing_burst(light_energy: float) -> void:
+	# 治愈精灵大爆炸：增加光照能量（全场效果）
+	var add_energy: int = int(light_energy)
+	if add_energy <= 0:
+		return
+	
+	if _is_emitting:
+		# 正在释放中，直接增加能量
+		energy = min(energy + add_energy, ENERGY_MAX)
+		_apply_visual_state(true)
+		if debug_print:
+			print("[Flower ", _source_id, "] healing_burst +", add_energy, " -> ", energy, " (emitting)")
+		return
+	
+	# 未释放，增加能量
+	var old_energy: int = energy
+	energy = min(energy + add_energy, ENERGY_MAX)
+	if debug_print:
+		print("[Flower ", _source_id, "] healing_burst +", add_energy, " -> ", energy)
+	_apply_visual_state(false)
+	
+	# 如果达到满能量，自动释放
+	if energy >= ENERGY_MAX and old_energy < ENERGY_MAX:
+		_release_light_with_energy(ENERGY_MAX)
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
 	if not allow_chain_release:
