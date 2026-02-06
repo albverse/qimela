@@ -238,6 +238,11 @@ func get_current_anim() -> StringName:
 func is_one_shot_playing() -> bool:
 	return _is_one_shot_playing
 
+func is_one_shot_playing() -> bool:
+	"""是否正在播放一次性动画（用于阻止移动逻辑覆盖）"""
+	return _is_one_shot_playing
+
+
 func is_playing(anim_name: StringName) -> bool:
 	return _current_anim == anim_name
 
