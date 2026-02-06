@@ -408,7 +408,7 @@ func _try_fire_chain() -> void:
 
 	c.state = ChainState.FLYING
 	if player.animator != null:
-		player.animator.play_chain_fire(idx, chains[1-idx].state)
+		player.animator.play_chain_fire(idx)
 	c.end_pos = start
 	c.end_vel = dir * player.chain_speed
 	c.fly_t = 0.0
@@ -426,11 +426,6 @@ func _try_fire_chain() -> void:
 	
 	# ========== 修复问题3：发射时立即发送chain_fired信号 ==========
 	EventBus.emit_chain_fired(idx)
-	
-	# ========== Spine动画：播放锁链发射动画 ==========
-	if player.animator != null:
-		var other_state: int = chains[1 - idx].state
-		player.animator.play_chain_fire(idx, other_state)
 	
 	_switch_to_available_slot(idx)
 
@@ -676,7 +671,8 @@ func _force_dissolve_all_chains() -> void:
 	# 检测哪些链是激活的（用于播放取消动画）
 	var right_active := chains[0].state != ChainState.IDLE and chains[0].state != ChainState.DISSOLVING
 	var left_active := chains[1].state != ChainState.IDLE and chains[1].state != ChainState.DISSOLVING
-	
+	var play_cancel_anim := player.animator != null and (right_active or left_active)
+
 	for i: int in range(chains.size()):
 		var c: ChainSlot = chains[i]
 		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
@@ -686,10 +682,8 @@ func _force_dissolve_all_chains() -> void:
 		_begin_burn_dissolve(i, player.cancel_dissolve_time, true)
 	
 	# ========== Spine动画：播放取消锁链动画 ==========
-	if player.animator != null and (right_active or left_active):
-		var r_active := chains[0].state != ChainState.IDLE
-		var l_active := chains[1].state != ChainState.IDLE
-		player.animator.play_chain_cancel(r_active, l_active)
+	if play_cancel_anim:
+		player.animator.play_chain_cancel(right_active, left_active)
 
 
 func force_dissolve_chain(slot: int) -> void:
