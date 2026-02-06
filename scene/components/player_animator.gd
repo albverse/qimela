@@ -58,6 +58,18 @@ var _return_anim: StringName = &""
 var _last_chain_fire_time: float = -1.0
 var _last_chain_fire_slot: int = -1
 
+func _is_chain_anim(anim_name: StringName) -> bool:
+	return anim_name in [anim_chain_r, anim_chain_l, anim_chain_lr, anim_chain_r_cancel, anim_chain_l_cancel, anim_chain_lr_cancel]
+
+func _get_one_shot_timeout(anim_name: StringName) -> float:
+	if anim_name == anim_jump_up:
+		return 0.3
+	if anim_name == anim_jump_down:
+		return 0.2
+	if _is_chain_anim(anim_name):
+		return 0.2
+	return one_shot_fallback_timeout
+
 func _ready() -> void:
 	_player = _find_player()
 	if _player == null:
@@ -79,8 +91,6 @@ func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
-	if _has_completion_signal:
-		return
 	if not _is_one_shot_playing:
 		return
 	if _one_shot_timer <= 0.0:
@@ -106,21 +116,26 @@ func _get_anim_priority(anim_name: StringName) -> int:
 		return AnimPriority.MOVE
 	if anim_name == anim_jump_down:
 		return AnimPriority.JUMP_DOWN
-	if anim_name in [anim_chain_r, anim_chain_l, anim_chain_lr, anim_chain_r_cancel, anim_chain_l_cancel, anim_chain_lr_cancel]:
+	if _is_chain_anim(anim_name):
 		return AnimPriority.CHAIN
 	return AnimPriority.IDLE
 
 func _can_interrupt(new_anim: StringName) -> bool:
 	var new_priority := _get_anim_priority(new_anim)
+	if _is_one_shot_playing and _current_anim != &"":
+		if new_priority < AnimPriority.HURT:
+			return false
 	if _current_anim == anim_jump_up or _current_anim == anim_jump_loop:
+		if _player != null and _player.is_on_floor() and (new_anim == anim_idle or new_anim == anim_walk or new_anim == anim_run):
+			return true
 		return new_priority >= AnimPriority.HURT
 	if _current_anim == anim_walk or _current_anim == anim_run:
 		return true
-	if new_anim == anim_idle and _current_anim in [anim_chain_r, anim_chain_l, anim_chain_lr, anim_chain_r_cancel, anim_chain_l_cancel, anim_chain_lr_cancel]:
+	if new_anim == anim_idle and _is_chain_anim(_current_anim):
 		return true
 	return new_priority >= _current_priority
 
-func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_idle: bool = false, force: bool = false) -> void:
+func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_idle: bool = false, force: bool = false, return_to_anim: StringName = &"") -> void:
 	if _spine == null:
 		return
 	
@@ -142,8 +157,11 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	_current_priority = _get_anim_priority(anim_name)
 	_current_track = track
 	_is_one_shot_playing = not loop
-	_one_shot_timer = one_shot_fallback_timeout if (not loop and not _has_completion_signal) else 0.0
-	_return_anim = anim_idle if return_to_idle else &""
+	_one_shot_timer = _get_one_shot_timeout(anim_name) if not loop else 0.0
+	if not loop and return_to_anim != &"":
+		_return_anim = return_to_anim
+	else:
+		_return_anim = anim_idle if return_to_idle else &""
 	
 	if not _spine.has_method("get_animation_state"):
 		return
@@ -152,8 +170,12 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	if anim_state == null:
 		return
 	
+	if _spine.has_method("set_animation"):
+		_spine.call("set_animation", track, anim_name_str, loop)
+		return
+
 	if anim_state.has_method("set_animation"):
-		anim_state.set_animation(anim_name_str, loop, track)
+		anim_state.call("set_animation", track, anim_name_str, loop)
 
 func _on_animation_completed(_a = null, _b = null, _c = null) -> void:
 	_finish_one_shot()
@@ -180,8 +202,7 @@ func play_run(force: bool = false) -> void:
 	_play(anim_run, true, 0, false, force)
 
 func play_jump_up() -> void:
-	_return_anim = anim_jump_loop
-	_play(anim_jump_up, false)
+	_play(anim_jump_up, false, 0, false, false, anim_jump_loop)
 
 func play_jump_loop() -> void:
 	_play(anim_jump_loop, true)
@@ -214,11 +235,11 @@ func play_chain_fire(slot: int) -> void:
 
 func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 	if right_active and left_active:
-		_play(anim_chain_lr_cancel, false, 0, true)
+		_play(anim_chain_lr_cancel, false, 0, true, true)
 	elif right_active:
-		_play(anim_chain_r_cancel, false, 0, true)
+		_play(anim_chain_r_cancel, false, 0, true, true)
 	elif left_active:
-		_play(anim_chain_l_cancel, false, 0, true)
+		_play(anim_chain_l_cancel, false, 0, true, true)
 
 func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 	if _spine == null or _player == null:
