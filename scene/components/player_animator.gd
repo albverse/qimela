@@ -44,6 +44,7 @@ enum AnimPriority {
 
 @export_group("一次性动画回收")
 @export var one_shot_fallback_timeout: float = 1.2
+@export var chain_combo_window: float = 0.1
 
 var _player: Player = null
 var _spine: Node = null
@@ -54,6 +55,8 @@ var _is_one_shot_playing: bool = false
 var _one_shot_timer: float = 0.0
 var _has_completion_signal: bool = false
 var _return_anim: StringName = &""
+var _last_chain_fire_time: float = -1.0
+var _last_chain_fire_slot: int = -1
 
 func _ready() -> void:
 	_player = _find_player()
@@ -111,6 +114,10 @@ func _can_interrupt(new_anim: StringName) -> bool:
 	var new_priority := _get_anim_priority(new_anim)
 	if _current_anim == anim_jump_up or _current_anim == anim_jump_loop:
 		return new_priority >= AnimPriority.HURT
+	if _current_anim == anim_walk or _current_anim == anim_run:
+		return true
+	if new_anim == anim_idle and _current_anim in [anim_chain_r, anim_chain_l, anim_chain_lr, anim_chain_r_cancel, anim_chain_l_cancel, anim_chain_lr_cancel]:
+		return true
 	return new_priority >= _current_priority
 
 func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_idle: bool = false, force: bool = false) -> void:
@@ -161,7 +168,7 @@ func _finish_one_shot() -> void:
 	if _return_anim != &"":
 		var return_to := _return_anim
 		_return_anim = &""
-		_play(return_to, true, 0, false)
+		_play(return_to, true, 0, false, true)
 
 func play_idle(force: bool = false) -> void:
 	_play(anim_idle, true, 0, false, force)
@@ -191,10 +198,19 @@ func play_die() -> void:
 	_play(anim_die, false, 0, false, true)
 
 func play_chain_fire(slot: int) -> void:
-	if slot == 0:
-		_play(anim_chain_r, false, 0, true)
+	var now := Time.get_ticks_msec() / 1000.0
+	var is_combo := _last_chain_fire_slot != -1 and _last_chain_fire_slot != slot and (now - _last_chain_fire_time) <= chain_combo_window
+
+	if is_combo:
+		_play(anim_chain_lr, false, 0, true, true)
 	else:
-		_play(anim_chain_l, false, 0, true)
+		if slot == 0:
+			_play(anim_chain_r, false, 0, true, true)
+		else:
+			_play(anim_chain_l, false, 0, true, true)
+
+	_last_chain_fire_time = now
+	_last_chain_fire_slot = slot
 
 func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 	if right_active and left_active:
@@ -234,9 +250,6 @@ func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
 
 func get_current_anim() -> StringName:
 	return _current_anim
-
-func is_one_shot_playing() -> bool:
-	return _is_one_shot_playing
 
 func is_one_shot_playing() -> bool:
 	"""是否正在播放一次性动画（用于阻止移动逻辑覆盖）"""
