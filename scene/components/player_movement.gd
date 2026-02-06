@@ -8,11 +8,14 @@ var _visual: Node2D
 # 跳跃状态追踪
 var _was_on_floor: bool = true
 var _is_jumping: bool = false  # 是否处于跳跃上升阶段
+var _fall_loop_started: bool = false
 
 # 双击检测（用于奔跑）
 var _last_left_time: float = -1.0
 var _last_right_time: float = -1.0
 var _is_running: bool = false
+var _prev_left_pressed: bool = false
+var _prev_right_pressed: bool = false
 const DOUBLE_TAP_WINDOW: float = 0.25  # 双击时间窗口
 
 func _ready() -> void:
@@ -23,12 +26,13 @@ func _ready() -> void:
 		return
 
 	_visual = _player.get_node_or_null(_player.visual_path) as Node2D
+	_was_on_floor = _player.is_on_floor()
 
 func tick(dt: float) -> void:
 	var left: bool = Input.is_action_pressed(_player.action_left) if _has_action(_player.action_left) else Input.is_key_pressed(KEY_A)
 	var right: bool = Input.is_action_pressed(_player.action_right) if _has_action(_player.action_right) else Input.is_key_pressed(KEY_D)
-	var left_just: bool = Input.is_action_just_pressed(_player.action_left) if _has_action(_player.action_left) else Input.is_key_pressed(KEY_A)
-	var right_just: bool = Input.is_action_just_pressed(_player.action_right) if _has_action(_player.action_right) else Input.is_key_pressed(KEY_D)
+	var left_just: bool = Input.is_action_just_pressed(_player.action_left) if _has_action(_player.action_left) else (left and not _prev_left_pressed)
+	var right_just: bool = Input.is_action_just_pressed(_player.action_right) if _has_action(_player.action_right) else (right and not _prev_right_pressed)
 	
 	var now := Time.get_ticks_msec() / 1000.0
 	
@@ -81,48 +85,57 @@ func tick(dt: float) -> void:
 		if _player.is_on_floor() and jump_pressed:
 			_player.velocity.y = -_player.jump_speed
 			_is_jumping = true
+			_fall_loop_started = false
 			# 播放跳跃起跳动画
 			_play_anim_jump_up()
 	
 	# 动画状态更新
-	_update_animation()
-	
-	# 更新落地状态
+	_update_animation(left, right)
+
+	# 更新输入与落地状态
+	_prev_left_pressed = left
+	_prev_right_pressed = right
 	_was_on_floor = _player.is_on_floor()
 
 
-func _update_animation() -> void:
+func _update_animation(left_pressed: bool, right_pressed: bool) -> void:
 	"""根据当前状态更新动画"""
 	if _player.animator == null:
 		return
 	
 	var on_floor := _player.is_on_floor()
-	var moving: bool = abs(_player.velocity.x) > 10.0  # 显式类型，避免推断失败
+	var moving: bool = left_pressed != right_pressed
 	
 	# 刚落地
 	if on_floor and not _was_on_floor:
 		_is_jumping = false
+		_fall_loop_started = false
 		_player.animator.play_jump_down()
 		return
 	
 	# 空中
 	if not on_floor:
-		# 开始下落（速度向下且不是刚起跳）
-		if _player.velocity.y > 0 and not _is_jumping:
+		# 上升结束后，进入下落循环
+		if _player.velocity.y <= 0:
+			_is_jumping = false
+		# 仅在真正下落时播放 jump_loop
+		if _player.velocity.y > 0 and not _fall_loop_started:
 			_player.animator.play_jump_loop()
+			_fall_loop_started = true
 		# 跳跃上升阶段由 play_jump_up 处理
 		return
 	
 	# 地面状态
 	if moving:
+		if _player.animator.is_one_shot_playing() and not _player.animator.is_movement_interruptible():
+			return
 		if _is_running:
 			_player.animator.play_run()
 		else:
 			_player.animator.play_walk()
 	else:
-		# 只有在不是播放一次性动画时才切换到idle
-		var current := _player.animator.get_current_anim()
-		if current != _player.animator.anim_jump_down:  # 落地动画播完会自动切
+		# 一次性动画期间不要强制切 idle
+		if not _player.animator.is_one_shot_playing():
 			_player.animator.play_idle()
 
 

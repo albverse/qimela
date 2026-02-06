@@ -12,7 +12,7 @@ class_name PlayerAnimator
 # 动画名称配置（可在Inspector覆盖）
 # ============================================================
 @export_group("基础动画")
-@export var anim_idle: StringName = &"idle"              ## 静止站立（修正拼写）
+@export var anim_idle: StringName = &"idle"              ## 静止站立（需求统一为 idle）
 @export var anim_walk: StringName = &"walk"              ## 行走
 @export var anim_run: StringName = &"run"                ## 奔跑（双击方向键）
 
@@ -20,6 +20,8 @@ class_name PlayerAnimator
 @export var anim_jump_up: StringName = &"jump_up"        ## 跳跃起跳瞬间
 @export var anim_jump_loop: StringName = &"jump_loop"    ## 空中下落循环
 @export var anim_jump_down: StringName = &"jump_down"    ## 落地
+@export var anim_hurt: StringName = &"hurt"              ## 受伤
+@export var anim_die: StringName = &"die"                ## 死亡
 
 @export_group("锁链动画 - 发射")
 @export var anim_chain_r: StringName = &"chain_R"        ## 右手发射锁链
@@ -45,6 +47,12 @@ var _player: Player = null
 var _spine: Node = null  # SpineSprite
 var _current_anim: StringName = &""
 var _current_track: int = 0
+var _is_one_shot_playing: bool = false
+var _one_shot_timer: float = 0.0
+var _has_completion_signal: bool = false
+
+@export_group("一次性动画回收")
+@export var one_shot_fallback_timeout: float = 1.2  ## 仅在无completion信号时启用的兜底时长
 
 # 动画队列：一次性动画播完后回到的动画
 var _return_anim: StringName = &""
@@ -72,9 +80,11 @@ func _ready() -> void:
 		# 连接动画完成信号
 		if _spine.has_signal("animation_completed"):
 			_spine.connect("animation_completed", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_completed")
 		elif _spine.has_signal("animation_complete"):
 			_spine.connect("animation_complete", _on_animation_completed)
+			_has_completion_signal = true
 			print("[PlayerAnimator] Connected to signal: animation_complete")
 		else:
 			push_warning("[PlayerAnimator] No animation completion signal found")
@@ -82,6 +92,18 @@ func _ready() -> void:
 	# 初始播放idle
 	print("[PlayerAnimator] Playing initial animation: %s" % anim_idle)
 	play_idle()
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	# 兜底：即使有completion信号也保留超时回收，防止插件信号异常导致卡帧
+	if not _is_one_shot_playing:
+		return
+	if _one_shot_timer <= 0.0:
+		return
+	_one_shot_timer -= delta
+	if _one_shot_timer <= 0.0:
+		_finish_one_shot()
 
 
 func _find_player() -> Player:
@@ -120,9 +142,18 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	# 避免重复播放同一循环动画
 	if loop and anim_name == _current_anim and track == _current_track:
 		return
+
+	# 低优先级动画不能打断高优先级一次性动画（jump_up/jump_loop/hurt/die）
+	if _is_one_shot_playing:
+		var cur_priority := _get_anim_priority(_current_anim)
+		var new_priority := _get_anim_priority(anim_name)
+		if new_priority < cur_priority and not _is_interruptible_by_priority(_current_anim, anim_name):
+			return
 	
 	_current_anim = anim_name
 	_current_track = track
+	_is_one_shot_playing = not loop
+	_one_shot_timer = _get_one_shot_timeout(anim_name) if not loop else 0.0
 	_return_anim = anim_idle if return_to_idle else &""
 	
 	# 获取AnimationState并播放
@@ -137,18 +168,23 @@ func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_i
 	
 	if anim_state.has_method("set_animation"):
 		print("[PlayerAnimator] Playing: %s (loop=%s, track=%d)" % [anim_name_str, loop, track])
-		# ✅ 直接调用，不用 call()（更安全）
-		if anim_state.has_method("set_animation"):
-			anim_state.set_animation(anim_name_str, track, loop)
-		else:
-			anim_state.call("set_animation", track, anim_name_str, loop)
+		# Spine Godot绑定参数顺序：set_animation(animation_name, track, loop)
+		anim_state.set_animation(anim_name_str, track, loop)
 	else:
 		push_error("[PlayerAnimator] AnimationState missing set_animation method!")
 
 
 func _on_animation_completed(_track_entry: Variant) -> void:
 	"""动画播放完毕回调"""
-	# 如果设置了返回动画，自动切换
+	_finish_one_shot()
+
+
+func _finish_one_shot() -> void:
+	"""一次性动画结束后的统一收尾（信号/超时共用）"""
+	if not _is_one_shot_playing and _return_anim == &"":
+		return
+	_is_one_shot_playing = false
+	_one_shot_timer = 0.0
 	if _return_anim != &"":
 		var return_to := _return_anim
 		_return_anim = &""
@@ -192,6 +228,16 @@ func play_jump_loop() -> void:
 func play_jump_down() -> void:
 	"""播放落地动画（一次性，播完回到idle）"""
 	_play(anim_jump_down, false, 0, true)
+
+
+func play_hurt() -> void:
+	"""播放受伤动画（一次性）"""
+	_play(anim_hurt, false, 0, true)
+
+
+func play_die() -> void:
+	"""播放死亡动画（一次性，不回idle）"""
+	_play(anim_die, false, 0, false)
 
 
 # ============================================================
@@ -279,28 +325,35 @@ func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 	Returns:
 		世界坐标位置
 	"""
+	## 翻转后，slotA/slotB 绑定相反骨骼，确保逻辑左右手不变
+	var resolved_use_right_hand := use_right_hand
+	if _player != null and _player.facing < 0:
+		resolved_use_right_hand = not resolved_use_right_hand
+
 	if _spine == null or _player == null:
-		return _get_fallback_hand_position(use_right_hand)
-	
+		return _get_fallback_hand_position(resolved_use_right_hand)
 
+	var bone_name := bone_chain_anchor_r if resolved_use_right_hand else bone_chain_anchor_l
 
-	var bone_name := bone_chain_anchor_r if use_right_hand else bone_chain_anchor_l
-	
-	# 尝试从Spine获取骨骼位置
+	# 尝试从Spine获取骨骼位置（兼容不同插件绑定）
+	var bone: Object = null
 	if _spine.has_method("get_skeleton"):
 		var skeleton: Object = _spine.call("get_skeleton")
 		if skeleton != null and skeleton.has_method("find_bone"):
-			var bone: Object = skeleton.call("find_bone", String(bone_name))
-			if bone != null and bone.has_method("get_world_x") and bone.has_method("get_world_y"):
-				var local_x: float = bone.call("get_world_x")
-				var local_y: float = bone.call("get_world_y")
-				# 转换为全局坐标
-				var spine_node := _spine as Node2D
-				if spine_node != null:
-					return spine_node.to_global(Vector2(local_x, local_y))
+			bone = skeleton.call("find_bone", String(bone_name))
+	if bone == null and _spine.has_method("find_bone"):
+		bone = _spine.call("find_bone", String(bone_name))
+
+	if bone != null and bone.has_method("get_world_x") and bone.has_method("get_world_y"):
+		var local_x: float = bone.call("get_world_x")
+		var local_y: float = bone.call("get_world_y")
+		# 转换为全局坐标
+		var spine_node := _spine as Node2D
+		if spine_node != null:
+			return spine_node.to_global(Vector2(local_x, local_y))
 	
 	# 回退：使用Marker2D
-	return _get_fallback_hand_position(use_right_hand)
+	return _get_fallback_hand_position(resolved_use_right_hand)
 
 
 func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
@@ -323,6 +376,57 @@ func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
 func get_current_anim() -> StringName:
 	"""获取当前播放的动画名称"""
 	return _current_anim
+
+
+func is_one_shot_playing() -> bool:
+	"""是否正在播放一次性动画（用于阻止移动逻辑覆盖）"""
+	return _is_one_shot_playing
+
+
+func is_movement_interruptible() -> bool:
+	"""当前动画是否允许被移动输入中断。"""
+	if not _is_one_shot_playing:
+		return true
+	var cur := String(_current_anim)
+	return cur.begins_with("chain_") or _current_anim == anim_jump_down
+
+
+func _get_one_shot_timeout(anim_name: StringName) -> float:
+	if anim_name == anim_jump_up:
+		return 0.3
+	if anim_name == anim_jump_down:
+		return 0.2
+	if anim_name == anim_hurt:
+		return 0.3
+	if anim_name == anim_die:
+		return 1.0
+	if String(anim_name).begins_with("chain_"):
+		return 0.2
+	return one_shot_fallback_timeout
+
+
+func _get_anim_priority(anim_name: StringName) -> int:
+	if anim_name == anim_die:
+		return 10
+	if anim_name == anim_hurt:
+		return 8
+	if anim_name == anim_jump_up or anim_name == anim_jump_loop:
+		return 3
+	if anim_name == anim_walk or anim_name == anim_run:
+		return 2
+	if anim_name == anim_jump_down:
+		return 1
+	if String(anim_name).begins_with("chain_"):
+		return 1
+	return 0
+
+
+func _is_interruptible_by_priority(current_anim: StringName, next_anim: StringName) -> bool:
+	if current_anim == anim_jump_up or current_anim == anim_jump_loop:
+		return _get_anim_priority(next_anim) >= 8
+	if current_anim == anim_die:
+		return false
+	return false
 
 
 func is_playing(anim_name: StringName) -> bool:
