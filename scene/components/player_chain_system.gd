@@ -408,7 +408,7 @@ func _try_fire_chain() -> void:
 
 	c.state = ChainState.FLYING
 	if player.animator != null:
-		player.animator.play_chain_fire(idx, chains[1-idx].state)
+		player.animator.play_chain_fire(idx)
 	c.end_pos = start
 	c.end_vel = dir * player.chain_speed
 	c.fly_t = 0.0
