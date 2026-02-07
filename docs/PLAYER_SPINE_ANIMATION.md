@@ -4,7 +4,7 @@
 
 本次更新为Player添加了完整的Spine2D动画支持，包括：
 - 独立的动画控制器脚本 `player_animator.gd`
-- 骨骼锚点位置获取（处理翻转）
+- 骨骼锚点位置获取（直接使用左右手骨骼）
 - 行走/奔跑/跳跃动画
 - 锁链发射/取消动画
 
@@ -46,7 +46,7 @@
 |--------|--------|----------|
 | `anim_chain_r` | `"chain_R"` | 右手发射锁链 |
 | `anim_chain_l` | `"chain_L"` | 左手发射锁链 |
-| `anim_chain_lr` | `"chain_LR"` | 0.2秒内连击双手发射 |
+| `anim_chain_lr` | `"chain_LR"` | 0.1秒内连击双手发射 |
 
 ### 锁链取消动画
 | 变量名 | 默认值 | 触发时机 |
@@ -67,15 +67,13 @@ Root
 │   └── ArmR → HandR → chain_anchor_r  ← 右手锁链发射点
 ```
 
-### 翻转处理逻辑
-代码会自动根据`facing`方向交换左右骨骼：
+### 骨骼选择逻辑
+锁链锚点始终按手位映射，不再随角色反转交换左右骨骼：
 
 ```gdscript
-# facing = 1（朝右）：用 chain_anchor_r 作为"右手"
-# facing = -1（朝左）：用 chain_anchor_l 作为"右手"（因为翻转后它在右边）
-var actual_use_right := use_right_hand
-if _player.facing < 0:
-    actual_use_right = not use_right_hand
+# 右手固定使用 chain_anchor_r
+# 左手固定使用 chain_anchor_l
+var bone_name: StringName = bone_chain_anchor_r if use_right_hand else bone_chain_anchor_l
 ```
 
 ### Inspector配置
@@ -104,7 +102,7 @@ idle ←→ walk ←→ run
 ```
 [点击] → chain_R / chain_L / chain_LR → [播完] → idle
                     ↑
-           (0.2秒内连击触发chain_LR)
+           (0.1秒内连击触发chain_LR)
 ```
 
 ### 锁链取消
