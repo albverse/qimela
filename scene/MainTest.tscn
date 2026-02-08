@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="3_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://j7xkrffio8i4" path="res://scene/MonsterFly.tscn" id="4_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_00cx3"]
-[ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="6_ui"]
+[ext_resource type="PackedScene" uid="uid://cu5h6g7s8iaj0" path="res://ui/game_ui.tscn" id="6_ui"]
 [ext_resource type="PackedScene" path="res://scene/MonsterNeutral.tscn" id="7_neutral"]
 [ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="8_pe88y"]
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
@@ -165,7 +165,7 @@ position = Vector2(396, 362)
 position = Vector2(238, 571)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
-position = Vector2(50, -446)
+position = Vector2(-7, -36)
 
 [node name="Walk1" parent="World" instance=ExtResource("3_7qdox")]
 position = Vector2(780, 586)
@@ -196,18 +196,4 @@ position = Vector2(372, 467)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="SafeFrame" type="MarginContainer" parent="HUD"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/margin_left = 125
-theme_override_constants/margin_top = 60
-theme_override_constants/margin_right = 125
-theme_override_constants/margin_bottom = 950
-
-[node name="ChainSlotsUI" parent="HUD/SafeFrame" instance=ExtResource("6_ui")]
-layout_mode = 2
-mouse_filter = 2
+[node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]

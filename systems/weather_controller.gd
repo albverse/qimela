@@ -12,8 +12,6 @@ class_name WeatherController
 # 动画名（AnimationPlayer里需要存在同名动画）
 @export var thunder_animation: StringName = &"thunder"
 
-@export var debug_print: bool = true
-
 @onready var _timer: Timer = $ThunderTimer
 @onready var _anim: AnimationPlayer = $AnimationPlayer
 
@@ -74,8 +72,6 @@ func _emit_thunder_burst_once() -> void:
 	if is_instance_valid(_thunder_fx):
 		_thunder_fx.thunder_flash()
 
-	if debug_print:
-		print("[Thunder] thunder_burst +", thunder_add_seconds)
 		
 func _on_animation_finished(anim_name: StringName) -> void:
 	if anim_name == thunder_animation:

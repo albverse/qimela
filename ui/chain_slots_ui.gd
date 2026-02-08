@@ -136,7 +136,7 @@ func _on_chain_released(slot: int, _reason: StringName) -> void:
 	var had_target: bool = not slot_states[slot].is_empty() and slot_states[slot].get("target", null) != null
 	var current_progress: float = slot_states[slot].get("progress", 1.0)  # 挣扎进度
 	slot_states[slot] = {}
-	
+	_cached_target_textures[slot] = null  # ← 添加这一行
 	var slot_node: Control = slot_a if slot == 0 else slot_b
 	var icon: TextureRect = slot_node.get_node_or_null("Icon") as TextureRect
 	var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
@@ -321,10 +321,39 @@ func _check_fusion_available() -> void:
 		center_icon.visible = false
 		return
 	
-	connection_line.visible = true
+	# 安全获取target - 使用Variant避免直接赋值错误
+	var target0_variant = slot_states[0].get("target", null)
+	var target1_variant = slot_states[1].get("target", null)
 	
-	var target0: Node = slot_states[0].get("target", null)
-	var target1: Node = slot_states[1].get("target", null)
+	# 检查是否为null
+	if target0_variant == null or target1_variant == null:
+		connection_line.visible = false
+		center_icon.visible = false
+		return
+	
+	# 检查实例是否有效
+	if not is_instance_valid(target0_variant) or not is_instance_valid(target1_variant):
+		# 清理无效引用
+		if not is_instance_valid(target0_variant):
+			slot_states[0].erase("target")
+			_cached_target_textures[0] = null
+		if not is_instance_valid(target1_variant):
+			slot_states[1].erase("target")
+			_cached_target_textures[1] = null
+		connection_line.visible = false
+		center_icon.visible = false
+		return
+	
+	# 现在可以安全地转换为Node
+	var target0: Node = target0_variant as Node
+	var target1: Node = target1_variant as Node
+	
+	if target0 == null or target1 == null:
+		connection_line.visible = false
+		center_icon.visible = false
+		return
+	
+	connection_line.visible = true
 	
 	# 相同目标 → 无法合成
 	if target0 == target1:
@@ -344,20 +373,15 @@ func _check_fusion_available() -> void:
 	# 使用FusionRegistry检查融合结果
 	var result: Dictionary = FusionRegistry.check_fusion(entity0, entity1)
 	
-	# 根据结果类型选择图标
-	# FusionResultType: SUCCESS=0, FAIL_HOSTILE=1, FAIL_VANISH=2, FAIL_EXPLODE=3, HEAL_LARGE=4, REJECTED=5, WEAKEN_BOSS=6
 	var result_type: int = result.get("type", -1)
 	
 	match result_type:
 		FusionRegistry.FusionResultType.SUCCESS:
-			# 成功融合 → ui_yes
 			center_icon.texture = ui_yes
 		FusionRegistry.FusionResultType.REJECTED:
-			# 拒绝（无规则/不兼容）→ ui_no
 			center_icon.texture = ui_no
 		_:
-			# 其他类型（FAIL_HOSTILE, FAIL_VANISH, FAIL_EXPLODE, HEAL_LARGE, WEAKEN_BOSS）
-			# 有规则但会有负面/特殊效果 → ui_die
+			# 其他类型（FAIL_HOSTILE, FAIL_VANISH等）
 			center_icon.texture = ui_die
 	
 	center_icon.visible = true
@@ -396,15 +420,25 @@ func _process(_delta: float) -> void:
 	for slot in range(2):
 		if slot_states[slot].is_empty():
 			continue
-		var target: Node = slot_states[slot].get("target", null)
+		
+		# 安全获取target，避免访问已释放对象
+		var target_variant = slot_states[slot].get("target", null)
+		if target_variant == null:
+			continue
+		
+		# 检查是否为有效的Node实例
+		if not is_instance_valid(target_variant):
+			# 清理已失效的target引用
+			slot_states[slot].erase("target")
+			continue
+		
+		var target: Node = target_variant as Node
+		if target == null:
+			continue
+		
 		var slot_node: Control = slot_a if slot == 0 else slot_b
 		var monster_icon: TextureRect = slot_node.get_node_or_null("MonsterIcon") as TextureRect
 		if monster_icon == null or not is_instance_valid(monster_icon):
-			continue
-		if target == null or not is_instance_valid(target):
-			monster_icon.visible = false
-			monster_icon.texture = null
-			_cached_target_textures[slot] = null
 			continue
 		var next_texture: Texture2D = _resolve_target_icon(target)
 		if next_texture != null and not is_instance_valid(next_texture):

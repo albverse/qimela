@@ -1,0 +1,51 @@
+[gd_scene load_steps=5 format=3 uid="uid://cu5h6g7s8iaj0"]
+
+[ext_resource type="Script" path="res://ui/game_ui.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="2"]
+[ext_resource type="PackedScene" uid="uid://dpb4hffqfgoxp" path="res://ui/hearts_ui.tscn" id="3"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_1"]
+font_size = 24
+font_color = Color(1, 1, 1, 1)
+outline_size = 2
+outline_color = Color(0, 0, 0, 1)
+
+[node name="GameUI" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="SafeFrame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 125
+theme_override_constants/margin_top = 60
+theme_override_constants/margin_right = 125
+theme_override_constants/margin_bottom = 60
+
+[node name="VBox" type="VBoxContainer" parent="SafeFrame"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="TopRow" type="HBoxContainer" parent="SafeFrame/VBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HeartsUI" parent="SafeFrame/VBox/TopRow" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Spacer" type="Control" parent="SafeFrame/VBox/TopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WeaponLabel" type="Label" parent="SafeFrame/VBox/TopRow"]
+layout_mode = 2
+text = "Weapon: Chain"
+label_settings = SubResource("LabelSettings_1")
+
+[node name="ChainSlotsUI" parent="SafeFrame/VBox" instance=ExtResource("2")]
+layout_mode = 2
+mouse_filter = 2
