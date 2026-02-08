@@ -82,8 +82,22 @@ var health: PlayerHealth = null
 var animator: PlayerAnimator = null
 var weapon_controller: WeaponController = null
 
+# ── HealingSprite 持有与使用 ──
+@export var max_healing_sprites: int = 3
+@export var healing_per_sprite: int = 2
+@export var healing_burst_light_energy: float = 1.0
+var _healing_slots: Array = [null, null, null]
+
 
 func _ready() -> void:
+	if max_healing_sprites < 1:
+		max_healing_sprites = 1
+	_healing_slots.resize(max_healing_sprites)
+	for i in range(max_healing_sprites):
+		if _healing_slots[i] == null:
+			continue
+		if not is_instance_valid(_healing_slots[i]):
+			_healing_slots[i] = null
 	add_to_group("player")
 	if has_node("Visual/SpineSprite"):
 			var test = load("res://scene/components/spine_quick_test.gd")
@@ -157,15 +171,23 @@ func _physics_process(dt: float) -> void:
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
-	# C / switch weapon（按用户当前键位习惯保留为 C）
-	if event is InputEventKey:
-		var key_event: InputEventKey = event as InputEventKey
-		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_C:
-			if weapon_controller != null:
-				weapon_controller.switch_weapon()
-				if action_fsm != null and action_fsm.has_method("on_weapon_switched"):
-					action_fsm.on_weapon_switched()
-			return
+	# C / use healing sprite
+	if _is_action_just_pressed(event, &"use_healing", KEY_C):
+		use_healing_sprite()
+		return
+
+	# Q / healing burst（测试入口）
+	if _is_action_just_pressed(event, &"healing_burst", KEY_Q):
+		use_healing_burst()
+		return
+
+	# Z / switch weapon
+	if _is_action_just_pressed(event, &"", KEY_Z):
+		if weapon_controller != null:
+			weapon_controller.switch_weapon()
+			if action_fsm != null and action_fsm.has_method("on_weapon_switched"):
+				action_fsm.on_weapon_switched()
+		return
 
 	# Space / fuse
 	if _is_action_just_pressed(event, action_fuse, KEY_SPACE):
@@ -337,6 +359,84 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 func heal(amount: int) -> void:
 	if health != null:
 		health.heal(amount)
+
+
+# ── HealingSprite 接口（供 healing_sprite.gd 调用）──
+
+func try_collect_healing_sprite(sprite: Node, preferred_slot: int = -1) -> int:
+	if sprite == null or not is_instance_valid(sprite):
+		return -1
+	for i in range(max_healing_sprites):
+		if _healing_slots[i] == sprite:
+			return i
+
+	var picked: int = -1
+	if preferred_slot >= 0 and preferred_slot < max_healing_sprites and _healing_slots[preferred_slot] == null:
+		picked = preferred_slot
+	else:
+		for i in range(max_healing_sprites):
+			if _healing_slots[i] == null:
+				picked = i
+				break
+
+	if picked == -1:
+		return -1
+
+	_healing_slots[picked] = sprite
+	if has_method("log_msg"):
+		log_msg("HEAL", "collect sprite slot=%d count=%d" % [picked, _healing_count()])
+	return picked
+
+
+func remove_healing_sprite(sprite: Node) -> void:
+	if sprite == null:
+		return
+	for i in range(max_healing_sprites):
+		if _healing_slots[i] == sprite:
+			_healing_slots[i] = null
+
+
+func get_healing_orbit_center_global(index: int) -> Vector2:
+	if index <= 0 and has_node("Visual/center1"):
+		return (get_node("Visual/center1") as Node2D).global_position
+	if index == 1 and has_node("Visual/center2"):
+		return (get_node("Visual/center2") as Node2D).global_position
+	if has_node("Visual/center3"):
+		return (get_node("Visual/center3") as Node2D).global_position
+	return global_position
+
+
+func use_healing_sprite() -> bool:
+	for i in range(max_healing_sprites):
+		var sp: Node = _healing_slots[i]
+		if sp != null and is_instance_valid(sp):
+			_healing_slots[i] = null
+			if sp.has_method("consume"):
+				sp.call("consume")
+			heal(healing_per_sprite)
+			if has_method("log_msg"):
+				log_msg("HEAL", "use sprite slot=%d heal=%d remain=%d" % [i, healing_per_sprite, _healing_count()])
+			return true
+	return false
+
+
+func use_healing_burst() -> bool:
+	var ok: bool = use_healing_sprite()
+	if not ok:
+		return false
+	if EventBus != null and EventBus.has_method("emit_healing_burst"):
+		EventBus.emit_healing_burst(healing_burst_light_energy)
+	if has_method("log_msg"):
+		log_msg("HEAL", "emit healing_burst energy=%.2f" % healing_burst_light_energy)
+	return true
+
+
+func _healing_count() -> int:
+	var n: int = 0
+	for i in range(max_healing_sprites):
+		if _healing_slots[i] != null and is_instance_valid(_healing_slots[i]):
+			n += 1
+	return n
 
 
 # ── 统一日志 ──
