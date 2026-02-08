@@ -345,8 +345,8 @@ func switch_slot() -> void:
 	var new_slot: int = 1 - active_slot
 	if active_slot != new_slot:
 		active_slot = new_slot
-		if EventBus != null and EventBus.has_method("slot_switched"):
-			EventBus.slot_switched.emit(active_slot)
+		if EventBus != null and EventBus.has_method("emit_slot_switched"):
+			EventBus.emit_slot_switched(active_slot)
 		
 		if player != null and player.has_method("log_msg"):
 			player.log_msg("CHAIN", "switch_slot → active_slot=%d" % active_slot)
@@ -600,16 +600,16 @@ func _resolve_entity(n: Node) -> EntityBase:
 
 func _switch_slot() -> void:
 	active_slot = 1 - active_slot
-	if EventBus != null and EventBus.has_method("slot_switched"):
-		EventBus.slot_switched.emit(active_slot)
+	if EventBus != null and EventBus.has_method("emit_slot_switched"):
+		EventBus.emit_slot_switched(active_slot)
 
 
 func _switch_to_available_slot(from_slot: int) -> void:
 	var other_slot: int = 1 - from_slot
 	if chains[other_slot].state == ChainState.IDLE and active_slot != other_slot:
 		active_slot = other_slot
-		if EventBus != null and EventBus.has_method("slot_switched"):
-			EventBus.slot_switched.emit(active_slot)
+		if EventBus != null and EventBus.has_method("emit_slot_switched"):
+			EventBus.emit_slot_switched(active_slot)
 
 
 func _try_fire_chain() -> void:
@@ -720,8 +720,8 @@ func _update_chain(i: int, dt: float) -> void:
 			if not c.is_chimera:
 				c.struggle_timer += dt
 				var progress: float = c.struggle_timer / c.struggle_max
-				if EventBus != null and EventBus.has_method("chain_struggle_progress"):
-					EventBus.chain_struggle_progress.emit(i, progress)
+				if EventBus != null and EventBus.has_method("emit_chain_struggle_progress"):
+					EventBus.emit_chain_struggle_progress(i, progress)
 				if c.struggle_timer >= c.struggle_max:
 					_on_struggle_break(i)
 					return
@@ -859,8 +859,8 @@ func _detach_link_if_needed(slot: int) -> void:
 	c.is_chimera = false
 	
 	if c.state == ChainState.LINKED:
-		if EventBus != null and EventBus.has_method("chain_released"):
-			EventBus.chain_released.emit(slot, &"detached")
+		if EventBus != null and EventBus.has_method("emit_chain_released"):
+			EventBus.emit_chain_released(slot, &"detached")
 
 
 func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false) -> void:
@@ -890,8 +890,8 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	c.line.visible = true
 	c.state = ChainState.DISSOLVING
 	
-	if EventBus != null and EventBus.has_method("chain_released"):
-		EventBus.chain_released.emit(i, &"dissolve")
+	if EventBus != null and EventBus.has_method("emit_chain_released"):
+		EventBus.emit_chain_released(i, &"dissolve")
 
 	var t: float = player.burn_time if dissolve_time <= 0.0 else dissolve_time
 
@@ -1002,6 +1002,8 @@ func _try_fuse() -> void:
 	if c0.state != ChainState.LINKED or c1.state != ChainState.LINKED:
 		return
 	if c0.linked_target == null or c1.linked_target == null:
+		return
+	if not is_instance_valid(c0.linked_target) or not is_instance_valid(c1.linked_target):
 		return
 	if c0.linked_target == c1.linked_target:
 		return
