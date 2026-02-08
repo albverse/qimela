@@ -45,3 +45,6 @@ func emit_chain_released(chain_id: int, reason: StringName) -> void:
 
 func emit_chain_struggle_progress(chain_id: int, t01: float) -> void:
 	chain_struggle_progress.emit(chain_id, clamp(t01, 0.0, 1.0))
+
+func emit_slot_switched(active_slot: int) -> void:
+	slot_switched.emit(active_slot)

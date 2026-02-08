@@ -22,7 +22,7 @@ extends CharacterBody2D
 @export var action_chain_fire: StringName = &"chain_fire"
 @export var action_chain_cancel: StringName = &"cancel_chains"
 @export var action_fuse: StringName = &"fuse"
-@export var action_cancel_chains: StringName = &"chain_cancel"
+@export var action_cancel_chains: StringName = &"cancel_chains"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
@@ -157,6 +157,26 @@ func _physics_process(dt: float) -> void:
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
+	# C / switch weapon（按用户当前键位习惯保留为 C）
+	if event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_C:
+			if weapon_controller != null:
+				weapon_controller.switch_weapon()
+				if action_fsm != null and action_fsm.has_method("on_weapon_switched"):
+					action_fsm.on_weapon_switched()
+			return
+
+	# Space / fuse
+	if _is_action_just_pressed(event, action_fuse, KEY_SPACE):
+		var is_chain_for_fuse: bool = (
+			weapon_controller != null
+			and weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN
+		)
+		if is_chain_for_fuse and chain_sys != null and chain_sys.has_method("_try_fuse"):
+			chain_sys._try_fuse()
+		return
+
 	# W / jump → LocomotionFSM
 	if _is_action_just_pressed(event, action_jump, KEY_W):
 		loco_fsm.on_w_pressed()
@@ -179,6 +199,19 @@ func _unhandled_input(event: InputEvent) -> void:
 							  weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN)
 		
 		if is_chain:
+			# 若当前槽位已链接奇美拉，优先触发互动（不进入融合/再发射流程）
+			if chain_sys != null:
+				var slot: int = chain_sys.active_slot
+				if slot >= 0 and slot < chain_sys.chains.size():
+					var active_chain = chain_sys.chains[slot]
+					if active_chain != null and active_chain.state == chain_sys.ChainState.LINKED and active_chain.is_chimera:
+						var chimera: Node = active_chain.linked_target
+						if chimera != null and is_instance_valid(chimera) and chimera.has_method("on_player_interact"):
+							chimera.call("on_player_interact", self)
+							if has_method("log_msg"):
+								log_msg("INPUT", "M_pressed: chimera interact on active slot=%d" % slot)
+							return
+
 			# === Chain 专用路径：不经过 ActionFSM ===
 			# 1. 检查是否可以发射（死亡/受伤状态拒绝）
 			if action_fsm != null:
