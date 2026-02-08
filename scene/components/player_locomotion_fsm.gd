@@ -121,8 +121,8 @@ func on_w_pressed() -> void:
 
 	_log_event("W_pressed", on_floor, vy, intent)
 
-	# PINK: 只有地面态可起跳（FAML: from [Idle, Walk, Run]）
-	if on_floor and (state == State.IDLE or state == State.WALK or state == State.RUN):
+	# 地面态可起跳（允许落地动画中立刻起跳）
+	if on_floor and (state == State.IDLE or state == State.WALK or state == State.RUN or state == State.JUMP_DOWN):
 		_do_transition(State.JUMP_UP, "W_pressed", 5, on_floor, vy, intent)
 		_player.jump_request = true
 

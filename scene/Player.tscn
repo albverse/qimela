@@ -42,6 +42,9 @@ shader_parameter/darken = 0.85
 z_index = 1
 collision_layer = 2
 script = ExtResource("1_player")
+chain_interact_mask = 64
+hand_l_path = NodePath("")
+hand_r_path = NodePath("")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, -42)
@@ -93,6 +96,14 @@ flip_h = true
 
 [node name="Diagnostic" type="Node" parent="Visual"]
 script = ExtResource("11_c2vjh")
+
+[node name="center1" type="Marker2D" parent="Visual"]
+position = Vector2(-1, -17)
+
+[node name="center2" type="Marker2D" parent="Visual"]
+position = Vector2(0, -35)
+
+[node name="center3" type="Marker2D" parent="Visual"]
 
 [node name="Chains" type="Node2D" parent="."]
 

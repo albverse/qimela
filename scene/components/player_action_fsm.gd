@@ -120,17 +120,19 @@ func tick(_dt: float) -> void:
 		_hurt_timer = 0.0
 	
 	# === 延迟 fire 提交（状态门控，防幽灵发射）===
-	# 只有在状态仍是 ATTACK 且 attack_side 匹配时才真正提交 fire
+	# Chain 发射时机：必须在 ATTACK 状态（保持与动画系统同步）
 	if _pending_fire_side != "" and _player.chain_sys != null:
-		if state == State.ATTACK and attack_side == "R" and _pending_fire_side == "R":
-			_player.chain_sys.fire("R")
+		# 安全检查：如果已经进入 DIE/HURT，丢弃
+		if state == State.DIE or state == State.HURT:
 			_pending_fire_side = ""
-		elif state == State.ATTACK and attack_side == "L" and _pending_fire_side == "L":
-			_player.chain_sys.fire("L")
-			_pending_fire_side = ""
-		elif state != State.ATTACK:
-			# 状态已经不是攻击态（同帧 damaged/X → Hurt/Die/Cancel），丢弃请求
-			_pending_fire_side = ""
+		# 只在 ATTACK 状态下发射（与 Animator 同步）
+		elif state == State.ATTACK:
+			if _pending_fire_side == "R":
+				_player.chain_sys.fire("R")
+				_pending_fire_side = ""
+			elif _pending_fire_side == "L":
+				_player.chain_sys.fire("L")
+				_pending_fire_side = ""
 
 
 # ── 外部事件入口 ──
@@ -189,11 +191,17 @@ func on_damaged() -> void:
 		return
 	
 	# === hp>0 的情况：受伤 ===
-	# 受伤会强制打断链条，先释放 slot
+	# === CRITICAL FIX: 受击时取消 FLYING/STUCK，但保留 LINKED ===
+	# 这符合 Q2:选项A 和 Zip1 的体验
+	if _player.chain_sys != null and _player.chain_sys.has_method("cancel_volatile_on_damage"):
+		_player.chain_sys.cancel_volatile_on_damage()
+	
+	# 如果正在动作中，中断动作（但槽位已由上面的 cancel_volatile_on_damage 处理）
 	if state in [State.ATTACK, State.ATTACK_CANCEL]:
-		_abort_chain_if_active("damaged")
+		attack_side = ""  # 清空 side 标记
 	
 	_do_transition(State.HURT, "damaged->HURT", 90)
+
 
 
 func on_m_pressed() -> void:
@@ -204,9 +212,19 @@ func on_m_pressed() -> void:
 
 	_log_event("M_pressed")
 
-	# 已在动作中（Attack/Cancel）：忽略（不叠加）
+	# === CRITICAL FIX: Chain 武器允许在 ATTACK 状态下连发 ===
 	if state != State.NONE:
-		return
+		var is_chain: bool = false
+		if _weapon_controller != null:
+			is_chain = (_weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN)
+		
+		if not is_chain:
+			# 非 Chain 武器：已在动作中，忽略（保持原逻辑）
+			return
+		
+		# Chain 武器：只允许在 ATTACK 状态下连发（其他状态如 HURT/DIE 仍拒绝）
+		if state != State.ATTACK:
+			return
 	
 	# === 委托式选动画：根据武器类型决定行为 ===
 	if _weapon_controller == null:
@@ -218,20 +236,45 @@ func on_m_pressed() -> void:
 	
 	# Chain: 需要 slot 选择 R/L
 	if _weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN:
-		var slot_r: bool = _player.chain_sys.slot_R_available if _player.chain_sys != null else true
-		var slot_l: bool = _player.chain_sys.slot_L_available if _player.chain_sys != null else true
+		# === CRITICAL FIX: 如果已有 pending_fire，立即提交（避免覆盖）===
+		if _pending_fire_side != "" and _player.chain_sys != null:
+			# 立即发射第一次，为第二次腾出空间
+			if _pending_fire_side == "R":
+				_player.chain_sys.fire("R")
+			elif _pending_fire_side == "L":
+				_player.chain_sys.fire("L")
+			_pending_fire_side = ""
+			
+			if _player.has_method("log_msg"):
+				_player.log_msg("ACTION", "instant_fire on rapid M_pressed")
 		
-		if slot_r:
+		# === CRITICAL FIX: 使用 ChainSystem.pick_fire_side() 决定 R/L ===
+		# 这让 slot 选择权回归 ChainSystem（基于 active_slot），而不是硬编码"R 优先"
+		var fire_side: String = ""
+		if _player.chain_sys != null and _player.chain_sys.has_method("pick_fire_side"):
+			fire_side = _player.chain_sys.pick_fire_side()
+		
+		if fire_side == "R":
 			attack_side = "R"
-			_do_transition(State.ATTACK, "M_pressed policy=R", 5)
+			# === CRITICAL FIX: Chain 仍然进入 ATTACK 状态（保持动画/cancel 机制）===
+			# 与 Sword/Knife 一样进入 ATTACK，但允许在 ATTACK 状态下再次按 M（见上方检查）
+			_do_transition(State.ATTACK, "M_pressed weapon=Chain fire=R context=%s" % context, 5)
 			_pending_fire_side = "R"
-		elif slot_l:
+			
+			if _player.has_method("log_msg"):
+				_player.log_msg("ACTION", "M_pressed chain fire=R (state=ATTACK, allows double-fire)")
+		
+		elif fire_side == "L":
 			attack_side = "L"
-			_do_transition(State.ATTACK, "M_pressed policy=L", 4)
+			_do_transition(State.ATTACK, "M_pressed weapon=Chain fire=L context=%s" % context, 5)
 			_pending_fire_side = "L"
+			
+			if _player.has_method("log_msg"):
+				_player.log_msg("ACTION", "M_pressed chain fire=L (state=ATTACK, allows double-fire)")
+		
 		else:
 			if _player.has_method("log_msg"):
-				_player.log_msg("ACTION", "M_pressed policy=NONE (no slots)")
+				_player.log_msg("ACTION", "M_pressed policy=NONE (no slots available)")
 	
 	# Sword: 不需要 slot，直接出招
 	elif _weapon_controller.current_weapon == _weapon_controller.WeaponType.SWORD:
@@ -265,6 +308,14 @@ func on_x_pressed() -> void:
 			_player.chain_sys.cancel("R")
 		elif attack_side == "L" and _player.chain_sys != null and not _player.chain_sys.slot_L_available:
 			_player.chain_sys.cancel("L")
+	
+	# None状态：检查是否有链条绑定，如果有则取消所有链条
+	elif state == State.NONE:
+		if _weapon_controller != null and _weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN:
+			if _player.chain_sys != null and _player.chain_sys.has_method("force_dissolve_all_chains"):
+				_player.chain_sys.force_dissolve_all_chains()
+				if _player.has_method("log_msg"):
+					_player.log_msg("ACTION", "X_pressed in None: dissolved all chains")
 
 
 func on_weapon_switched() -> void:
@@ -279,12 +330,12 @@ func on_weapon_switched() -> void:
 	# 清空 pending fire
 	_pending_fire_side = ""
 	
-	# 如果正在攻击中，取消链条
-	if state == State.ATTACK or state == State.ATTACK_CANCEL:
-		if attack_side == "R" and _player.chain_sys != null and not _player.chain_sys.slot_R_available:
-			_player.chain_sys.cancel("R")
-		elif attack_side == "L" and _player.chain_sys != null and not _player.chain_sys.slot_L_available:
-			_player.chain_sys.cancel("L")
+	# === CRITICAL FIX: 切换武器时dissolve所有链（包括LINKED）===
+	# 这符合 Q3:选项A，相当于自动按X
+	if _player.chain_sys != null and _player.chain_sys.has_method("force_dissolve_all_chains"):
+		_player.chain_sys.force_dissolve_all_chains()
+		if _player.has_method("log_msg"):
+			_player.log_msg("ACTION", "weapon_switched: dissolved all chains")
 	
 	# 强制停止 track1 动画（防止切换后仍播放旧动画）
 	if _player.animator != null and _player.animator.has_method("force_stop_action"):

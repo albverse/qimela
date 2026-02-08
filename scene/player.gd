@@ -20,30 +20,30 @@ extends CharacterBody2D
 @export var action_right: StringName = &"move_right"
 @export var action_jump: StringName = &"jump"
 @export var action_chain_fire: StringName = &"chain_fire"
-@export var action_chain_cancel: StringName = &"chain_cancel"
-@export var action_fuse: StringName = &"chain_fuse"
+@export var action_chain_cancel: StringName = &"cancel_chains"
+@export var action_fuse: StringName = &"fuse"
 @export var action_cancel_chains: StringName = &"chain_cancel"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
-@export var chain_speed: float = 800.0
-@export var rope_wave_amp: float = 15.0
-@export var rope_segments: int = 24
-@export var rope_damping: float = 0.92
-@export var rope_gravity: float = 12.0
-@export var rope_stiffness: float = 0.85
-@export var rope_iterations: int = 3
-@export var rope_wave_decay: float = 3.5
-@export var rope_wave_freq: float = 2.8
-@export var rope_wave_along_segments: float = 1.2
-@export var rope_wave_hook_power: float = 2.2
-@export var end_motion_inject: float = 0.6
+@export var chain_speed: float = 1500.0
+@export var rope_wave_amp: float = 77.0
+@export var rope_segments: int = 22
+@export var rope_damping: float = 0.88
+@export var rope_gravity: float = 0.0
+@export var rope_stiffness: float = 1.7
+@export var rope_iterations: int = 13
+@export var rope_wave_decay: float = 7.5
+@export var rope_wave_freq: float = 10.0
+@export var rope_wave_along_segments: float = 8.0
+@export var rope_wave_hook_power: float = 6.2
+@export var end_motion_inject: float = 0.5
 @export var hand_motion_inject: float = 0.15
-@export var texture_anchor_at_hook: bool = false
+@export var texture_anchor_at_hook: bool = true
 
-@export var chain_max_length: float = 350.0
-@export var chain_max_fly_time: float = 0.5
-@export var hold_time: float = 0.8
+@export var chain_max_length: float = 550.0
+@export var chain_max_fly_time: float = 0.20
+@export var hold_time: float = 0.5
 @export var burn_time: float = 0.5
 @export var cancel_dissolve_time: float = 0.3
 @export var fusion_chain_dissolve_time: float = 0.6
@@ -57,8 +57,8 @@ extends CharacterBody2D
 @export var spawn_try_up_step: float = 16.0
 @export var spawn_try_side: float = 32.0
 
-@export var chain_hit_mask: int = 1
-@export var chain_interact_mask: int = 16
+@export_flags_2d_physics var chain_hit_mask: int = 9
+@export_flags_2d_physics var chain_interact_mask = 64
 
 @export var hand_l_path: NodePath = NodePath("Visual/HandL")
 @export var hand_r_path: NodePath = NodePath("Visual/HandR")
@@ -162,33 +162,90 @@ func _unhandled_input(event: InputEvent) -> void:
 		loco_fsm.on_w_pressed()
 		return
 
-	# 鼠标左键 / chain_fire → ActionFSM
+	# === HANDOFF 推荐方案：Chain 绕过 ActionFSM，作为 overlay ===
+	# 鼠标左键 / chain_fire
+	var is_m_pressed: bool = false
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			is_m_pressed = true
+	
+	if not is_m_pressed and _is_action_just_pressed(event, action_chain_fire, KEY_F):
+		is_m_pressed = true
+	
+	if is_m_pressed:
+		# 检查当前武器是否为 Chain
+		var is_chain: bool = (weapon_controller != null and 
+							  weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN)
+		
+		if is_chain:
+			# === Chain 专用路径：不经过 ActionFSM ===
+			# 1. 检查是否可以发射（死亡/受伤状态拒绝）
+			if action_fsm != null:
+				var state_name: StringName = action_fsm.state_name()
+				if state_name == &"Die" or state_name == &"Hurt":
+					return
+			
+			# 2. 从 ChainSystem 获取可用 slot
+			if chain_sys != null and chain_sys.has_method("pick_fire_slot"):
+				var slot: int = chain_sys.pick_fire_slot()
+				if slot >= 0:
+					# 3. 播放 chain 动画（overlay，不占用 ActionFSM 状态）
+					if animator != null and animator.has_method("play_chain_fire"):
+						animator.play_chain_fire(slot)
+					
+					# 4. 执行发射逻辑
+					var side: String = "R" if slot == 0 else "L"
+					chain_sys.fire(side)
+					
+					if has_method("log_msg"):
+						log_msg("INPUT", "M_pressed: Chain slot=%d fired (bypass ActionFSM)" % slot)
+					return
+			
+			# 没有可用 slot，忽略
+			if has_method("log_msg"):
+				log_msg("INPUT", "M_pressed: Chain no available slot")
+			return
+		else:
+			# === 非 Chain 武器：走 ActionFSM 标准流程 ===
 			action_fsm.on_m_pressed()
 			return
 
-	if _is_action_just_pressed(event, action_chain_fire, KEY_F):
-		action_fsm.on_m_pressed()
-		return
-
-	# X / chain_cancel → ActionFSM
+	# X / chain_cancel
 	if _is_action_just_pressed(event, action_chain_cancel, KEY_X):
-		action_fsm.on_x_pressed()
-		return
-	
-	# Z / weapon_switch → WeaponController + ActionFSM
-	if event is InputEventKey:
-		var ek: InputEventKey = event as InputEventKey
-		if ek.pressed and ek.keycode == KEY_Z:
-			if weapon_controller != null:
-				weapon_controller.switch_weapon()
-				# 硬切：中断当前动作
-				if action_fsm != null:
-					action_fsm.on_weapon_switched()
+		var is_chain: bool = (weapon_controller != null and 
+							  weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN)
+		
+		if is_chain and chain_sys != null:
+			# Chain专用路径：先播放取消动画，再溶解链条
+			if chain_sys.has_method("force_dissolve_all_chains"):
+				# 检查哪些链条活跃
+				var right_active: bool = (chain_sys.chains.size() > 0 and 
+										 chain_sys.chains[0].state != chain_sys.ChainState.IDLE and 
+										 chain_sys.chains[0].state != chain_sys.ChainState.DISSOLVING)
+				var left_active: bool = (chain_sys.chains.size() > 1 and 
+										chain_sys.chains[1].state != chain_sys.ChainState.IDLE and 
+										chain_sys.chains[1].state != chain_sys.ChainState.DISSOLVING)
+				
+				# 先播放取消动画
+				if (right_active or left_active) and animator != null and animator.has_method("play_chain_cancel"):
+					animator.play_chain_cancel(right_active, left_active)
+				
+				# 延迟溶解，给动画播放时间
+				var tw: Tween = create_tween()
+				tw.tween_interval(0.25)  # 取消动画时长
+				tw.tween_callback(func() -> void:
+					if chain_sys != null:
+						chain_sys.force_dissolve_all_chains()
+				)
+				
+				if has_method("log_msg"):
+					log_msg("INPUT", "X_pressed: Chain cancel with animation")
 			return
-
+		else:
+			# 非Chain武器：走ActionFSM标准流程
+			action_fsm.on_x_pressed()
+			return
 
 # ── Animator → FSM 回调转发 ──
 

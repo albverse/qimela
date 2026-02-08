@@ -84,6 +84,7 @@ var _weapon_controller: WeaponController = null
 var _cur_loco_anim: StringName = &""
 var _cur_action_anim: StringName = &""
 var _cur_action_mode: int = -1  # 记录当前 action 的播放模式（用于判断是否需要清理 track0）
+var _manual_chain_anim: bool = false  # 标志：chain动画是由ChainSystem手动触发的，tick不要清理
 
 
 func setup(player: CharacterBody2D) -> void:
@@ -185,7 +186,11 @@ func tick(_dt: float) -> void:
 
 	# === Track1: action overlay ===
 	if action_state == &"None":
-		if _cur_action_anim != &"":
+		# CRITICAL: 如果是手动播放的chain动画，不要清理
+		if _manual_chain_anim:
+			# chain动画独立运行，不受ActionFSM控制
+			pass
+		elif _cur_action_anim != &"":
 			# 清理 action：如果之前是 FULLBODY，需要恢复 locomotion
 			if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE:
 				# 恢复 locomotion track0
@@ -284,6 +289,10 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 		_cur_loco_anim = &""
 
 	elif track == TRACK_ACTION:
+		# === CRITICAL: 清除手动chain动画标志 ===
+		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
+			_manual_chain_anim = false
+		
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
 		if event != &"":
 			_player.on_action_anim_end(event)
@@ -300,7 +309,8 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 	## 获取手部锚点（优先 Spine 骨骼 → fallback Marker2D → player 坐标）
 	if _driver != null and _driver.has_method("get_bone_world_position"):
-		var bone_name: String = "hand_r" if use_right_hand else "hand_l"
+		# === CRITICAL FIX: 使用正确的骨骼名 chain_anchor_r/l ===
+		var bone_name: String = "chain_anchor_r" if use_right_hand else "chain_anchor_l"
 		var pos: Variant = _driver.get_bone_world_position(bone_name)
 		if pos is Vector2:
 			return pos
@@ -314,14 +324,42 @@ func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 	return Vector2.ZERO
 
 
-func play_chain_fire(_slot_idx: int) -> void:
-	## Chain 发射动画 — 新架构下由 ActionFSM 状态转移驱动，此处为兼容占位
-	pass
+func play_chain_fire(slot_idx: int) -> void:
+	## Chain 发射动画 — 由 ChainSystem 直接调用
+	## 动画独立于 ActionFSM，不受其状态控制
+	if _driver == null:
+		return
+	
+	# 根据 slot 确定动画名
+	var anim_name: StringName = &"chain_R" if slot_idx == 0 else &"chain_L"
+	
+	# 直接播放在 track1（overlay）
+	_driver.play(TRACK_ACTION, anim_name, false)
+	_cur_action_anim = anim_name
+	_cur_action_mode = MODE_OVERLAY_UPPER
+	_manual_chain_anim = true  # 标记为手动播放，防止tick清理
+	
+	_log_play(TRACK_ACTION, anim_name, false)
+	
+	if _player != null and _player.has_method("log_msg"):
+		_player.log_msg("ANIM", "play_chain_fire slot=%d anim=%s (manual, protected from tick)" % [slot_idx, anim_name])
 
 
-func play_chain_cancel(_right_active: bool, _left_active: bool) -> void:
-	## Chain 取消动画 — 新架构下由 ActionFSM 状态转移驱动，此处为兼容占位
-	pass
+func play_chain_cancel(right_active: bool, left_active: bool) -> void:
+	if _driver == null:
+		return
+
+	var anim_name: StringName = &""
+	if right_active:
+		anim_name = &"anim_chain_cancel_R"
+	elif left_active:
+		anim_name = &"anim_chain_cancel_L"
+	else:
+		return
+
+	_manual_chain_anim = true
+	_driver.play(TRACK_ACTION, anim_name, false)
+	_log_play(TRACK_ACTION, anim_name, false)
 
 
 # ── 日志 ──

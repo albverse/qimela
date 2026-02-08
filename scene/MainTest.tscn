@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=23 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -10,13 +10,12 @@
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="3_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://j7xkrffio8i4" path="res://scene/MonsterFly.tscn" id="4_ngg7y"]
 [ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_00cx3"]
-[ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="6_ui"]
+[ext_resource type="PackedScene" uid="uid://cu5h6g7s8iaj0" path="res://ui/game_ui.tscn" id="6_ui"]
 [ext_resource type="PackedScene" path="res://scene/MonsterNeutral.tscn" id="7_neutral"]
 [ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="8_pe88y"]
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
-[ext_resource type="Script" uid="uid://vogcn7uf370a" path="res://scene/weapon_ui.gd" id="17_gteh2"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -197,25 +196,4 @@ position = Vector2(372, 467)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="SafeFrame" type="MarginContainer" parent="HUD"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/margin_left = 125
-theme_override_constants/margin_top = 60
-theme_override_constants/margin_right = 125
-theme_override_constants/margin_bottom = 950
-
-[node name="ChainSlotsUI" parent="HUD/SafeFrame" instance=ExtResource("6_ui")]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="WeaponUI" type="CanvasLayer" parent="."]
-script = ExtResource("17_gteh2")
-
-[node name="WeaponLabel" type="Label" parent="WeaponUI"]
-offset_right = 40.0
-offset_bottom = 23.0
+[node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
