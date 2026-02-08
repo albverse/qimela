@@ -31,7 +31,6 @@
 - 玩家HP/受击/击退
 
 ### 🔧 TODO
-- FAIL_HOSTILE 实际生成敌对怪（当前仅打印日志）
 - Boss 削弱机制
 - 存档系统
 
@@ -48,6 +47,8 @@
 | 取消锁链 | cancel_chains | X |
 | 融合 | fuse | Space |
 | 使用回血精灵 | use_healing | C |
+| 治愈精灵大爆炸 | healing_burst | Q |
+| 武器切换 | (无action) | Z |
 
 ---
 

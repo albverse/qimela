@@ -23,6 +23,7 @@ extends CharacterBody2D
 @export var action_chain_cancel: StringName = &"cancel_chains"
 @export var action_fuse: StringName = &"fuse"
 @export var action_cancel_chains: StringName = &"cancel_chains"
+@export var action_healing_burst: StringName = &"healing_burst"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
@@ -85,8 +86,10 @@ var weapon_controller: WeaponController = null
 # ── HealingSprite 持有与使用 ──
 @export var max_healing_sprites: int = 3
 @export var healing_per_sprite: int = 2
-@export var healing_burst_light_energy: float = 1.0
+@export var healing_burst_light_energy: float = 5.0
+@export var healing_burst_area_path: NodePath = NodePath("HealingBurstArea")
 var _healing_slots: Array = [null, null, null]
+var _healing_burst_area: Area2D = null
 
 
 func _ready() -> void:
@@ -110,6 +113,7 @@ func _ready() -> void:
 	health = $Components/Health as PlayerHealth
 	animator = $Animator as PlayerAnimator
 	weapon_controller = $Components/WeaponController as WeaponController
+	_healing_burst_area = get_node_or_null(healing_burst_area_path) as Area2D
 
 	# 安全检查
 	var ok: bool = true
@@ -120,6 +124,7 @@ func _ready() -> void:
 	if health == null: push_error("[Player] Health missing"); ok = false
 	if animator == null: push_error("[Player] Animator missing"); ok = false
 	if weapon_controller == null: push_error("[Player] WeaponController missing"); ok = false
+	if _healing_burst_area == null: push_warning("[Player] HealingBurstArea missing: %s" % healing_burst_area_path)
 
 	if not ok:
 		set_physics_process(false)
@@ -177,7 +182,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	# Q / healing burst（测试入口）
-	if _is_action_just_pressed(event, &"healing_burst", KEY_Q):
+	if _is_action_just_pressed(event, action_healing_burst, KEY_Q):
 		use_healing_burst()
 		return
 
@@ -421,13 +426,40 @@ func use_healing_sprite() -> bool:
 
 
 func use_healing_burst() -> bool:
-	var ok: bool = use_healing_sprite()
-	if not ok:
+	var current_count: int = _healing_count()
+	if current_count < max_healing_sprites:
+		if has_method("log_msg"):
+			log_msg("HEAL", "治愈精灵不足，无法触发大爆炸（当前：%d/%d）" % [current_count, max_healing_sprites])
 		return false
+
+	if _healing_burst_area == null:
+		_healing_burst_area = get_node_or_null(healing_burst_area_path) as Area2D
+	if _healing_burst_area == null:
+		push_warning("[Player] HealingBurstArea missing, skip burst stun")
+
+	for i in range(max_healing_sprites):
+		var sp: Node = _healing_slots[i]
+		if sp == null or not is_instance_valid(sp):
+			continue
+		_healing_slots[i] = null
+		if sp.has_method("consume"):
+			sp.call("consume")
+
+	if has_method("log_msg"):
+		log_msg("HEAL", "治愈精灵大爆炸！")
+
+	if _healing_burst_area != null:
+		var bodies: Array[Node2D] = _healing_burst_area.get_overlapping_bodies()
+		for body in bodies:
+			var monster: MonsterBase = body as MonsterBase
+			if monster != null and monster.has_method("apply_healing_burst_stun"):
+				monster.apply_healing_burst_stun()
+				if has_method("log_msg"):
+					log_msg("HEAL", "healing_burst stun hit=%s" % monster.name)
 	if EventBus != null and EventBus.has_method("emit_healing_burst"):
 		EventBus.emit_healing_burst(healing_burst_light_energy)
 	if has_method("log_msg"):
-		log_msg("HEAL", "emit healing_burst energy=%.2f" % healing_burst_light_energy)
+		log_msg("HEAL", "释放全场光照能量：%.2f" % healing_burst_light_energy)
 	return true
 
 
@@ -462,6 +494,8 @@ func log_msg(source: String, msg: String) -> void:
 func _is_action_just_pressed(event: InputEvent, action: StringName, fallback_key: int) -> bool:
 	if action != &"" and InputMap.has_action(action):
 		if event.is_action_pressed(action):
+			if event is InputEventKey and (event as InputEventKey).echo:
+				return false
 			return true
 		return false
 	if event is InputEventKey:

@@ -45,7 +45,7 @@
 |------|------|---------|
 | 同 species_id | REJECTED | check_fusion() |
 | 无匹配规则 + 同属性同型号 | FAIL_VANISH | check_fusion() |
-| 无匹配规则 + 光+暗 | REJECTED | check_fusion() |
+| 无匹配规则 + 光+暗 | 同型号: FAIL_HOSTILE；不同型号: FAIL_VANISH | check_fusion() |
 
 ---
 
