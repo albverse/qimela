@@ -1003,6 +1003,8 @@ func _try_fuse() -> void:
 		return
 	if c0.linked_target == null or c1.linked_target == null:
 		return
+	if not is_instance_valid(c0.linked_target) or not is_instance_valid(c1.linked_target):
+		return
 	if c0.linked_target == c1.linked_target:
 		return
 
