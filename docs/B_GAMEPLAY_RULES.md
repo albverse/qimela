@@ -15,6 +15,8 @@
 | 取消锁链 | cancel_chains | X | ✅ |
 | 融合 | fuse | Space | ✅ |
 | 使用回血精灵 | use_healing | C | ✅ |
+| 治愈精灵大爆炸 | healing_burst | Q | ✅ |
+| 武器切换 | (无action) | Z | ✅ |
 
 ---
 
@@ -77,6 +79,12 @@ IDLE → FLYING → STUCK/LINKED → DISSOLVING → IDLE
 - 状态机：IDLE_IN_WORLD → ACQUIRE → ORBIT → CONSUMED
 - 环绕玩家，3只各有不同center点
 - 跳跃时有0.3秒滞后
+
+### 治愈精灵大爆炸（Q）
+- 触发条件：必须满 3/3 治愈精灵
+- 触发后：清空并消耗全部精灵
+- 范围：Player/HealingBurstArea 内 MonsterBase 进入眩晕（按各怪 healing_burst_stun_time）
+- 全局事件：`EventBus.healing_burst(light_energy)`，默认能量 5.0
 
 ---
 

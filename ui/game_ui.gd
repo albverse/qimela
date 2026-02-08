@@ -41,8 +41,10 @@ func _init_with_player() -> void:
 		
 		_hearts_ui.call("setup", max_hp, current_hp)
 		
-		# 连接血量变化信号
-		if _player.health != null and _player.health.has_signal("damage_applied"):
+		# 连接血量变化信号（受伤/治疗都更新）
+		if _player.health != null and _player.health.has_signal("hp_changed"):
+			_player.health.hp_changed.connect(_on_player_hp_changed)
+		elif _player.health != null and _player.health.has_signal("damage_applied"):
 			_player.health.damage_applied.connect(_on_player_damage_applied)
 	
 	# 初始化武器显示
@@ -82,3 +84,12 @@ func _on_player_damage_applied(_amount: int, _source_pos: Vector2) -> void:
 	# 更新血量显示
 	if _hearts_ui != null and _hearts_ui.has_method("set_hp_instant") and _player != null and _player.health != null:
 		_hearts_ui.call("set_hp_instant", _player.health.hp)
+
+
+func _on_player_hp_changed(new_hp: int, old_hp: int) -> void:
+	if _hearts_ui == null or not _hearts_ui.has_method("set_hp_instant"):
+		return
+	if new_hp > old_hp and _hearts_ui.has_method("play_heal_fill"):
+		_hearts_ui.call("play_heal_fill", old_hp, new_hp)
+		return
+	_hearts_ui.call("set_hp_instant", new_hp)
