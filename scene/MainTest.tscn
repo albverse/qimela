@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=24 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
+[ext_resource type="Script" uid="uid://vogcn7uf370a" path="res://scene/weapon_ui.gd" id="17_gteh2"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -165,7 +166,7 @@ position = Vector2(396, 362)
 position = Vector2(238, 571)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
-position = Vector2(50, -446)
+position = Vector2(-7, -36)
 
 [node name="Walk1" parent="World" instance=ExtResource("3_7qdox")]
 position = Vector2(780, 586)
@@ -211,3 +212,10 @@ theme_override_constants/margin_bottom = 950
 [node name="ChainSlotsUI" parent="HUD/SafeFrame" instance=ExtResource("6_ui")]
 layout_mode = 2
 mouse_filter = 2
+
+[node name="WeaponUI" type="CanvasLayer" parent="."]
+script = ExtResource("17_gteh2")
+
+[node name="WeaponLabel" type="Label" parent="WeaponUI"]
+offset_right = 40.0
+offset_bottom = 23.0

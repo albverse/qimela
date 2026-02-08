@@ -1,245 +1,334 @@
 extends Node
 class_name PlayerAnimator
 
-enum AnimPriority {
-	IDLE = 0,
-	CHAIN = 1,
-	JUMP_DOWN = 1,
-	MOVE = 2,
-	JUMP = 3,
-	HURT = 8,
-	DIE = 10
+## Animator 裁决器（唯一播放动画的模块）
+## Phase 2A: 支持 Spine + 三种 attack_mode
+## Track0 = locomotion（永远跟随 locomotion_state）
+## Track1 = action overlay（action_state != None 时播放）
+## 播放模式：
+##   OVERLAY_UPPER / OVERLAY_CONTEXT: track1 叠加（不影响 track0）
+##   FULLBODY_EXCLUSIVE: 清空所有轨道，全身动画替换 track0
+
+const TRACK_LOCO: int = 0
+const TRACK_ACTION: int = 1
+
+## 驱动器模式
+enum DriverMode { MOCK, SPINE }
+@export var driver_mode: DriverMode = DriverMode.MOCK
+@export var spine_sprite_path: NodePath = NodePath("../Visual/SpineSprite")
+
+## 攻击模式常量（避免循环依赖）
+const MODE_OVERLAY_UPPER: int = 0
+const MODE_OVERLAY_CONTEXT: int = 1
+const MODE_FULLBODY_EXCLUSIVE: int = 2
+
+# 动画名映射（locomotion_state → anim name）
+const LOCO_ANIM: Dictionary = {
+	&"Idle": &"idle",
+	&"Walk": &"walk",
+	&"Run": &"run",
+	&"Jump_up": &"jump_up",
+	&"Jump_loop": &"jump_loop",
+	&"Jump_down": &"jump_down",
 }
 
-@export_group("基础动画")
-@export var anim_idle: StringName = &"idle"
-@export var anim_walk: StringName = &"walk"
-@export var anim_run: StringName = &"run"
+# loop 表（true=loop）
+const LOCO_LOOP: Dictionary = {
+	&"idle": true,
+	&"walk": true,
+	&"run": true,
+	&"jump_up": false,
+	&"jump_loop": true,
+	&"jump_down": false,
+}
 
-@export_group("跳跃动画")
-@export var anim_jump_up: StringName = &"jump_up"
-@export var anim_jump_loop: StringName = &"jump_loop"
-@export var anim_jump_down: StringName = &"jump_down"
+# 动画名映射（action_state → anim name）
+const ACTION_ANIM: Dictionary = {
+	&"Chain_R": &"chain_R",
+	&"Chain_L": &"chain_L",
+	&"ChainCancel_R": &"anim_chain_cancel_R",
+	&"ChainCancel_L": &"anim_chain_cancel_L",
+	&"Hurt": &"hurt",
+	&"Die": &"die",
+}
 
-@export_group("受伤与死亡")
-@export var anim_hurt: StringName = &"hurt"
-@export var anim_die: StringName = &"die"
+# Track1 anim → ActionFSM event name
+const ACTION_END_MAP: Dictionary = {
+	&"chain_R": &"anim_end_attack",
+	&"chain_L": &"anim_end_attack",
+	&"anim_chain_cancel_R": &"anim_end_attack_cancel",
+	&"anim_chain_cancel_L": &"anim_end_attack_cancel",
+	&"hurt": &"anim_end_hurt",
+	# Sword 动画
+	&"sword_light_idle": &"anim_end_attack",
+	&"sword_light_move": &"anim_end_attack",
+	&"sword_light_air": &"anim_end_attack",
+	# Knife 动画
+	&"knife_light_idle": &"anim_end_attack",
+	&"knife_light_move": &"anim_end_attack",
+	&"knife_light_air": &"anim_end_attack",
+	# die 是终态，不产生 anim_end
+}
 
-@export_group("锁链动画 - 发射")
-@export var anim_chain_r: StringName = &"chain_R"
-@export var anim_chain_l: StringName = &"chain_L"
-@export var anim_chain_lr: StringName = &"chain_LR"
+# Track0 anim → LocomotionFSM event name（仅非 loop）
+const LOCO_END_MAP: Dictionary = {
+	&"jump_up": &"anim_end_jump_up",
+	&"jump_down": &"anim_end_jump_down",
+}
 
-@export_group("锁链动画 - 取消")
-@export var anim_chain_r_cancel: StringName = &"chain_R_cancel"
-@export var anim_chain_l_cancel: StringName = &"chain_L_cancel"
-@export var anim_chain_lr_cancel: StringName = &"chain_LR_cancel"
+var _player: CharacterBody2D = null
+var _driver = null  # AnimDriverMock 或 AnimDriverSpine
+var _visual: Node2D = null
+var _weapon_controller: WeaponController = null
 
-@export_group("Spine节点配置")
-@export var spine_path: NodePath = ^"../Visual/SpineSprite"
+var _cur_loco_anim: StringName = &""
+var _cur_action_anim: StringName = &""
+var _cur_action_mode: int = -1  # 记录当前 action 的播放模式（用于判断是否需要清理 track0）
 
-@export_group("骨骼锚点名称")
-@export var bone_chain_anchor_l: StringName = &"chain_anchor_l"
-@export var bone_chain_anchor_r: StringName = &"chain_anchor_r"
 
-@export_group("一次性动画回收")
-@export var one_shot_fallback_timeout: float = 1.2
+func setup(player: CharacterBody2D) -> void:
+	_player = player
+	_weapon_controller = player.weapon_controller if player != null else null
 
-var _player: Player = null
-var _spine: Node = null
-var _current_anim: StringName = &""
-var _current_priority: int = 0
-var _current_track: int = 0
-var _is_one_shot_playing: bool = false
-var _one_shot_timer: float = 0.0
-var _has_completion_signal: bool = false
-var _return_anim: StringName = &""
+	# 根据 driver_mode 创建对应驱动器
+	if driver_mode == DriverMode.SPINE:
+		_setup_spine_driver()
+	else:
+		_setup_mock_driver()
 
-func _ready() -> void:
-	_player = _find_player()
+	# Visual 引用
+	_visual = _player.get_node_or_null(^"Visual") as Node2D
+
+
+func _setup_mock_driver() -> void:
+	"""创建 Mock 驱动器（Phase 0 兼容）"""
+	var mock_driver = AnimDriverMock.new()
+	mock_driver.name = "AnimDriverMock"
+	add_child(mock_driver)
+	mock_driver.anim_completed.connect(_on_anim_completed)
+	_driver = mock_driver
+
+
+func _setup_spine_driver() -> void:
+	"""创建 Spine 驱动器（Phase 2A）"""
+	var spine_sprite: Node = get_node_or_null(spine_sprite_path)
+	if spine_sprite == null:
+		push_error("[PlayerAnimator] SpineSprite not found at path: %s" % spine_sprite_path)
+		push_error("[PlayerAnimator] Falling back to Mock driver")
+		_setup_mock_driver()
+		return
+	
+	# 动态加载 AnimDriverSpine
+	var spine_driver_script = load("res://scene/components/anim_driver_spine.gd")
+	if spine_driver_script == null:
+		push_error("[PlayerAnimator] AnimDriverSpine script not found, falling back to Mock")
+		_setup_mock_driver()
+		return
+	
+	var spine_driver = spine_driver_script.new()
+	spine_driver.name = "AnimDriverSpine"
+	add_child(spine_driver)
+	spine_driver.setup(spine_sprite)
+	spine_driver.anim_completed.connect(_on_anim_completed)
+	_driver = spine_driver
+	
+	if _player != null and _player.has_method("log_msg"):
+		_player.log_msg("ANIM", "Spine driver initialized")
+
+
+## _compute_context: 计算当前上下文（用于武器动画选择）
+func _compute_context() -> String:
 	if _player == null:
-		push_error("[PlayerAnimator] Player not found.")
-		return
+		return "ground_idle"
 	
-	_spine = get_node_or_null(spine_path)
-	if _spine == null:
-		push_error("[PlayerAnimator] SpineSprite not found at: %s" % spine_path)
+	var on_floor: bool = _player.is_on_floor()
+	if not on_floor:
+		return "air"
+	
+	# 地面：根据 movement.move_intent 判断
+	if _player.movement != null:
+		var intent: int = _player.movement.move_intent
+		if intent == 0:  # MoveIntent.NONE
+			return "ground_idle"
+		else:
+			return "ground_move"
+	
+	return "ground_idle"
+
+
+func force_stop_action() -> void:
+	"""强制停止 track1 动画（用于武器切换等硬切场景）"""
+	_cur_action_anim = &""
+	if _driver != null:
+		_driver.stop(TRACK_ACTION)
+
+
+func tick(_dt: float) -> void:
+	if _player == null or _driver == null:
+		return
+
+	# 读取两层状态
+	var loco_state: StringName = _player.get_locomotion_state()
+	var action_state: StringName = _player.get_action_state()
+
+	# === Track0: locomotion ===
+	# CRITICAL: 如果当前 action 是 FULLBODY_EXCLUSIVE，跳过 locomotion 更新
+	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE)
+	
+	if not skip_loco_update:
+		var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
+		if target_loco != _cur_loco_anim:
+			var loop: bool = LOCO_LOOP.get(target_loco, true)
+			_driver.play(TRACK_LOCO, target_loco, loop)
+			_cur_loco_anim = target_loco
+			_log_play(TRACK_LOCO, target_loco, loop)
+
+	# === Track1: action overlay ===
+	if action_state == &"None":
+		if _cur_action_anim != &"":
+			# 清理 action：如果之前是 FULLBODY，需要恢复 locomotion
+			if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE:
+				# 恢复 locomotion track0
+				var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
+				var loop: bool = LOCO_LOOP.get(target_loco, true)
+				_driver.play(TRACK_LOCO, target_loco, loop)
+				_cur_loco_anim = target_loco
+				_log_play(TRACK_LOCO, target_loco, loop)
+			else:
+				# OVERLAY 模式：只停止 track1
+				_driver.stop(TRACK_ACTION)
+			
+			_cur_action_anim = &""
+			_cur_action_mode = -1
 	else:
-		if _spine.has_signal("animation_completed"):
-			_spine.connect("animation_completed", _on_animation_completed)
-			_has_completion_signal = true
-		elif _spine.has_signal("animation_complete"):
-			_spine.connect("animation_complete", _on_animation_completed)
-			_has_completion_signal = true
-	
-	play_idle()
-	set_process(true)
+		var target_action: StringName = &""
+		var action_mode: int = MODE_OVERLAY_UPPER  # 默认模式
+		
+		# === 委托式选动画：根据 action_state 和武器类型 ===
+		# Hurt / Die 使用固定映射（OVERLAY）
+		if action_state == &"Hurt":
+			target_action = &"hurt"
+			action_mode = MODE_OVERLAY_UPPER
+		elif action_state == &"Die":
+			target_action = &"die"
+			action_mode = MODE_OVERLAY_UPPER
+		
+		# AttackCancel_R / AttackCancel_L：使用固定cancel动画（OVERLAY）
+		elif action_state in [&"AttackCancel_R", &"AttackCancel_L"]:
+			var side: String = "R" if action_state == &"AttackCancel_R" else "L"
+			if _weapon_controller != null:
+				var result: Dictionary = _weapon_controller.cancel(side)
+				var anim_name: String = result.get("anim_name", "")
+				if anim_name != "":
+					target_action = StringName(anim_name)
+			# Fallback
+			if target_action == &"":
+				target_action = &"anim_chain_cancel_R" if side == "R" else &"anim_chain_cancel_L"
+			action_mode = MODE_OVERLAY_UPPER
+		
+		# Attack_R / Attack_L：使用 WeaponController 委托
+		elif action_state in [&"Attack_R", &"Attack_L"]:
+			if _weapon_controller != null and _player.action_fsm != null:
+				var context: String = _compute_context()
+				var side: String = "R" if action_state == &"Attack_R" else "L"
+				var result: Dictionary = _weapon_controller.attack(context, side)
+				var anim_name: String = result.get("anim_name", "")
+				action_mode = result.get("mode", MODE_OVERLAY_UPPER)
+				if anim_name != "":
+					target_action = StringName(anim_name)
+			
+			# Fallback: chain
+			if target_action == &"":
+				target_action = &"chain_R" if action_state == &"Attack_R" else &"chain_L"
+				action_mode = MODE_OVERLAY_UPPER
+		
+		if target_action != &"" and target_action != _cur_action_anim:
+			# 根据 action_mode 决定播放策略
+			if action_mode == MODE_FULLBODY_EXCLUSIVE:
+				# FULLBODY: 清空所有轨道，只播这个动画
+				if driver_mode == DriverMode.SPINE and _driver.has_method("play"):
+					# Spine driver: 使用 EXCLUSIVE 模式（PlayMode.EXCLUSIVE = 1）
+					_driver.play(TRACK_LOCO, target_action, false, 1)
+				else:
+					# Mock driver fallback
+					_driver.play(TRACK_LOCO, target_action, false)
+				_log_play(TRACK_LOCO, target_action, false)
+			else:
+				# OVERLAY: track1 叠加播放
+				_driver.play(TRACK_ACTION, target_action, false)
+				_log_play(TRACK_ACTION, target_action, false)
+			
+			_cur_action_anim = target_action
+			_cur_action_mode = action_mode
 
-func _process(delta: float) -> void:
-	if _has_completion_signal:
-		return
-	if not _is_one_shot_playing:
-		return
-	if _one_shot_timer <= 0.0:
-		return
-	_one_shot_timer -= delta
-	if _one_shot_timer <= 0.0:
-		_finish_one_shot()
+	# === facing → Visual 翻转 ===
+	if _visual != null:
+		var facing: int = _player.facing
+		var sign_val: float = _player.facing_visual_sign
+		_visual.scale.x = float(facing) * sign_val
 
-func _find_player() -> Player:
-	var p: Node = self
-	while p != null and not (p is Player):
-		p = p.get_parent()
-	return p as Player
+	# 驱动 Mock（Spine 自动更新，不需要 tick）
+	if _driver != null and _driver.has_method("tick"):
+		_driver.tick(_dt)
 
-func _get_anim_priority(anim_name: StringName) -> int:
-	if anim_name == anim_die:
-		return AnimPriority.DIE
-	if anim_name == anim_hurt:
-		return AnimPriority.HURT
-	if anim_name == anim_jump_up or anim_name == anim_jump_loop:
-		return AnimPriority.JUMP
-	if anim_name == anim_walk or anim_name == anim_run:
-		return AnimPriority.MOVE
-	if anim_name == anim_jump_down:
-		return AnimPriority.JUMP_DOWN
-	if anim_name in [anim_chain_r, anim_chain_l, anim_chain_lr, anim_chain_r_cancel, anim_chain_l_cancel, anim_chain_lr_cancel]:
-		return AnimPriority.CHAIN
-	return AnimPriority.IDLE
 
-func _can_interrupt(new_anim: StringName) -> bool:
-	var new_priority := _get_anim_priority(new_anim)
-	if _current_anim == anim_jump_up or _current_anim == anim_jump_loop:
-		return new_priority >= AnimPriority.HURT
-	return new_priority >= _current_priority
+func _on_anim_completed(track: int, anim_name: StringName) -> void:
+	_log_end(track, anim_name)
 
-func _play(anim_name: StringName, loop: bool = true, track: int = 0, return_to_idle: bool = false, force: bool = false) -> void:
-	if _spine == null:
-		return
-	
-	if anim_name == StringName("") or anim_name == &"":
-		return
-	
-	var anim_name_str := String(anim_name)
-	if anim_name_str.is_empty():
-		return
-	
-	if loop and anim_name == _current_anim and track == _current_track:
-		return
-	
-	if not force and _current_anim != &"":
-		if not _can_interrupt(anim_name):
-			return
-	
-	_current_anim = anim_name
-	_current_priority = _get_anim_priority(anim_name)
-	_current_track = track
-	_is_one_shot_playing = not loop
-	_one_shot_timer = one_shot_fallback_timeout if (not loop and not _has_completion_signal) else 0.0
-	_return_anim = anim_idle if return_to_idle else &""
-	
-	if not _spine.has_method("get_animation_state"):
-		return
-	
-	var anim_state: Object = _spine.call("get_animation_state")
-	if anim_state == null:
-		return
-	
-	if anim_state.has_method("set_animation"):
-		anim_state.set_animation(anim_name_str, loop, track)
+	if track == TRACK_LOCO:
+		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
+		# 此处只收到非 loop 的 jump_up / jump_down
+		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
+		if event != &"":
+			_player.on_loco_anim_end(event)
+		_cur_loco_anim = &""
 
-func _on_animation_completed(_a = null, _b = null, _c = null) -> void:
-	_finish_one_shot()
+	elif track == TRACK_ACTION:
+		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
+		if event != &"":
+			_player.on_action_anim_end(event)
+		
+		# === CRITICAL FIX: die 是终态，不清空 _cur_action_anim ===
+		# 防止下一帧 tick 因为 "die" != "" 而重新播放
+		if anim_name != &"die":
+			_cur_action_anim = &""
 
-func _finish_one_shot() -> void:
-	if not _is_one_shot_playing and _return_anim == &"":
-		return
-	
-	_is_one_shot_playing = false
-	_one_shot_timer = 0.0
-	
-	if _return_anim != &"":
-		var return_to := _return_anim
-		_return_anim = &""
-		_play(return_to, true, 0, false)
 
-func play_idle(force: bool = false) -> void:
-	_play(anim_idle, true, 0, false, force)
-
-func play_walk(force: bool = false) -> void:
-	_play(anim_walk, true, 0, false, force)
-
-func play_run(force: bool = false) -> void:
-	_play(anim_run, true, 0, false, force)
-
-func play_jump_up() -> void:
-	_return_anim = anim_jump_loop
-	_play(anim_jump_up, false)
-
-func play_jump_loop() -> void:
-	_play(anim_jump_loop, true)
-
-func play_jump_down() -> void:
-	_play(anim_jump_down, false, 0, false, true)
-
-func play_hurt() -> void:
-	_return_anim = anim_idle
-	_play(anim_hurt, false, 0, false, true)
-
-func play_die() -> void:
-	_return_anim = &""
-	_play(anim_die, false, 0, false, true)
-
-func play_chain_fire(slot: int) -> void:
-	if slot == 0:
-		_play(anim_chain_r, false, 0, true)
-	else:
-		_play(anim_chain_l, false, 0, true)
-
-func play_chain_cancel(right_active: bool, left_active: bool) -> void:
-	if right_active and left_active:
-		_play(anim_chain_lr_cancel, false, 0, true)
-	elif right_active:
-		_play(anim_chain_r_cancel, false, 0, true)
-	elif left_active:
-		_play(anim_chain_l_cancel, false, 0, true)
+## === Chain System 桥接方法 ===
+## 供 PlayerChainSystem 调用，桥接到 Spine driver 的骨骼坐标
 
 func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
-	if _spine == null or _player == null:
-		return _get_fallback_hand_position(use_right_hand)
-	
-	var bone_name: StringName = bone_chain_anchor_r if use_right_hand else bone_chain_anchor_l
-	
-	if _spine.has_method("get_skeleton"):
-		var skeleton: Object = _spine.call("get_skeleton")
-		if skeleton != null and skeleton.has_method("find_bone"):
-			var bone: Object = skeleton.call("find_bone", String(bone_name))
-			if bone != null and bone.has_method("get_world_x") and bone.has_method("get_world_y"):
-				var local_x: float = bone.call("get_world_x")
-				var local_y: float = bone.call("get_world_y")
-				var spine_node := _spine as Node2D
-				if spine_node != null:
-					return spine_node.to_global(Vector2(local_x, local_y))
-	
-	return _get_fallback_hand_position(use_right_hand)
+	## 获取手部锚点（优先 Spine 骨骼 → fallback Marker2D → player 坐标）
+	if _driver != null and _driver.has_method("get_bone_world_position"):
+		var bone_name: String = "hand_r" if use_right_hand else "hand_l"
+		var pos: Variant = _driver.get_bone_world_position(bone_name)
+		if pos is Vector2:
+			return pos
+	# fallback
+	if _player != null:
+		var hand_path: NodePath = _player.hand_r_path if use_right_hand else _player.hand_l_path
+		var hand: Node2D = _player.get_node_or_null(hand_path) as Node2D
+		if hand != null:
+			return hand.global_position
+		return _player.global_position
+	return Vector2.ZERO
 
-func _get_fallback_hand_position(use_right_hand: bool) -> Vector2:
-	if _player == null:
-		return Vector2.ZERO
-	var hand_path := _player.hand_r_path if use_right_hand else _player.hand_l_path
-	var hand: Node2D = _player.get_node_or_null(hand_path) as Node2D
-	if hand != null:
-		return hand.global_position
-	return _player.global_position
 
-func get_current_anim() -> StringName:
-	return _current_anim
+func play_chain_fire(_slot_idx: int) -> void:
+	## Chain 发射动画 — 新架构下由 ActionFSM 状态转移驱动，此处为兼容占位
+	pass
 
-func is_one_shot_playing() -> bool:
-	return _is_one_shot_playing
 
-func is_playing(anim_name: StringName) -> bool:
-	return _current_anim == anim_name
+func play_chain_cancel(_right_active: bool, _left_active: bool) -> void:
+	## Chain 取消动画 — 新架构下由 ActionFSM 状态转移驱动，此处为兼容占位
+	pass
 
-func has_spine() -> bool:
-	return _spine != null
+
+# ── 日志 ──
+func _log_play(track: int, anim_name: StringName, loop: bool) -> void:
+	if _player != null and _player.has_method("log_msg"):
+		_player.log_msg("ANIM", "play track=%d name=%s loop=%s" % [track, anim_name, str(loop)])
+
+func _log_end(track: int, anim_name: StringName) -> void:
+	if _player != null and _player.has_method("log_msg"):
+		_player.log_msg("ANIM", "end track=%d name=%s" % [track, anim_name])

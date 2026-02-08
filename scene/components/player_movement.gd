@@ -1,124 +1,94 @@
 extends Node
+class_name PlayerMovement
 
-var _player: Player
-var _visual: Node2D
-var _was_on_floor: bool = true
-var _is_jumping: bool = false
-var _fall_loop_started: bool = false
-var _last_left_time: float = -1.0
-var _last_right_time: float = -1.0
-var _is_running: bool = false
-const DOUBLE_TAP_WINDOW: float = 0.25
+## Movement 只负责：
+##   - 水平速度（根据 move_intent + facing）
+##   - 重力
+##   - 落地 vy 夹断（不累积）
+##   - 消费 jump_request（单一跳跃冲量入口）
+## 禁止：直接处理 W 跳跃、任何状态机转移、播放动画
 
-func _ready() -> void:
-	_player = _find_player()
-	if _player == null:
-		push_error("[Movement] Player not found.")
-		set_process(false)
-		return
-	_visual = _player.get_node_or_null(_player.visual_path) as Node2D
-	_was_on_floor = _player.is_on_floor()
+enum MoveIntent { NONE, WALK, RUN }
+
+var _player: CharacterBody2D = null
+
+# 当前意图（每帧由 tick 更新；LocomotionFSM 只读）
+var move_intent: int = MoveIntent.NONE
+
+# 原始方向输入（-1/0/+1）
+var input_dir: float = 0.0
+
+const INTENT_NAMES: PackedStringArray = ["None", "Walk", "Run"]
+
+func intent_name() -> String:
+	return INTENT_NAMES[move_intent] if move_intent >= 0 and move_intent < INTENT_NAMES.size() else "?"
+
+func setup(player: CharacterBody2D) -> void:
+	_player = player
+
 
 func tick(dt: float) -> void:
-	var left: bool = Input.is_action_pressed(_player.action_left) if _has_action(_player.action_left) else Input.is_key_pressed(KEY_A)
-	var right: bool = Input.is_action_pressed(_player.action_right) if _has_action(_player.action_right) else Input.is_key_pressed(KEY_D)
-	var left_just: bool = Input.is_action_just_pressed(_player.action_left) if _has_action(_player.action_left) else false
-	var right_just: bool = Input.is_action_just_pressed(_player.action_right) if _has_action(_player.action_right) else false
+	if _player == null:
+		return
 	
-	var now := Time.get_ticks_msec() / 1000.0
-	
-	if left_just:
-		if (now - _last_left_time) < DOUBLE_TAP_WINDOW:
-			_is_running = true
-		_last_left_time = now
-	if right_just:
-		if (now - _last_right_time) < DOUBLE_TAP_WINDOW:
-			_is_running = true
-		_last_right_time = now
-	
-	if not left and not right:
-		_is_running = false
-	
-	if right and not left:
-		_player.facing = 1
-	elif left and not right:
-		_player.facing = -1
-	
-	if _visual != null:
-		_visual.scale.x = float(_player.facing) * _player.facing_visual_sign
-	
-	if not _player.is_horizontal_input_locked():
-		var dir_x := 0.0
-		if left:
-			dir_x -= 1.0
-		if right:
-			dir_x += 1.0
-		var speed := _player.move_speed
-		if _is_running:
-			speed *= _player.run_speed_mult
-		_player.velocity.x = dir_x * speed
-	else:
+	# === CRITICAL FIX: Die状态冻结移动 ===
+	if _player.action_fsm != null and _player.action_fsm.state == _player.action_fsm.State.DIE:
+		# 强制停止一切移动
 		_player.velocity.x = 0.0
-	
-	_player.velocity.y += _player.gravity * dt
-	
-	if not _player.is_player_locked():
-		var jump_pressed: bool = Input.is_action_just_pressed(_player.action_jump) if _has_action(_player.action_jump) else false
-		if _player.is_on_floor() and jump_pressed:
-			_player.velocity.y = -_player.jump_speed
-			_is_jumping = true
-			_fall_loop_started = false
-			_play_anim_jump_up()
-	
-	_update_animation()
-	_was_on_floor = _player.is_on_floor()
+		move_intent = MoveIntent.NONE
+		input_dir = 0.0
+		return  # 不处理任何输入
 
-func _update_animation() -> void:
-	if _player.animator == null:
-		return
-	
-	var on_floor := _player.is_on_floor()
-	var left: bool = Input.is_action_pressed(_player.action_left) if _has_action(_player.action_left) else Input.is_key_pressed(KEY_A)
-	var right: bool = Input.is_action_pressed(_player.action_right) if _has_action(_player.action_right) else Input.is_key_pressed(KEY_D)
-	var has_move_input: bool = left or right
-	
-	if on_floor and not _was_on_floor:
-		_is_jumping = false
-		_fall_loop_started = false
-		if has_move_input:
-			if _is_running:
-				_player.animator.play_run(true)
-			else:
-				_player.animator.play_walk(true)
-		else:
-			_player.animator.play_idle(true)
-		return
-	
-	if not on_floor:
-		if _player.velocity.y <= 0:
-			_is_jumping = false
-		if _player.velocity.y > 0 and not _fall_loop_started:
-			_player.animator.play_jump_loop()
-			_fall_loop_started = true
-		return
-	
-	if has_move_input:
-		if _is_running:
-			_player.animator.play_run()
-		else:
-			_player.animator.play_walk()
+	# ── 读取输入 ──
+	var left: bool = _action_pressed(_player.action_left, KEY_A)
+	var right: bool = _action_pressed(_player.action_right, KEY_D)
+	var shift: bool = Input.is_key_pressed(KEY_SHIFT)
+
+	input_dir = 0.0
+	if right and not left:
+		input_dir = 1.0
+	elif left and not right:
+		input_dir = -1.0
+
+	# ── move_intent ──
+	if is_zero_approx(input_dir):
+		move_intent = MoveIntent.NONE
+	elif shift:
+		move_intent = MoveIntent.RUN
 	else:
-		_player.animator.play_idle()
+		move_intent = MoveIntent.WALK
 
-func _play_anim_jump_up() -> void:
-	if _player.animator != null:
-		_player.animator.play_jump_up()
+	# ── facing（只在有输入时更新）──
+	if input_dir > 0.0:
+		_player.facing = 1
+	elif input_dir < 0.0:
+		_player.facing = -1
 
-func _has_action(a: StringName) -> bool:
-	return a != StringName("") and InputMap.has_action(a)
+	# ── 水平速度 ──
+	if _player.is_horizontal_input_locked():
+		_player.velocity.x = 0.0
+	else:
+		var speed: float = _player.move_speed
+		if move_intent == MoveIntent.RUN:
+			speed *= _player.run_speed_mult
+		_player.velocity.x = input_dir * speed
 
-func _find_player() -> Player:
-	var p: Node = self
-	while p != null and not (p is Player):
-		p = p.get_parent()
-	return p as Player
+	# ── 重力 ──
+	_player.velocity.y += _player.gravity * dt
+
+	# ── 消费 jump_request（单一入口：冲量由 LocomotionFSM 请求）──
+	if _player.jump_request:
+		_player.velocity.y = -_player.jump_speed
+		_player.jump_request = false
+		if _player.has_method("log_msg"):
+			_player.log_msg("MOVE", "jump_request consumed vy=%.1f" % _player.velocity.y)
+
+	# ── 落地 vy 夹断（避免重力累积导致弹跳）──
+	if _player.is_on_floor() and _player.velocity.y > 0.0:
+		_player.velocity.y = 0.0
+
+
+func _action_pressed(action: StringName, fallback_key: int) -> bool:
+	if action != &"" and InputMap.has_action(action):
+		return Input.is_action_pressed(action)
+	return Input.is_key_pressed(fallback_key)

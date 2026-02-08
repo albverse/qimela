@@ -1,28 +1,32 @@
-[gd_scene load_steps=15 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=18 format=3 uid="uid://m7ts2uye3c05"]
 
-[ext_resource type="Script" uid="uid://btlkrf7tvnl0s" path="res://scene/player.gd" id="1_y30ri"]
-[ext_resource type="SpineSkeletonDataResource" uid="uid://bjsiupofvndxl" path="res://art/player/spine/player_spine.tres" id="2_63jwq"]
-[ext_resource type="Texture2D" uid="uid://bal53d1ex2ekj" path="res://character.png" id="2_waelg"]
-[ext_resource type="Texture2D" uid="uid://cxpwuegv2sp8t" path="res://scene/chain.png" id="3_82gks"]
-[ext_resource type="Shader" uid="uid://djjbe2mxwgpqf" path="res://shaders/chain_sand_dissolve.gdshader" id="3_dc1pm"]
-[ext_resource type="Shader" uid="uid://p2ts4661n405" path="res://shaders/burn_dissolve.gdshader" id="5_ea7gk"]
-[ext_resource type="Script" uid="uid://bjblrfsckeueb" path="res://scene/components/player_movement.gd" id="7_kqvfm"]
-[ext_resource type="Script" uid="uid://dn7yc7dv7fq8w" path="res://scene/components/player_chain_system.gd" id="8_63jwq"]
-[ext_resource type="Script" uid="uid://cq08x3g40oedh" path="res://scene/components/player_health.gd" id="9_63jwq"]
-[ext_resource type="Script" uid="uid://canimator001" path="res://scene/components/player_animator.gd" id="10_anim"]
+[ext_resource type="Script" uid="uid://btlkrf7tvnl0s" path="res://scene/player.gd" id="1_player"]
+[ext_resource type="Texture2D" uid="uid://bal53d1ex2ekj" path="res://character.png" id="2_char"]
+[ext_resource type="Texture2D" uid="uid://cxpwuegv2sp8t" path="res://scene/chain.png" id="3_chain"]
+[ext_resource type="Shader" uid="uid://djjbe2mxwgpqf" path="res://shaders/chain_sand_dissolve.gdshader" id="4_shader0"]
+[ext_resource type="Shader" uid="uid://p2ts4661n405" path="res://shaders/burn_dissolve.gdshader" id="5_shader1"]
+[ext_resource type="Script" uid="uid://bjblrfsckeueb" path="res://scene/components/player_movement.gd" id="6_move"]
+[ext_resource type="Script" uid="uid://bpq4da5l0vcue" path="res://scene/components/weapon_controller.gd" id="7_l60v7"]
+[ext_resource type="Script" uid="uid://dkqq1brevdwju" path="res://scene/components/player_locomotion_fsm.gd" id="7_loco"]
+[ext_resource type="Script" uid="uid://phucgmpf0ssh" path="res://scene/components/player_action_fsm.gd" id="8_action"]
+[ext_resource type="Script" uid="uid://dn7yc7dv7fq8w" path="res://scene/components/player_chain_system.gd" id="9_chain"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://bjsiupofvndxl" path="res://art/player/spine/player_spine.tres" id="9_xf0yl"]
+[ext_resource type="Script" uid="uid://cq08x3g40oedh" path="res://scene/components/player_health.gd" id="10_health"]
+[ext_resource type="Script" uid="uid://ccrhei5vjrhsa" path="res://scene/components/player_animator.gd" id="11_animator"]
+[ext_resource type="Script" uid="uid://pry7g1eouqqc" path="res://scene/Spine_plugin_diagnostic.gd" id="11_c2vjh"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
-radius = 26.0
-height = 170.0
+radius = 12.0
+height = 86.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ea7gk"]
-shader = ExtResource("3_dc1pm")
+shader = ExtResource("4_shader0")
 shader_parameter/burn = 0.0
 shader_parameter/edge_width = 0.08
 shader_parameter/grain_scale = 180.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_82gks"]
-shader = ExtResource("5_ea7gk")
+shader = ExtResource("5_shader1")
 shader_parameter/burn = 0.0
 shader_parameter/edge_width = 0.08
 shader_parameter/grain_scale = 180.0
@@ -34,91 +38,74 @@ shader_parameter/black_spread = 0.12
 shader_parameter/sand_color = Vector4(0.85, 0.78, 0.62, 1)
 shader_parameter/darken = 0.85
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_kqvfm"]
-radius = 200.0
-
 [node name="Player" type="CharacterBody2D"]
 z_index = 1
 collision_layer = 2
-script = ExtResource("1_y30ri")
-chain_interact_mask = 64
+script = ExtResource("1_player")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(3, -86)
+position = Vector2(1, -42)
 shape = SubResource("CapsuleShape2D_dc1pm")
+
+[node name="Components" type="Node" parent="."]
+
+[node name="Movement" type="Node" parent="Components"]
+script = ExtResource("6_move")
+
+[node name="LocomotionFSM" type="Node" parent="Components"]
+script = ExtResource("7_loco")
+
+[node name="ActionFSM" type="Node" parent="Components"]
+script = ExtResource("8_action")
+
+[node name="ChainSystem" type="Node" parent="Components"]
+script = ExtResource("9_chain")
+
+[node name="Health" type="Node" parent="Components"]
+script = ExtResource("10_health")
+
+[node name="WeaponController" type="Node" parent="Components"]
+script = ExtResource("7_l60v7")
+
+[node name="Animator" type="Node" parent="."]
+script = ExtResource("11_animator")
+driver_mode = 1
 
 [node name="Visual" type="Node2D" parent="."]
 position = Vector2(0, -42)
 
 [node name="SpineSprite" type="SpineSprite" parent="Visual"]
-position = Vector2(8, 56)
-scale = Vector2(0.5, 0.5)
-skeleton_data_res = ExtResource("2_63jwq")
+position = Vector2(0, 46)
+scale = Vector2(0.25, 0.25)
+skeleton_data_res = ExtResource("9_xf0yl")
 preview_skin = "Default"
-preview_animation = "idle"
+preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
 
 [node name="Sprite2D" type="Sprite2D" parent="Visual"]
 visible = false
 z_index = 1
-position = Vector2(3, -41.999996)
-scale = Vector2(0.445, 0.445)
-texture = ExtResource("2_waelg")
+position = Vector2(1, -17)
+scale = Vector2(0.30287048, 0.30601948)
+texture = ExtResource("2_char")
 flip_h = true
 
-[node name="HandL" type="Marker2D" parent="Visual"]
-position = Vector2(-33, -110)
-
-[node name="HandR" type="Marker2D" parent="Visual"]
-position = Vector2(41, -107)
-
-[node name="center1" type="Marker2D" parent="Visual"]
-position = Vector2(3, -128)
-
-[node name="center2" type="Marker2D" parent="Visual"]
-position = Vector2(3, -91)
-scale = Vector2(0.3533654, 0.35703868)
-
-[node name="center3" type="Marker2D" parent="Visual"]
-position = Vector2(0, -60)
+[node name="Diagnostic" type="Node" parent="Visual"]
+script = ExtResource("11_c2vjh")
 
 [node name="Chains" type="Node2D" parent="."]
 
 [node name="ChainLine0" type="Line2D" parent="Chains"]
 visible = false
 material = SubResource("ShaderMaterial_ea7gk")
-width = 18.0
-texture = ExtResource("3_82gks")
+width = 15.0
+texture = ExtResource("3_chain")
 texture_mode = 1
 
 [node name="ChainLine1" type="Line2D" parent="Chains"]
 visible = false
 material = SubResource("ShaderMaterial_82gks")
-width = 18.0
-texture = ExtResource("3_82gks")
+width = 15.0
+texture = ExtResource("3_chain")
 texture_mode = 1
-
-[node name="Components" type="Node" parent="."]
-
-[node name="Movement" type="Node" parent="Components"]
-script = ExtResource("7_kqvfm")
-
-[node name="ChainSystem" type="Node" parent="Components"]
-script = ExtResource("8_63jwq")
-
-[node name="Health" type="Node" parent="Components"]
-script = ExtResource("9_63jwq")
-max_hp = 6
-
-[node name="Animator" type="Node" parent="Components"]
-script = ExtResource("10_anim")
-spine_path = NodePath("../../Visual/SpineSprite")
-
-[node name="HealingBurstArea" type="Area2D" parent="."]
-collision_layer = 0
-collision_mask = 4
-
-[node name="Shape" type="CollisionShape2D" parent="HealingBurstArea"]
-position = Vector2(5, -95)
-shape = SubResource("CircleShape2D_kqvfm")

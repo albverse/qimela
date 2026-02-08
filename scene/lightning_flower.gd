@@ -6,7 +6,7 @@ const LIGHT_ENERGY_DELAY: float = 0.5
 
 @export_range(0, 5, 1) var initial_energy: int = 0
 @export var light_time_per_energy: float = 1.0
-@export var debug_print: bool = true
+@export var debug_print: bool = false
 
 @export var allow_chain_release: bool = true
 @export var chain_release_requires_full: bool = false

@@ -10,6 +10,22 @@ var hand_r: Node2D
 var _burn_shader: Shader = null
 var _chimera: Node = null
 
+##=== Phase 1 兼容接口：供 ActionFSM 使用 ===##
+
+## slot_R_available: 右手链条槽位是否可用
+var slot_R_available: bool:
+	get:
+		if chains.size() < 1:
+			return true
+		return chains[0].state == ChainState.IDLE
+
+## slot_L_available: 左手链条槽位是否可用
+var slot_L_available: bool:
+	get:
+		if chains.size() < 2:
+			return true
+		return chains[1].state == ChainState.IDLE
+
 class ChainHitResolver:
 	var system: PlayerChainSystem
 
@@ -201,13 +217,132 @@ func _ready() -> void:
 	_attach_policy = ChainAttachPolicy.new(self)
 
 
-## 获取手部锁链发射点位置（优先使用Spine骨骼，fallback到Marker2D）
+##=== Phase 1 兼容接口方法 ===##
+
+## setup(player): 兼容 stub 版本的显式 setup 调用
+## 完整版在 _ready() 中自动通过 _find_player() 初始化
+func setup(p: CharacterBody2D) -> void:
+	if p != null:
+		player = p as Player
+
+
+## fire(side): 发射链条（占用槽位）
+## side: "R" 或 "L"
+## 这个方法由 ActionFSM 调用，实际发射鼠标位置的链条
+func fire(side: String) -> void:
+	# === CRITICAL FIX: Die硬闸 - 死亡时拒绝fire ===
+	if player != null:
+		var hp: int = player.health.hp if player.health != null else 1
+		if hp <= 0:
+			if player.has_method("log_msg"):
+				player.log_msg("CHAIN", "fire(%s) REJECTED: hp=0" % side)
+			return
+		if player.action_fsm != null and player.action_fsm.state == player.action_fsm.State.DIE:
+			if player.has_method("log_msg"):
+				player.log_msg("CHAIN", "fire(%s) REJECTED: state=Die" % side)
+			return
+	
+	var slot: int = 0 if side == "R" else 1
+	if slot < 0 or slot >= chains.size():
+		return
+	
+	# 调用内部发射逻辑（指定 slot）
+	_fire_chain_at_slot(slot)
+	
+	if player != null and player.has_method("log_msg"):
+		player.log_msg("CHAIN", "fire(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
+
+
+## cancel(side): 取消链条（立即释放槽位）
+## side: "R" 或 "L"
+func cancel(side: String) -> void:
+	var slot: int = 0 if side == "R" else 1
+	force_dissolve_chain(slot)
+	
+	if player != null and player.has_method("log_msg"):
+		player.log_msg("CHAIN", "cancel(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
+
+
+## release(side): 链条动画正常结束后释放槽位
+## side: "R" 或 "L"
+func release(side: String) -> void:
+	var slot: int = 0 if side == "R" else 1
+	if slot >= 0 and slot < chains.size():
+		var c: ChainSlot = chains[slot]
+		if c.state != ChainState.IDLE:
+			_finish_chain(slot)
+	
+	if player != null and player.has_method("log_msg"):
+		player.log_msg("CHAIN", "release(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
+
+
+## _fire_chain_at_slot: 内部方法 - 发射指定槽位的链条到鼠标位置
+func _fire_chain_at_slot(idx: int) -> void:
+	if idx < 0 or idx >= chains.size():
+		return
+	
+	var c: ChainSlot = chains[idx]
+	if c.state != ChainState.IDLE:
+		return  # 槽位已被占用
+	
+	var start: Vector2 = _get_hand_position(c.use_right_hand)
+	var target: Vector2 = player.get_global_mouse_position()
+	
+	var dir: Vector2 = target - start
+	if dir.length() < 0.001:
+		dir = Vector2(float(player.facing), 0.0)
+	else:
+		dir = dir.normalized()
+	
+	_init_rope_buffers(c)
+	_prealloc_line_points(c)
+	_rebuild_weight_cache_if_needed(c)
+	
+	_detach_link_if_needed(idx)
+	
+	c.interacted.clear()
+	_try_interact_from_inside(idx, start)
+	
+	c.state = ChainState.FLYING
+	if player.anim_fsm != null and player.anim_fsm.has_method("play_chain_fire"):
+		player.anim_fsm.play_chain_fire(idx)
+	c.end_pos = start
+	c.end_vel = dir * player.chain_speed
+	c.fly_t = 0.0
+	c.hold_t = 0.0
+	c.wave_amp = player.rope_wave_amp
+	c.wave_phase = 0.0
+	
+	c.line.visible = true
+	c.line.material = null
+	c.line.modulate = Color.WHITE
+	
+	_reset_rope_line(c, start, c.end_pos)
+	c.prev_start = start
+	c.prev_end = c.end_pos
+	
+	# Phase 1: 发射信号通知其他系统
+	if EventBus != null and EventBus.has_method("emit_chain_fired"):
+		EventBus.emit_chain_fired(idx)
+	
+	_switch_to_available_slot(idx)
+
+
+##=== 原有方法继续 ===##
+
+
+## 获取手部锁链发射点位置
+## 优先级：Animator 骨骼桥接 → Marker2D → player 坐标
 func _get_hand_position(use_right_hand: bool) -> Vector2:
-	# 优先从animator获取骨骼位置
-	if player.animator != null:
+	# 1) 通过 Animator 公开接口获取骨骼位置
+	if player.animator != null and player.animator.has_method("get_chain_anchor_position"):
 		return player.animator.get_chain_anchor_position(use_right_hand)
 	
-	# Fallback: 使用Marker2D
+	# 2) 兼容旧 anim_fsm
+	if player.anim_fsm != null and player.anim_fsm.has_method("get_chain_anchor_position"):
+		return player.anim_fsm.get_chain_anchor_position(use_right_hand)
+	
+	# 3) Fallback: Marker2D
 	var hand: Node2D = hand_r if use_right_hand else hand_l
 	if hand != null:
 		return hand.global_position
@@ -216,6 +351,24 @@ func _get_hand_position(use_right_hand: bool) -> Vector2:
 
 
 func tick(dt: float) -> void:
+	# === CRITICAL FIX: Die 硬闸 - 死后链系统完全停止 ===
+	if player != null:
+		# 检查 hp
+		var hp: int = player.health.hp if player.health != null else 1
+		if hp <= 0:
+			hard_clear_all_chains("hp<=0")
+			return
+		
+		# 检查 ActionFSM 状态
+		if player.action_fsm != null and player.action_fsm.state == player.action_fsm.State.DIE:
+			hard_clear_all_chains("action=Die")
+			return
+		
+		# 检查 LocomotionFSM 状态
+		if player.loco_fsm != null and player.loco_fsm.state == player.loco_fsm.State.DEAD:
+			hard_clear_all_chains("loco=Dead")
+			return
+	
 	for i: int in range(chains.size()):
 		_update_chain(i, dt)
 
@@ -378,12 +531,11 @@ func _switch_to_available_slot(from_slot: int) -> void:
 func _try_fire_chain() -> void:
 	if chains.size() < 2:
 		return
-
 	var idx: int = -1
-	if chains[active_slot].state == ChainState.IDLE:
-		idx = active_slot
-	elif chains[1 - active_slot].state == ChainState.IDLE:
-		idx = 1 - active_slot
+	if chains[0].state == ChainState.IDLE:
+		idx = 0
+	elif chains[1].state == ChainState.IDLE:
+		idx = 1
 	else:
 		return
 
@@ -407,8 +559,8 @@ func _try_fire_chain() -> void:
 	_try_interact_from_inside(idx, start)
 
 	c.state = ChainState.FLYING
-	if player.animator != null:
-		player.animator.play_chain_fire(idx)
+	if player.anim_fsm != null and player.anim_fsm.has_method("play_chain_fire"):
+		player.anim_fsm.play_chain_fire(idx)
 	c.end_pos = start
 	c.end_vel = dir * player.chain_speed
 	c.fly_t = 0.0
@@ -671,7 +823,7 @@ func _force_dissolve_all_chains() -> void:
 	# 检测哪些链是激活的（用于播放取消动画）
 	var right_active := chains[0].state != ChainState.IDLE and chains[0].state != ChainState.DISSOLVING
 	var left_active := chains[1].state != ChainState.IDLE and chains[1].state != ChainState.DISSOLVING
-	var play_cancel_anim := player.animator != null and (right_active or left_active)
+	var play_cancel_anim: bool = player.anim_fsm != null and player.anim_fsm.has_method("play_chain_cancel") and (right_active or left_active)
 
 	for i: int in range(chains.size()):
 		var c: ChainSlot = chains[i]
@@ -683,7 +835,7 @@ func _force_dissolve_all_chains() -> void:
 	
 	# ========== Spine动画：播放取消锁链动画 ==========
 	if play_cancel_anim:
-		player.animator.play_chain_cancel(right_active, left_active)
+		player.anim_fsm.play_chain_cancel(right_active, left_active)
 
 
 func force_dissolve_chain(slot: int) -> void:
@@ -700,6 +852,43 @@ func force_dissolve_chain(slot: int) -> void:
 func force_dissolve_all_chains() -> void:
 	_force_dissolve_all_chains()
 
+
+## hard_clear_all_chains(reason): 立即清空所有链条（用于死亡/场景重置），不播放溶解，不依赖 tick/tween
+func hard_clear_all_chains(reason: String = "") -> void:
+	var had_any: bool = false
+	for i: int in range(chains.size()):
+		if chains[i].state != ChainState.IDLE or chains[i].line.visible:
+			had_any = true
+			break
+	# 即使没有激活链，也做一次“强制隐藏”，防止视觉残留
+	for i: int in range(chains.size()):
+		_hard_reset_slot(i)
+	active_slot = 1
+	if had_any and player != null and player.has_method("log_msg"):
+		player.log_msg("CHAIN", "hard_clear_all reason=%s sR=%s sL=%s" % [reason, str(slot_R_available), str(slot_L_available)])
+
+## _hard_reset_slot: 内部方法 - 立即重置槽位到 IDLE（不触发融合/取消动画）
+func _hard_reset_slot(i: int) -> void:
+	if i < 0 or i >= chains.size():
+		return
+	var c: ChainSlot = chains[i]
+	_detach_link_if_needed(i)
+	if c.burn_tw != null:
+		c.burn_tw.kill()
+		c.burn_tw = null
+	c.state = ChainState.IDLE
+	c.line.visible = false
+	c.line.material = null
+	c.line.modulate = Color.WHITE
+	c.wave_amp = 0.0
+	c.wave_phase = 0.0
+	c.fly_t = 0.0
+	c.hold_t = 0.0
+	c.end_vel = Vector2.ZERO
+	c.linked_target = null
+	c.linked_offset = Vector2.ZERO
+	c.is_chimera = false
+	c.interacted.clear()
 
 func _finish_chain(i: int) -> void:
 	if i < 0 or i >= chains.size():
