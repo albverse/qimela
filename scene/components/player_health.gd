@@ -68,6 +68,16 @@ func is_invincible() -> bool:
 	return _inv_t > 0.0
 
 
+func on_player_die() -> void:
+	# 终态：清空受击/击退残留，避免继续弹飞或被后续逻辑影响
+	_inv_t = 0.0
+	_kb_t = 0.0
+	_kb_fly_t = 0.0
+	_kb_vel = Vector2.ZERO
+	_kb_gravity = 0.0
+	_pending_land_stun = 0.0
+
+
 func grant_invincible(seconds: float) -> void:
 	if seconds <= 0.0:
 		return

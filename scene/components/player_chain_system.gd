@@ -467,6 +467,9 @@ func _get_hand_position(use_right_hand: bool) -> Vector2:
 
 
 func tick(dt: float) -> void:
+	# 死亡态：立即跳过链更新（链已由ActionFSM进入Die时清空）
+	if player != null and player.action_fsm != null and player.action_fsm.state == PlayerActionFSM.State.DIE:
+		return
 	for i: int in range(chains.size()):
 		_update_chain(i, dt)
 

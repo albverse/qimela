@@ -497,6 +497,12 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 			_player.movement.move_intent = 0  # MoveIntent.NONE
 			_player.movement.input_dir = 0.0
 			_player.velocity.x = 0.0
+			if _player.velocity.y < 0.0:
+				_player.velocity.y = 0.0
+
+		# 3. 停止受击/击退等健康侧效果，确保死亡后完全静止可控
+		if _player.health != null and _player.health.has_method("on_player_die"):
+			_player.health.on_player_die()
 
 	if _player != null and _player.has_method("log_msg"):
 		_player.log_msg("ACTION",
