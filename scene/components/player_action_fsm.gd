@@ -52,26 +52,6 @@ func setup(player: CharacterBody2D) -> void:
 	state = State.NONE
 
 
-## _compute_context: 计算当前上下文（用于武器动画选择）
-## 返回: "ground_idle" / "ground_move" / "air"
-func _compute_context() -> String:
-	if _player == null:
-		return "ground_idle"
-	
-	var on_floor: bool = _player.is_on_floor()
-	if not on_floor:
-		return "air"
-	
-	# 地面：根据 movement.move_intent 判断
-	if _player.movement != null:
-		var intent: int = _player.movement.move_intent
-		if intent == 0:  # MoveIntent.NONE
-			return "ground_idle"
-		else:
-			return "ground_move"
-	
-	return "ground_idle"
-
 
 func tick(_dt: float) -> void:
 	if _player == null:
@@ -124,13 +104,16 @@ func tick(_dt: float) -> void:
 		_hurt_timer = 0.0
 	
 
-	# === Fuse 超时保护（动画缺失时兜底）===
+	# === Fuse 超时保护（纯安全兜底，正常由动画完成事件退出）===
 	if state == State.FUSE:
 		_fuse_timer += _dt
-		var fuse_timeout: float = 0.5
+		# 宽松超时：给动画充足播放时间，仅作为真正卡死时的保险
+		var fuse_timeout: float = 3.0
 		if _player != null:
-			fuse_timeout = maxf(fuse_timeout, _player.fusion_lock_time + 0.2)
+			fuse_timeout = maxf(fuse_timeout, _player.fusion_lock_time + 2.0)
 		if _fuse_timer > fuse_timeout:
+			if _player != null and _player.has_method("log_msg"):
+				_player.log_msg("ACTION", "WARNING: Fuse timeout after %.2fs — animation completion may have been lost" % _fuse_timer)
 			on_anim_end_fuse()
 			return
 	else:
@@ -254,88 +237,30 @@ func should_use_fuse_hurt_anim() -> bool:
 
 
 func on_m_pressed() -> void:
+	## Chain 武器走 player.gd 直通路径（绕过 ActionFSM），此方法仅处理 Sword/Knife
 	if _player == null:
 		return
 	if state == State.DIE or state == State.HURT:
 		return
+	if state != State.NONE:
+		return  # 已在动作中，忽略
 
 	_log_event("M_pressed")
 
-	# === CRITICAL FIX: Chain 武器允许在 ATTACK 状态下连发 ===
-	if state != State.NONE:
-		var is_chain: bool = false
-		if _weapon_controller != null:
-			is_chain = (_weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN)
-		
-		if not is_chain:
-			# 非 Chain 武器：已在动作中，忽略（保持原逻辑）
-			return
-		
-		# Chain 武器：只允许在 ATTACK 状态下连发（其他状态如 HURT/DIE 仍拒绝）
-		if state != State.ATTACK:
-			return
-	
-	# === 委托式选动画：根据武器类型决定行为 ===
 	if _weapon_controller == null:
 		if _player.has_method("log_msg"):
 			_player.log_msg("ACTION", "M_pressed FAILED: no weapon_controller")
 		return
-	
-	var context: String = _compute_context()
-	
-	# Chain: 需要 slot 选择 R/L
+
+	# Chain 武器不走 ActionFSM（由 player.gd → ChainSystem 直接处理）
 	if _weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN:
-		# === CRITICAL FIX: 如果已有 pending_fire，立即提交（避免覆盖）===
-		if _pending_fire_side != "" and _player.chain_sys != null:
-			# 立即发射第一次，为第二次腾出空间
-			if _pending_fire_side == "R":
-				_player.chain_sys.fire("R")
-			elif _pending_fire_side == "L":
-				_player.chain_sys.fire("L")
-			_pending_fire_side = ""
-			
-			if _player.has_method("log_msg"):
-				_player.log_msg("ACTION", "instant_fire on rapid M_pressed")
-		
-		# === CRITICAL FIX: 使用 ChainSystem.pick_fire_side() 决定 R/L ===
-		# 这让 slot 选择权回归 ChainSystem（基于 active_slot），而不是硬编码"R 优先"
-		var fire_side: String = ""
-		if _player.chain_sys != null and _player.chain_sys.has_method("pick_fire_side"):
-			fire_side = _player.chain_sys.pick_fire_side()
-		
-		if fire_side == "R":
-			attack_side = "R"
-			# === CRITICAL FIX: Chain 仍然进入 ATTACK 状态（保持动画/cancel 机制）===
-			# 与 Sword/Knife 一样进入 ATTACK，但允许在 ATTACK 状态下再次按 M（见上方检查）
-			_do_transition(State.ATTACK, "M_pressed weapon=Chain fire=R context=%s" % context, 5)
-			_pending_fire_side = "R"
-			
-			if _player.has_method("log_msg"):
-				_player.log_msg("ACTION", "M_pressed chain fire=R (state=ATTACK, allows double-fire)")
-		
-		elif fire_side == "L":
-			attack_side = "L"
-			_do_transition(State.ATTACK, "M_pressed weapon=Chain fire=L context=%s" % context, 5)
-			_pending_fire_side = "L"
-			
-			if _player.has_method("log_msg"):
-				_player.log_msg("ACTION", "M_pressed chain fire=L (state=ATTACK, allows double-fire)")
-		
-		else:
-			if _player.has_method("log_msg"):
-				_player.log_msg("ACTION", "M_pressed policy=NONE (no slots available)")
-	
-	# Sword: 不需要 slot，直接出招
-	elif _weapon_controller.current_weapon == _weapon_controller.WeaponType.SWORD:
-		attack_side = "R"  # Sword默认用R侧（语义上的主手）
-		_do_transition(State.ATTACK, "M_pressed weapon=Sword context=%s" % context, 5)
-		_pending_fire_side = ""
-	
-	# Knife: 不需要 slot，直接出招
-	elif _weapon_controller.current_weapon == _weapon_controller.WeaponType.KNIFE:
-		attack_side = "R"
-		_do_transition(State.ATTACK, "M_pressed weapon=Knife context=%s" % context, 5)
-		_pending_fire_side = ""
+		return
+
+	# Sword / Knife: 进入 ATTACK 状态
+	attack_side = "R"
+	_pending_fire_side = ""
+	var weapon_name: String = _weapon_controller.get_weapon_name()
+	_do_transition(State.ATTACK, "M_pressed weapon=%s" % weapon_name, 5)
 
 
 func on_x_pressed() -> void:
