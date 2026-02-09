@@ -275,6 +275,7 @@ func fire(side: String) -> void:
 		return
 	
 	_fire_chain_at_slot(slot)
+	_play_chain_fire_anim(slot)
 	
 	if player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "fire(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
@@ -291,6 +292,16 @@ func cancel(side: String) -> void:
 
 ## release(side): 链条动画正常结束后释放槽位
 ## 重要：LINKED状态不应被release破坏，只有FLYING/STUCK才finish
+func _play_chain_fire_anim(slot: int) -> void:
+	if player == null:
+		return
+	if not player.has_node("Animator"):
+		return
+	var animator: Node = player.get_node_or_null("Animator")
+	if animator != null and animator.has_method("play_chain_fire"):
+		animator.call("play_chain_fire", slot)
+
+
 func release(side: String) -> void:
 	var slot: int = 0 if side == "R" else 1
 	if slot >= 0 and slot < chains.size():
