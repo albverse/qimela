@@ -33,6 +33,12 @@ var hand_r: Node2D  # Marker2D（可选，Spine模式下可以为null）
 
 var _burn_shader: Shader = null
 var _chimera: Node = null
+var _fuse_cast_active: bool = false
+var _fuse_cast_id: int = 0
+var _fuse_result: Dictionary = {}
+var _fuse_entity_a: EntityBase = null
+var _fuse_entity_b: EntityBase = null
+var _fuse_tween: Tween = null
 
 ##=== Phase 1 兼容接口：供 ActionFSM 使用 ===##
 
@@ -1007,43 +1013,52 @@ func _finish_chain(i: int) -> void:
 
 
 func _try_fuse() -> void:
+	begin_fuse_cast()
+
+
+func begin_fuse_cast() -> bool:
 	if player.is_player_locked():
-		return
+		return false
 	if chains.size() < 2:
-		return
+		return false
 
 	var c0: ChainSlot = chains[0]
 	var c1: ChainSlot = chains[1]
 
 	if c0.state != ChainState.LINKED or c1.state != ChainState.LINKED:
-		return
+		return false
 	if c0.linked_target == null or c1.linked_target == null:
-		return
+		return false
 	if not is_instance_valid(c0.linked_target) or not is_instance_valid(c1.linked_target):
-		return
+		return false
 	if c0.linked_target == c1.linked_target:
-		return
+		return false
 
 	var entity_a: EntityBase = _resolve_entity(c0.linked_target)
 	var entity_b: EntityBase = _resolve_entity(c1.linked_target)
 	if entity_a == null or entity_b == null:
-		return
-	
+		return false
+
 	var a_can_fuse: bool = entity_a.weak or entity_a.is_stunned()
 	var b_can_fuse: bool = entity_b.weak or entity_b.is_stunned()
-	
 	if not a_can_fuse or not b_can_fuse:
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
-		return
-	
+		return false
+
 	var result: Dictionary = FusionRegistry.check_fusion(entity_a, entity_b)
-	
 	if result.type == FusionRegistry.FusionResultType.REJECTED:
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
-		return
-	
+		return false
+
+	_fuse_cast_active = true
+	_fuse_cast_id += 1
+	var cast_id: int = _fuse_cast_id
+	_fuse_result = result
+	_fuse_entity_a = entity_a
+	_fuse_entity_b = entity_b
+
 	player.set_player_locked(true)
 	player.velocity = Vector2.ZERO
 
@@ -1055,14 +1070,52 @@ func _try_fuse() -> void:
 	_begin_burn_dissolve(0, player.fusion_chain_dissolve_time)
 	_begin_burn_dissolve(1, player.fusion_chain_dissolve_time)
 
-	var tw: Tween = create_tween()
-	tw.tween_interval(player.fusion_lock_time)
-	tw.tween_callback(func() -> void:
-		var spawned: Node = FusionRegistry.execute_fusion(result, player)
-		if spawned != null:
-			_chimera = spawned
-		player.set_player_locked(false)
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	_fuse_tween = create_tween()
+	_fuse_tween.tween_interval(player.fusion_lock_time)
+	_fuse_tween.tween_callback(func() -> void:
+		if not _fuse_cast_active or cast_id != _fuse_cast_id:
+			return
+		commit_fuse_cast()
 	)
+	return true
+
+
+func commit_fuse_cast() -> void:
+	if not _fuse_cast_active:
+		return
+	_fuse_cast_active = false
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	var spawned: Node = FusionRegistry.execute_fusion(_fuse_result, player)
+	if spawned != null:
+		_chimera = spawned
+	player.set_player_locked(false)
+	_fuse_result = {}
+	_fuse_entity_a = null
+	_fuse_entity_b = null
+
+
+func abort_fuse_cast() -> void:
+	if not _fuse_cast_active:
+		return
+	_fuse_cast_active = false
+	_fuse_cast_id += 1
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	if _fuse_entity_a != null and _fuse_entity_a.has_method("set_fusion_vanish"):
+		_fuse_entity_a.call("set_fusion_vanish", false)
+	if _fuse_entity_b != null and _fuse_entity_b.has_method("set_fusion_vanish"):
+		_fuse_entity_b.call("set_fusion_vanish", false)
+	player.set_player_locked(false)
+	force_dissolve_all_chains()
+	_fuse_result = {}
+	_fuse_entity_a = null
+	_fuse_entity_b = null
 
 
 func _find_safe_spawn_pos(shape: Shape2D, chim_xform: Transform2D, base: Vector2, mask: int) -> Vector2:

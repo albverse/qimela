@@ -13,7 +13,7 @@ extends CharacterBody2D
 @export var run_speed_mult: float = 1.5
 @export var jump_speed: float = 520.0
 @export var gravity: float = 1500.0
-@export var facing_visual_sign: float = 1.0
+@export var facing_visual_sign: float = -1.0
 
 # ── 输入映射 ──
 @export var action_left: StringName = &"move_left"
@@ -72,6 +72,7 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 # ── 运行时状态 ──
 var facing: int = 1
 var jump_request: bool = false
+var _player_locked: bool = false
 var anim_fsm = null  # 由 Animator 设置（Phase 1: ChainSystem 需要）
 
 # ── 组件引用 ──
@@ -201,8 +202,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			weapon_controller != null
 			and weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN
 		)
-		if is_chain_for_fuse and chain_sys != null and chain_sys.has_method("_try_fuse"):
-			chain_sys._try_fuse()
+		if is_chain_for_fuse and action_fsm != null and action_fsm.has_method("on_space_pressed"):
+			action_fsm.on_space_pressed()
 		return
 
 	# W / jump → LocomotionFSM
@@ -321,6 +322,9 @@ func on_action_anim_end(event: StringName) -> void:
 			action_fsm.on_anim_end_attack_cancel()
 		&"anim_end_hurt":
 			action_fsm.on_anim_end_hurt()
+		&"anim_end_fuse":
+			if action_fsm.has_method("on_anim_end_fuse"):
+				action_fsm.on_anim_end_fuse()
 
 
 # ── Health 信号 ──
@@ -338,6 +342,8 @@ func get_action_state() -> StringName:
 	return action_fsm.state_name() if action_fsm != null else &"None"
 
 func is_horizontal_input_locked() -> bool:
+	if _player_locked:
+		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
 	if health != null and health.is_knockback_active():
@@ -345,14 +351,14 @@ func is_horizontal_input_locked() -> bool:
 	return false
 
 func is_player_locked() -> bool:
+	if _player_locked:
+		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
 	return false
 
-func set_player_locked(_locked: bool) -> void:
-	# Phase 1: ChainSystem 融合时需要此方法
-	# 目前只是占位，未来可能需要更复杂的锁定逻辑
-	pass
+func set_player_locked(locked: bool) -> void:
+	_player_locked = locked
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if health != null:

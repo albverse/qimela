@@ -48,6 +48,7 @@ const ACTION_ANIM: Dictionary = {
 	&"Chain_L": &"chain_L",
 	&"ChainCancel_R": &"anim_chain_cancel_R",
 	&"ChainCancel_L": &"anim_chain_cancel_L",
+	&"Fuse": &"fuse_progress",
 	&"Hurt": &"hurt",
 	&"Die": &"die",
 }
@@ -58,6 +59,8 @@ const ACTION_END_MAP: Dictionary = {
 	&"chain_L": &"anim_end_attack",
 	&"anim_chain_cancel_R": &"anim_end_attack_cancel",
 	&"anim_chain_cancel_L": &"anim_end_attack_cancel",
+	&"fuse_progress": &"anim_end_fuse",
+	&"fuse_hurt": &"anim_end_hurt",
 	&"hurt": &"anim_end_hurt",
 	# Sword 动画
 	&"sword_light_idle": &"anim_end_attack",
@@ -211,8 +214,14 @@ func tick(_dt: float) -> void:
 		
 		# === 委托式选动画：根据 action_state 和武器类型 ===
 		# Hurt / Die 使用固定映射（OVERLAY）
-		if action_state == &"Hurt":
-			target_action = &"hurt"
+		if action_state == &"Fuse":
+			target_action = &"fuse_progress"
+			action_mode = MODE_FULLBODY_EXCLUSIVE
+		elif action_state == &"Hurt":
+			if _player.action_fsm != null and _player.action_fsm.has_method("should_use_fuse_hurt_anim") and _player.action_fsm.should_use_fuse_hurt_anim():
+				target_action = &"fuse_hurt"
+			else:
+				target_action = &"hurt"
 			action_mode = MODE_OVERLAY_UPPER
 		elif action_state == &"Die":
 			target_action = &"die"

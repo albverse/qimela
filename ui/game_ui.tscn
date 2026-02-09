@@ -1,12 +1,11 @@
 [gd_scene load_steps=5 format=3 uid="uid://cu5h6g7s8iaj0"]
 
-[ext_resource type="Script" path="res://ui/game_ui.gd" id="1"]
+[ext_resource type="Script" uid="uid://wabwi83omxyv" path="res://ui/game_ui.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://c6g7s8iaj0k1l" path="res://ui/chain_slots_ui.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://ui/hearts_ui.tscn" id="3"]
+[ext_resource type="PackedScene" uid="uid://b65bcrst18abp" path="res://ui/hearts_ui.tscn" id="3"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_1"]
 font_size = 24
-font_color = Color(1, 1, 1, 1)
 outline_size = 2
 outline_color = Color(0, 0, 0, 1)
 
@@ -36,10 +35,12 @@ mouse_filter = 2
 
 [node name="HeartsUI" parent="SafeFrame/VBox/TopRow" instance=ExtResource("3")]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="Spacer" type="Control" parent="SafeFrame/VBox/TopRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+mouse_filter = 2
 
 [node name="WeaponLabel" type="Label" parent="SafeFrame/VBox/TopRow"]
 layout_mode = 2
