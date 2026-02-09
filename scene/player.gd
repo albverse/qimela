@@ -95,6 +95,7 @@ var weapon_controller: WeaponController = null
 var _healing_slots: Array = [null, null, null]
 var _healing_burst_area: Area2D = null
 var _death_healing_cleanup_done: bool = false
+var _death_chain_cleanup_done: bool = false
 
 
 func _ready() -> void:
@@ -155,6 +156,11 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_chain_cleanup_done:
+		if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
+			chain_sys.call("hard_clear_all_chains", "die_tick_guard")
+		_death_chain_cleanup_done = true
+
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_healing_cleanup_done:
 		_consume_all_healing_sprites_on_death()
 		_death_healing_cleanup_done = true
@@ -200,6 +206,9 @@ func _is_chain_fire_blocked() -> bool:
 
 func _commit_pending_chain_fire() -> void:
 	if _pending_chain_fire_side == "":
+		return
+	if action_fsm != null and action_fsm.has_method("state_name") and action_fsm.state_name() == &"Die":
+		_pending_chain_fire_side = ""
 		return
 	if chain_sys == null:
 		_pending_chain_fire_side = ""
@@ -551,6 +560,13 @@ func _consume_all_healing_sprites_on_death() -> void:
 			sp.call("consume")
 	if has_method("log_msg"):
 		log_msg("HEAL", "clear all healing sprites on die")
+
+
+func on_die_entered() -> void:
+	_pending_chain_fire_side = ""
+	_block_chain_fire_this_frame = true
+	if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
+		chain_sys.call("hard_clear_all_chains", "die_enter")
 
 
 # ── 统一日志 ──

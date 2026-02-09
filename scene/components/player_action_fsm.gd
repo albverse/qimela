@@ -504,6 +504,10 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 		if _player.health != null and _player.health.has_method("on_player_die"):
 			_player.health.on_player_die()
 
+		# 4. 通知Player执行死亡入口级别清理（兜底清链、清pending输入）
+		if _player.has_method("on_die_entered"):
+			_player.on_die_entered()
+
 	if _player != null and _player.has_method("log_msg"):
 		_player.log_msg("ACTION",
 			"TRANS=%s->%s reason=%s pr=%d" % [from_name, to_name, reason, priority])
