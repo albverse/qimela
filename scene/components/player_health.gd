@@ -77,6 +77,9 @@ func grant_invincible(seconds: float) -> void:
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if amount <= 0:
 		return
+	# 终态保护：死亡后忽略后续伤害，避免再次触发击退/受击表现
+	if hp <= 0:
+		return
 	if _inv_t > 0.0:
 		return
 
@@ -84,8 +87,8 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	hp = clamp(hp - amount, 0, max_hp)
 	_inv_t = invincible_time
 
-	# 击退
-	if _player != null:
+	# 击退（仅存活时生效；死亡当帧不再弹飞）
+	if hp > 0 and _player != null:
 		var dx: float = _player.global_position.x - source_global_pos.x
 		var dir_x: float = signf(dx)
 		if is_zero_approx(dir_x):
@@ -107,6 +110,13 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 			if _pending_land_stun > 0.0:
 				_kb_t = maxf(_kb_t, _pending_land_stun)
 				_pending_land_stun = 0.0
+	else:
+		# 死亡时清空击退相关状态，防止被后续伤害“戳飞”
+		_kb_t = 0.0
+		_kb_fly_t = 0.0
+		_kb_vel = Vector2.ZERO
+		_kb_gravity = 0.0
+		_pending_land_stun = 0.0
 
 	# 通知 ActionFSM
 	damage_applied.emit(amount, source_global_pos)
