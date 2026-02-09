@@ -71,9 +71,8 @@ func _physics_process(dt: float) -> void:
 				_restore_from_weak()
 		return
 	if stunned_t > 0.0:
-		stunned_t -= dt
-		if stunned_t < 0.0:
-			stunned_t = 0.0
+		stunned_t = maxf(stunned_t - dt, 0.0)
+		if stunned_t <= 0.0:
 			_release_linked_chains()
 		return
 
@@ -166,13 +165,23 @@ func _release_linked_chains() -> void:
 		_hurtbox.collision_layer = _hurtbox_original_layer
 		_hurtbox_original_layer = -1
 	
-	# 通知Player溶解锁链
+	# 通知Player/ChainSystem溶解锁链
 	if p == null or not is_instance_valid(p):
 		return
-	if not p.has_method("force_dissolve_chain"):
-		return
 	for s in slots:
-		p.call("force_dissolve_chain", s)
+		_force_dissolve_chain_on_player(p, s)
+
+func _force_dissolve_chain_on_player(p: Node, slot: int) -> void:
+	if p == null or not is_instance_valid(p):
+		return
+	if p.has_method("force_dissolve_chain"):
+		p.call("force_dissolve_chain", slot)
+		return
+	
+	# Player自身通常没有force_dissolve_chain，实际方法在Player.chain_sys上
+	var chain_sys: Object = p.get("chain_sys")
+	if chain_sys != null and chain_sys.has_method("force_dissolve_chain"):
+		chain_sys.call("force_dissolve_chain", slot)
 
 func apply_stun(seconds: float, do_flash: bool = true) -> void:
 	# 施加眩晕（使用可配置的stun_duration或传入的秒数）
@@ -191,7 +200,7 @@ func apply_healing_burst_stun() -> void:
 		apply_stun(healing_burst_stun_time, true)
 
 # ===== 锁链交互 =====
-func on_chain_hit(_player: Node, slot: int) -> int:
+func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 被锁链命中时调用
 	# 返回值：0=普通受击（会扣血）, 1=可链接（虚弱或眩晕状态）
 	# 【问题6】眩晕时也可以被链接

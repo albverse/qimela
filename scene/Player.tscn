@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=19 format=3 uid="uid://m7ts2uye3c05"]
 
 [ext_resource type="Script" uid="uid://btlkrf7tvnl0s" path="res://scene/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://bal53d1ex2ekj" path="res://character.png" id="2_char"]
@@ -24,6 +24,10 @@ shader = ExtResource("4_shader0")
 shader_parameter/burn = 0.0
 shader_parameter/edge_width = 0.08
 shader_parameter/grain_scale = 180.0
+
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_healing_burst"]
+radius = 160.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_82gks"]
 shader = ExtResource("5_shader1")
@@ -120,3 +124,13 @@ material = SubResource("ShaderMaterial_82gks")
 width = 15.0
 texture = ExtResource("3_chain")
 texture_mode = 1
+
+
+[node name="HealingBurstArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HealingBurstArea"]
+shape = SubResource("CircleShape2D_healing_burst")

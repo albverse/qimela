@@ -6,6 +6,7 @@ class_name PlayerHealth
 ## damage_applied 连接到 ActionFSM.on_damaged
 
 signal damage_applied(amount: int, source_pos: Vector2)
+signal hp_changed(new_hp: int, old_hp: int)
 
 @export var max_hp: int = 5
 @export var invincible_time: float = 0.1
@@ -67,12 +68,19 @@ func is_invincible() -> bool:
 	return _inv_t > 0.0
 
 
+func grant_invincible(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	_inv_t = maxf(_inv_t, seconds)
+
+
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if amount <= 0:
 		return
 	if _inv_t > 0.0:
 		return
 
+	var old_hp: int = hp
 	hp = clamp(hp - amount, 0, max_hp)
 	_inv_t = invincible_time
 
@@ -102,6 +110,7 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 
 	# 通知 ActionFSM
 	damage_applied.emit(amount, source_global_pos)
+	hp_changed.emit(hp, old_hp)
 
 	if _player != null and _player.has_method("log_msg"):
 		_player.log_msg("HEALTH", "damage=%d hp=%d" % [amount, hp])
@@ -110,4 +119,7 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 func heal(amount: int) -> void:
 	if amount <= 0:
 		return
+	var old_hp: int = hp
 	hp = min(hp + amount, max_hp)
+	if hp != old_hp:
+		hp_changed.emit(hp, old_hp)

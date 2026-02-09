@@ -67,16 +67,13 @@ Root
 │   └── ArmR → HandR → chain_anchor_r  ← 右手锁链发射点
 ```
 
-### 翻转处理逻辑
-代码会自动根据`facing`方向交换左右骨骼：
+### 翻转处理逻辑（已调整）
+> 历史方案里做过“朝向翻转时左右骨骼交换”，该方案已被放弃。
 
-```gdscript
-# facing = 1（朝右）：用 chain_anchor_r 作为"右手"
-# facing = -1（朝左）：用 chain_anchor_l 作为"右手"（因为翻转后它在右边）
-var actual_use_right := use_right_hand
-if _player.facing < 0:
-    actual_use_right = not use_right_hand
-```
+当前实现改为：
+- 始终按语义直接取骨骼：右手=`chain_anchor_r`、左手=`chain_anchor_l`；
+- 角色朝向翻转由 `Visual.scale.x` 统一处理；
+- 锁链锚点通过骨骼全局坐标接口获取，不再做左右骨骼名交换。
 
 ### Inspector配置
 在 `Components/Animator` 节点的Inspector中可配置：

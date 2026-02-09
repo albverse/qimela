@@ -33,6 +33,12 @@ var hand_r: Node2D  # Marker2D（可选，Spine模式下可以为null）
 
 var _burn_shader: Shader = null
 var _chimera: Node = null
+var _fuse_cast_active: bool = false
+var _fuse_cast_id: int = 0
+var _fuse_result: Dictionary = {}
+var _fuse_entity_a: EntityBase = null
+var _fuse_entity_b: EntityBase = null
+var _fuse_tween: Tween = null
 
 ##=== Phase 1 兼容接口：供 ActionFSM 使用 ===##
 
@@ -212,9 +218,14 @@ func _ready() -> void:
 		set_process(false)
 		return
 	
-	# 警告：如果hand_l/hand_r都为null且没有animator，会fallback到player坐标
+	# 警告：仅在既无手部Marker也无Animator锚点接口时提示
 	if hand_l == null and hand_r == null:
-		push_warning("[ChainSystem] HandL/HandR Marker2D not found, will use Spine bone anchors or player position.")
+		var has_anim_anchor: bool = false
+		if player.has_node("Animator"):
+			var animator: Node = player.get_node_or_null("Animator")
+			has_anim_anchor = (animator != null and animator.has_method("get_chain_anchor_position"))
+		if not has_anim_anchor:
+			push_warning("[ChainSystem] HandL/HandR Marker2D not found, will use player position fallback.")
 
 	if player.chain_shader_path == "" or player.chain_shader_path == null:
 		player.chain_shader_path = player.DEFAULT_CHAIN_SHADER_PATH
@@ -275,6 +286,7 @@ func fire(side: String) -> void:
 		return
 	
 	_fire_chain_at_slot(slot)
+	_play_chain_fire_anim(slot)
 	
 	if player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "fire(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
@@ -291,6 +303,16 @@ func cancel(side: String) -> void:
 
 ## release(side): 链条动画正常结束后释放槽位
 ## 重要：LINKED状态不应被release破坏，只有FLYING/STUCK才finish
+func _play_chain_fire_anim(slot: int) -> void:
+	if player == null:
+		return
+	if not player.has_node("Animator"):
+		return
+	var animator: Node = player.get_node_or_null("Animator")
+	if animator != null and animator.has_method("play_chain_fire"):
+		animator.call("play_chain_fire", slot)
+
+
 func release(side: String) -> void:
 	var slot: int = 0 if side == "R" else 1
 	if slot >= 0 and slot < chains.size():
@@ -345,8 +367,8 @@ func switch_slot() -> void:
 	var new_slot: int = 1 - active_slot
 	if active_slot != new_slot:
 		active_slot = new_slot
-		if EventBus != null and EventBus.has_method("slot_switched"):
-			EventBus.slot_switched.emit(active_slot)
+		if EventBus != null and EventBus.has_method("emit_slot_switched"):
+			EventBus.emit_slot_switched(active_slot)
 		
 		if player != null and player.has_method("log_msg"):
 			player.log_msg("CHAIN", "switch_slot → active_slot=%d" % active_slot)
@@ -600,16 +622,16 @@ func _resolve_entity(n: Node) -> EntityBase:
 
 func _switch_slot() -> void:
 	active_slot = 1 - active_slot
-	if EventBus != null and EventBus.has_method("slot_switched"):
-		EventBus.slot_switched.emit(active_slot)
+	if EventBus != null and EventBus.has_method("emit_slot_switched"):
+		EventBus.emit_slot_switched(active_slot)
 
 
 func _switch_to_available_slot(from_slot: int) -> void:
 	var other_slot: int = 1 - from_slot
 	if chains[other_slot].state == ChainState.IDLE and active_slot != other_slot:
 		active_slot = other_slot
-		if EventBus != null and EventBus.has_method("slot_switched"):
-			EventBus.slot_switched.emit(active_slot)
+		if EventBus != null and EventBus.has_method("emit_slot_switched"):
+			EventBus.emit_slot_switched(active_slot)
 
 
 func _try_fire_chain() -> void:
@@ -720,8 +742,8 @@ func _update_chain(i: int, dt: float) -> void:
 			if not c.is_chimera:
 				c.struggle_timer += dt
 				var progress: float = c.struggle_timer / c.struggle_max
-				if EventBus != null and EventBus.has_method("chain_struggle_progress"):
-					EventBus.chain_struggle_progress.emit(i, progress)
+				if EventBus != null and EventBus.has_method("emit_chain_struggle_progress"):
+					EventBus.emit_chain_struggle_progress(i, progress)
 				if c.struggle_timer >= c.struggle_max:
 					_on_struggle_break(i)
 					return
@@ -859,8 +881,8 @@ func _detach_link_if_needed(slot: int) -> void:
 	c.is_chimera = false
 	
 	if c.state == ChainState.LINKED:
-		if EventBus != null and EventBus.has_method("chain_released"):
-			EventBus.chain_released.emit(slot, &"detached")
+		if EventBus != null and EventBus.has_method("emit_chain_released"):
+			EventBus.emit_chain_released(slot, &"detached")
 
 
 func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false) -> void:
@@ -890,8 +912,8 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	c.line.visible = true
 	c.state = ChainState.DISSOLVING
 	
-	if EventBus != null and EventBus.has_method("chain_released"):
-		EventBus.chain_released.emit(i, &"dissolve")
+	if EventBus != null and EventBus.has_method("emit_chain_released"):
+		EventBus.emit_chain_released(i, &"dissolve")
 
 	var t: float = player.burn_time if dissolve_time <= 0.0 else dissolve_time
 
@@ -991,41 +1013,52 @@ func _finish_chain(i: int) -> void:
 
 
 func _try_fuse() -> void:
+	begin_fuse_cast()
+
+
+func begin_fuse_cast() -> bool:
 	if player.is_player_locked():
-		return
+		return false
 	if chains.size() < 2:
-		return
+		return false
 
 	var c0: ChainSlot = chains[0]
 	var c1: ChainSlot = chains[1]
 
 	if c0.state != ChainState.LINKED or c1.state != ChainState.LINKED:
-		return
+		return false
 	if c0.linked_target == null or c1.linked_target == null:
-		return
+		return false
+	if not is_instance_valid(c0.linked_target) or not is_instance_valid(c1.linked_target):
+		return false
 	if c0.linked_target == c1.linked_target:
-		return
+		return false
 
 	var entity_a: EntityBase = _resolve_entity(c0.linked_target)
 	var entity_b: EntityBase = _resolve_entity(c1.linked_target)
 	if entity_a == null or entity_b == null:
-		return
-	
+		return false
+
 	var a_can_fuse: bool = entity_a.weak or entity_a.is_stunned()
 	var b_can_fuse: bool = entity_b.weak or entity_b.is_stunned()
-	
 	if not a_can_fuse or not b_can_fuse:
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
-		return
-	
+		return false
+
 	var result: Dictionary = FusionRegistry.check_fusion(entity_a, entity_b)
-	
 	if result.type == FusionRegistry.FusionResultType.REJECTED:
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
-		return
-	
+		return false
+
+	_fuse_cast_active = true
+	_fuse_cast_id += 1
+	var cast_id: int = _fuse_cast_id
+	_fuse_result = result
+	_fuse_entity_a = entity_a
+	_fuse_entity_b = entity_b
+
 	player.set_player_locked(true)
 	player.velocity = Vector2.ZERO
 
@@ -1037,14 +1070,52 @@ func _try_fuse() -> void:
 	_begin_burn_dissolve(0, player.fusion_chain_dissolve_time)
 	_begin_burn_dissolve(1, player.fusion_chain_dissolve_time)
 
-	var tw: Tween = create_tween()
-	tw.tween_interval(player.fusion_lock_time)
-	tw.tween_callback(func() -> void:
-		var spawned: Node = FusionRegistry.execute_fusion(result, player)
-		if spawned != null:
-			_chimera = spawned
-		player.set_player_locked(false)
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	_fuse_tween = create_tween()
+	_fuse_tween.tween_interval(player.fusion_lock_time)
+	_fuse_tween.tween_callback(func() -> void:
+		if not _fuse_cast_active or cast_id != _fuse_cast_id:
+			return
+		commit_fuse_cast()
 	)
+	return true
+
+
+func commit_fuse_cast() -> void:
+	if not _fuse_cast_active:
+		return
+	_fuse_cast_active = false
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	var spawned: Node = FusionRegistry.execute_fusion(_fuse_result, player)
+	if spawned != null:
+		_chimera = spawned
+	player.set_player_locked(false)
+	_fuse_result = {}
+	_fuse_entity_a = null
+	_fuse_entity_b = null
+
+
+func abort_fuse_cast() -> void:
+	if not _fuse_cast_active:
+		return
+	_fuse_cast_active = false
+	_fuse_cast_id += 1
+	if _fuse_tween != null:
+		_fuse_tween.kill()
+		_fuse_tween = null
+	if _fuse_entity_a != null and _fuse_entity_a.has_method("set_fusion_vanish"):
+		_fuse_entity_a.call("set_fusion_vanish", false)
+	if _fuse_entity_b != null and _fuse_entity_b.has_method("set_fusion_vanish"):
+		_fuse_entity_b.call("set_fusion_vanish", false)
+	player.set_player_locked(false)
+	force_dissolve_all_chains()
+	_fuse_result = {}
+	_fuse_entity_a = null
+	_fuse_entity_b = null
 
 
 func _find_safe_spawn_pos(shape: Shape2D, chim_xform: Transform2D, base: Vector2, mask: int) -> Vector2:
