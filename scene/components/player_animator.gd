@@ -230,7 +230,7 @@ func tick(_dt: float) -> void:
 			action_mode = MODE_OVERLAY_UPPER
 		elif action_state == &"Die":
 			target_action = &"die"
-			action_mode = MODE_OVERLAY_UPPER
+			action_mode = MODE_FULLBODY_EXCLUSIVE
 		
 		# AttackCancel_R / AttackCancel_L：使用固定cancel动画（OVERLAY）
 		elif action_state in [&"AttackCancel_R", &"AttackCancel_L"]:
@@ -295,39 +295,36 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 	_log_end(track, anim_name)
 
 	if track == TRACK_LOCO:
-		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
-		# FULLBODY 动画播放在 TRACK_LOCO：统一走 ACTION_END_MAP，避免按名字特判。
-		var handled_as_action: bool = false
-		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and anim_name == _cur_action_anim:
-			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
-			if action_event != &"" and _player != null:
-				_player.on_action_anim_end(action_event)
+		# === P0 FIX: FULLBODY_EXCLUSIVE 动画播放在 track0，完成事件应走 ACTION 分发 ===
+		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim == anim_name:
+			# die 是终态：不清空、不恢复、不发事件
+			if anim_name == &"die":
+				return
+			var event: StringName = ACTION_END_MAP.get(anim_name, &"")
+			if event != &"":
+				_player.on_action_anim_end(event)
+			# FULLBODY 结束：恢复状态，让下一帧 tick 重新评估 loco
 			_cur_action_anim = &""
 			_cur_action_mode = -1
-			handled_as_action = true
-		
-		if not handled_as_action:
-			var event: StringName = LOCO_END_MAP.get(anim_name, &"")
-			if event != &"" and _player != null:
-				_player.on_loco_anim_end(event)
+			_cur_loco_anim = &""
+			return
+
+		# 普通 locomotion 完成（jump_up / jump_down 等非 loop 动画）
+		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
+		if event != &"":
+			_player.on_loco_anim_end(event)
 		_cur_loco_anim = &""
 
 	elif track == TRACK_ACTION:
-		# === CRITICAL: 清除手动chain动画标志 ===
-		if anim_name in MANUAL_CHAIN_ANIMS:
+		# === 清除手动 chain 动画标志 ===
+		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
 			_manual_chain_anim = false
-			# 手动链动画是 ChainSystem 输入流，不应驱动 ActionFSM attack/cancel end 事件。
-			if _cur_action_anim == anim_name:
-				_cur_action_anim = &""
-				_cur_action_mode = -1
-			return
-		
+
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
 		if event != &"" and _player != null:
 			_player.on_action_anim_end(event)
-		
-		# === CRITICAL FIX: die 是终态，不清空 _cur_action_anim ===
-		# 防止下一帧 tick 因为 "die" != "" 而重新播放
+
+		# die 是终态，不清空 _cur_action_anim，防止下一帧重新播放
 		if anim_name != &"die":
 			_cur_action_anim = &""
 
@@ -387,6 +384,8 @@ func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 		return
 
 	_manual_chain_anim = true
+	_cur_action_anim = anim_name
+	_cur_action_mode = MODE_OVERLAY_UPPER
 	_driver.play(TRACK_ACTION, anim_name, false)
 	_log_play(TRACK_ACTION, anim_name, false)
 

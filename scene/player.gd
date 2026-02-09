@@ -104,8 +104,9 @@ func _ready() -> void:
 		if not is_instance_valid(_healing_slots[i]):
 			_healing_slots[i] = null
 	add_to_group("player")
-	if has_node("Visual/SpineSprite"):
-			var test = load("res://scene/components/spine_quick_test.gd")
+	if debug_log and has_node("Visual/SpineSprite"):
+		var test = load("res://scene/components/spine_quick_test.gd")
+		if test != null:
 			test.run($Visual/SpineSprite)
 	# 缓存组件
 	movement = $Components/Movement as PlayerMovement

@@ -448,24 +448,18 @@ func _fire_chain_at_slot(idx: int) -> void:
 ## _get_hand_position: 获取手部锚点位置
 ## 优先级：Animator骨骼桥接 → Marker2D → player坐标
 func _get_hand_position(use_right_hand: bool) -> Vector2:
-	# 1) 优先：通过Animator公开接口获取Spine骨骼位置
+	# 1) 优先：通过 Animator 公开接口获取 Spine 骨骼位置
 	if player.has_node("Animator"):
 		var animator = player.get_node("Animator")
 		if animator != null and animator.has_method("get_chain_anchor_position"):
 			return animator.get_chain_anchor_position(use_right_hand)
-	
-	# 2) 兼容：旧anim_fsm（Phase 0遗留）
-	if player.has_node("AnimFSM"):
-		var anim_fsm = player.get_node("AnimFSM")
-		if anim_fsm != null and anim_fsm.has_method("get_chain_anchor_position"):
-			return anim_fsm.get_chain_anchor_position(use_right_hand)
-	
-	# 3) Fallback: Marker2D
+
+	# 2) Fallback: Marker2D
 	var hand: Node2D = hand_r if use_right_hand else hand_l
 	if hand != null:
 		return hand.global_position
-	
-	# 4) 最后兜底：player坐标
+
+	# 3) 最后兜底：player坐标
 	return player.global_position
 
 
@@ -477,45 +471,10 @@ func tick(dt: float) -> void:
 		_update_chain(i, dt)
 
 
-func handle_unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			var active_chain: ChainSlot = chains[active_slot]
-			if active_chain.state == ChainState.LINKED and active_chain.is_chimera:
-				var chimera: Node = active_chain.linked_target
-				if chimera != null and chimera.has_method("on_player_interact"):
-					chimera.call("on_player_interact", player)
-				return
-			_try_fire_chain()
-			return
-
-	if event is InputEventKey:
-		var ek: InputEventKey = event as InputEventKey
-		if not ek.pressed:
-			return
-		
-		if ek.keycode == KEY_Z:
-			_switch_slot()
-			return
-
-		var fuse_pressed: bool = false
-		if _has_action(player.action_fuse):
-			fuse_pressed = Input.is_action_just_pressed(player.action_fuse)
-		else:
-			fuse_pressed = (ek.keycode == KEY_SPACE)
-		if fuse_pressed:
-			_try_fuse()
-			return
-
-		var cancel_pressed: bool = false
-		if _has_action(player.action_cancel_chains):
-			cancel_pressed = Input.is_action_just_pressed(player.action_cancel_chains)
-		else:
-			cancel_pressed = (ek.keycode == KEY_X)
-		if cancel_pressed:
-			_force_dissolve_all_chains()
-			return
+## [DEPRECATED] 旧版独立输入处理 — 输入已统一由 player.gd _unhandled_input 管理
+## 保留方法签名以防外部引用，但内部不再处理任何输入
+func handle_unhandled_input(_event: InputEvent) -> void:
+	pass
 
 
 func _find_player() -> Player:

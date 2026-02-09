@@ -19,8 +19,16 @@ var _durations: Dictionary = {
 	&"chain_L": 0.4,
 	&"anim_chain_cancel_R": 0.3,
 	&"anim_chain_cancel_L": 0.3,
+	&"fuse_progress": 0.6,
+	&"fuse_hurt": 0.35,
 	&"hurt": 0.35,
 	&"die": 1.0,
+	&"sword_light_idle": 0.4,
+	&"sword_light_move": 0.4,
+	&"sword_light_air": 0.35,
+	&"knife_light_idle": 0.35,
+	&"knife_light_move": 0.35,
+	&"knife_light_air": 0.3,
 }
 
 # 每条 track: {anim: StringName, loop: bool, remaining: float}

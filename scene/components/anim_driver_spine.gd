@@ -84,13 +84,14 @@ func _detect_api_signature(anim_state: Object) -> void:
 
 
 func _connect_signals() -> void:
-	## 优先 animation_ended（更接近"真正结束"）
-	if _spine_sprite.has_signal("animation_ended"):
-		_spine_sprite.animation_ended.connect(_on_animation_ended)
-		print("[AnimDriverSpine] Connected animation_ended signal")
-	elif _spine_sprite.has_signal("animation_completed"):
+	## 优先 animation_completed（动画自然播完时触发，不会因替换动画产生伪信号）
+	## animation_ended 在动画被替换/移除时也会触发，容易产生伪完成事件
+	if _spine_sprite.has_signal("animation_completed"):
 		_spine_sprite.animation_completed.connect(_on_animation_ended)
-		print("[AnimDriverSpine] Connected animation_completed signal")
+		print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
+	elif _spine_sprite.has_signal("animation_ended"):
+		_spine_sprite.animation_ended.connect(_on_animation_ended)
+		print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
 	else:
 		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
@@ -139,7 +140,7 @@ func _poll_animation_completion() -> void:
 
 
 func _on_animation_ended(track_entry, _arg2 = null, _arg3 = null) -> void:
-	## animation_ended 信号回调（可变参数以兼容不同版本）
+	## 动画完成信号回调（可变参数以兼容不同版本）
 	if track_entry == null:
 		return
 
@@ -152,7 +153,16 @@ func _on_animation_ended(track_entry, _arg2 = null, _arg3 = null) -> void:
 	if track_id < 0:
 		return
 
-	print("[AnimDriverSpine] signal ended: track=%d" % track_id)
+	# === P1 FIX: 验证信号对应的动画是否与当前追踪的动画一致 ===
+	# 防止动画被替换时触发的伪完成信号（animation_ended 在替换时也会触发）
+	if _track_states.has(track_id):
+		var expected_anim: StringName = _track_states[track_id].get("anim", &"")
+		var signal_anim: StringName = _get_animation_name(track_entry)
+		if signal_anim != &"" and signal_anim != expected_anim:
+			print("[AnimDriverSpine] signal IGNORED: track=%d got=%s expected=%s (stale/replaced)" % [track_id, signal_anim, expected_anim])
+			return
+
+	print("[AnimDriverSpine] signal completed: track=%d" % track_id)
 	_on_track_completed(track_id, track_entry)
 
 
