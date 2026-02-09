@@ -212,9 +212,14 @@ func _ready() -> void:
 		set_process(false)
 		return
 	
-	# 警告：如果hand_l/hand_r都为null且没有animator，会fallback到player坐标
+	# 警告：仅在既无手部Marker也无Animator锚点接口时提示
 	if hand_l == null and hand_r == null:
-		push_warning("[ChainSystem] HandL/HandR Marker2D not found, will use Spine bone anchors or player position.")
+		var has_anim_anchor: bool = false
+		if player.has_node("Animator"):
+			var animator: Node = player.get_node_or_null("Animator")
+			has_anim_anchor = (animator != null and animator.has_method("get_chain_anchor_position"))
+		if not has_anim_anchor:
+			push_warning("[ChainSystem] HandL/HandR Marker2D not found, will use player position fallback.")
 
 	if player.chain_shader_path == "" or player.chain_shader_path == null:
 		player.chain_shader_path = player.DEFAULT_CHAIN_SHADER_PATH

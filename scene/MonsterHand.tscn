@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://de1pps8jdbyfa"]
 
-[ext_resource type="Script" uid="uid://c35rax05fmbdg" path="res://scene/monster_hand.gd" id="1_6mggw"]
-[ext_resource type="Texture2D" uid="uid://cud0jd8i1dhh3" path="res://yure.png" id="2_rf1mo"]
+[ext_resource type="Script" path="res://scene/monster_hand.gd" id="1_6mggw"]
+[ext_resource type="Texture2D" path="res://yure.png" id="2_rf1mo"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_mvbf0"]
 radius = 16.03122
