@@ -693,6 +693,9 @@ func _update_chain(i: int, dt: float) -> void:
 			if c.linked_target == null or not is_instance_valid(c.linked_target):
 				_begin_burn_dissolve(i)
 				return
+			if c.linked_target.has_method("is_visible_for_chain") and not bool(c.linked_target.call("is_visible_for_chain")):
+				_begin_burn_dissolve(i)
+				return
 			c.end_pos = c.linked_target.global_position + c.linked_offset
 			if start.distance_to(c.end_pos) > player.chain_max_length:
 				_begin_burn_dissolve(i)
@@ -934,6 +937,8 @@ func _hard_reset_slot(i: int) -> void:
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
+	# 先 detach 再改 state，确保 LINKED 时会正确发出 chain_released 事件（驱动UI刷新）
+	_detach_link_if_needed(i)
 	c.state = ChainState.IDLE
 	c.line.visible = false
 	c.line.material = null
@@ -941,7 +946,6 @@ func _hard_reset_slot(i: int) -> void:
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
 	c.interacted.clear()
-	_detach_link_if_needed(i)
 
 
 func _finish_chain(i: int) -> void:
