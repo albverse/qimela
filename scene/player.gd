@@ -13,7 +13,7 @@ extends CharacterBody2D
 @export var run_speed_mult: float = 1.5
 @export var jump_speed: float = 520.0
 @export var gravity: float = 1500.0
-@export var facing_visual_sign: float = 1.0
+@export var facing_visual_sign: float = -1.0
 
 # ── 输入映射 ──
 @export var action_left: StringName = &"move_left"
@@ -72,6 +72,7 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 # ── 运行时状态 ──
 var facing: int = 1
 var jump_request: bool = false
+var _player_locked: bool = false
 var anim_fsm = null  # 由 Animator 设置（Phase 1: ChainSystem 需要）
 
 # ── 组件引用 ──
@@ -87,6 +88,7 @@ var weapon_controller: WeaponController = null
 @export var max_healing_sprites: int = 3
 @export var healing_per_sprite: int = 2
 @export var healing_burst_light_energy: float = 5.0
+@export var healing_burst_invincible_time: float = 0.2
 @export var healing_burst_area_path: NodePath = NodePath("HealingBurstArea")
 var _healing_slots: Array = [null, null, null]
 var _healing_burst_area: Area2D = null
@@ -145,7 +147,7 @@ func _ready() -> void:
 	if health.has_signal("damage_applied"):
 		health.damage_applied.connect(_on_health_damage_applied)
 
-	log_msg("BUS", "ready ok — tick order: Movement→move_and_slide→Loco→Chain→Action→Animator")
+	log_msg("BUS", "ready ok — tick order: Movement→move_and_slide→Loco→Action→Health→Animator→Chain")
 
 
 func _physics_process(dt: float) -> void:
@@ -158,19 +160,19 @@ func _physics_process(dt: float) -> void:
 	# === 3) LocomotionFSM: 读取 floor/vy/intent，评估转移 ===
 	loco_fsm.tick(dt)
 
-	# === 4) ChainSystem: slot 更新 ===
-	if chain_sys.has_method("tick"):
-		chain_sys.call("tick", dt)
-
-	# === 5) ActionFSM: 全局检查 + 动作状态 ===
+	# === 4) ActionFSM: 全局检查 + 动作状态 ===
 	action_fsm.tick(dt)
 
-	# === 6) Health: 无敌帧/击退 ===
+	# === 5) Health: 无敌帧/击退 ===
 	if health != null:
 		health.tick(dt)
 
-	# === 7) Animator: 裁决 + 播放 ===
+	# === 6) Animator: 裁决 + 播放 ===
 	animator.tick(dt)
+
+	# === 7) ChainSystem: 在Animator之后更新，确保读取当帧骨骼锚点 ===
+	if chain_sys.has_method("tick"):
+		chain_sys.call("tick", dt)
 
 
 # ── 输入转发 ──
@@ -200,8 +202,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			weapon_controller != null
 			and weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN
 		)
-		if is_chain_for_fuse and chain_sys != null and chain_sys.has_method("_try_fuse"):
-			chain_sys._try_fuse()
+		if is_chain_for_fuse and action_fsm != null and action_fsm.has_method("on_space_pressed"):
+			action_fsm.on_space_pressed()
 		return
 
 	# W / jump → LocomotionFSM
@@ -250,11 +252,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if chain_sys != null and chain_sys.has_method("pick_fire_slot"):
 				var slot: int = chain_sys.pick_fire_slot()
 				if slot >= 0:
-					# 3. 播放 chain 动画（overlay，不占用 ActionFSM 状态）
-					if animator != null and animator.has_method("play_chain_fire"):
-						animator.play_chain_fire(slot)
-					
-					# 4. 执行发射逻辑
+					# 3. 执行发射逻辑（动画由ChainSystem统一触发，避免双入口）
 					var side: String = "R" if slot == 0 else "L"
 					chain_sys.fire(side)
 					
@@ -324,6 +322,9 @@ func on_action_anim_end(event: StringName) -> void:
 			action_fsm.on_anim_end_attack_cancel()
 		&"anim_end_hurt":
 			action_fsm.on_anim_end_hurt()
+		&"anim_end_fuse":
+			if action_fsm.has_method("on_anim_end_fuse"):
+				action_fsm.on_anim_end_fuse()
 
 
 # ── Health 信号 ──
@@ -341,6 +342,8 @@ func get_action_state() -> StringName:
 	return action_fsm.state_name() if action_fsm != null else &"None"
 
 func is_horizontal_input_locked() -> bool:
+	if _player_locked:
+		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
 	if health != null and health.is_knockback_active():
@@ -348,14 +351,14 @@ func is_horizontal_input_locked() -> bool:
 	return false
 
 func is_player_locked() -> bool:
+	if _player_locked:
+		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
 	return false
 
-func set_player_locked(_locked: bool) -> void:
-	# Phase 1: ChainSystem 融合时需要此方法
-	# 目前只是占位，未来可能需要更复杂的锁定逻辑
-	pass
+func set_player_locked(locked: bool) -> void:
+	_player_locked = locked
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if health != null:
@@ -448,6 +451,11 @@ func use_healing_burst() -> bool:
 	if has_method("log_msg"):
 		log_msg("HEAL", "治愈精灵大爆炸！")
 
+	if health != null and health.has_method("grant_invincible"):
+		health.grant_invincible(healing_burst_invincible_time)
+		if has_method("log_msg"):
+			log_msg("HEAL", "healing_burst grant invincible=%.2fs" % healing_burst_invincible_time)
+
 	if _healing_burst_area != null:
 		var bodies: Array[Node2D] = _healing_burst_area.get_overlapping_bodies()
 		for body in bodies:
@@ -477,11 +485,11 @@ func log_msg(source: String, msg: String) -> void:
 	if not debug_log:
 		return
 	var f: int = Engine.get_physics_frames()
-	var l_str: String = loco_fsm.state_name() if loco_fsm != null else "?"
-	var a_str: String = action_fsm.state_name() if action_fsm != null else "?"
+	var l_str: String = String(loco_fsm.state_name()) if loco_fsm != null else "?"
+	var a_str: String = String(action_fsm.state_name()) if action_fsm != null else "?"
 	var floor_str: String = str(is_on_floor())
 	var vy_str: String = "%.1f" % velocity.y
-	var intent_str: String = movement.intent_name() if movement != null else "?"
+	var intent_str: String = String(movement.intent_name()) if movement != null else "?"
 	var hp_val: int = health.hp if health != null else 0
 	var sr: String = str(chain_sys.slot_R_available) if chain_sys != null and "slot_R_available" in chain_sys else "?"
 	var sl: String = str(chain_sys.slot_L_available) if chain_sys != null and "slot_L_available" in chain_sys else "?"

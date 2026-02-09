@@ -9,10 +9,10 @@ class_name PlayerActionFSM
 ## 动作结束统一走 resolve_post_action_state
 ## 禁止：播放动画、改 velocity
 
-enum State { NONE, ATTACK, ATTACK_CANCEL, HURT, DIE }
+enum State { NONE, ATTACK, ATTACK_CANCEL, FUSE, HURT, DIE }
 
 const STATE_NAMES: Array[StringName] = [
-	&"None", &"Attack", &"AttackCancel", &"Hurt", &"Die"
+	&"None", &"Attack", &"AttackCancel", &"Fuse", &"Hurt", &"Die"
 ]
 
 var state: int = State.NONE
@@ -31,6 +31,9 @@ var _attack_timeout: float = 2.0  # 2秒超时
 var _attack_timer: float = 0.0    # 当前计时器
 var _hurt_timeout: float = 1.0    # Hurt 超时（1秒）
 var _hurt_timer: float = 0.0
+var _fuse_timer: float = 0.0
+var _return_idle_after_hurt: bool = false
+var _use_fuse_hurt_anim: bool = false
 
 
 func state_name() -> StringName:
@@ -78,6 +81,7 @@ func tick(_dt: float) -> void:
 	if state == State.DIE:
 		_pending_fire_side = ""  # 死亡时清空挂起的发射
 		_attack_timer = 0.0
+		_fuse_timer = 0.0
 		return  # 终态：不执行任何逻辑
 
 	# === GLOBAL pr=100: hp<=0 → Die ===
@@ -119,6 +123,18 @@ func tick(_dt: float) -> void:
 	else:
 		_hurt_timer = 0.0
 	
+
+	# === Fuse 超时保护（动画缺失时兜底）===
+	if state == State.FUSE:
+		_fuse_timer += _dt
+		var fuse_timeout: float = 0.5
+		if _player != null:
+			fuse_timeout = maxf(fuse_timeout, _player.fusion_lock_time + 0.2)
+		if _fuse_timer > fuse_timeout:
+			on_anim_end_fuse()
+			return
+	else:
+		_fuse_timer = 0.0
 	# === 延迟 fire 提交（状态门控，防幽灵发射）===
 	# Chain 发射时机：必须在 ATTACK 状态（保持与动画系统同步）
 	if _pending_fire_side != "" and _player.chain_sys != null:
@@ -191,9 +207,13 @@ func on_damaged() -> void:
 		return
 	
 	# === hp>0 的情况：受伤 ===
-	# === CRITICAL FIX: 受击时取消 FLYING/STUCK，但保留 LINKED ===
-	# 这符合 Q2:选项A 和 Zip1 的体验
-	if _player.chain_sys != null and _player.chain_sys.has_method("cancel_volatile_on_damage"):
+	if state == State.FUSE:
+		if _player.chain_sys != null and _player.chain_sys.has_method("abort_fuse_cast"):
+			_player.chain_sys.abort_fuse_cast()
+		_return_idle_after_hurt = true
+		_use_fuse_hurt_anim = true
+	elif _player.chain_sys != null and _player.chain_sys.has_method("cancel_volatile_on_damage"):
+		# 非融合受击：取消 FLYING/STUCK，但保留 LINKED
 		_player.chain_sys.cancel_volatile_on_damage()
 	
 	# 如果正在动作中，中断动作（但槽位已由上面的 cancel_volatile_on_damage 处理）
@@ -202,6 +222,35 @@ func on_damaged() -> void:
 	
 	_do_transition(State.HURT, "damaged->HURT", 90)
 
+
+
+func on_space_pressed() -> void:
+	if _player == null:
+		return
+	if state == State.DIE or state == State.HURT:
+		return
+	if _player.chain_sys == null:
+		return
+	if not _player.chain_sys.has_method("begin_fuse_cast"):
+		return
+	var ok: bool = bool(_player.chain_sys.begin_fuse_cast())
+	if not ok:
+		return
+	_pending_fire_side = ""
+	attack_side = ""
+	_do_transition(State.FUSE, "space->FUSE", 95)
+
+
+func on_anim_end_fuse() -> void:
+	if state != State.FUSE:
+		return
+	if _player != null and _player.chain_sys != null and _player.chain_sys.has_method("commit_fuse_cast"):
+		_player.chain_sys.commit_fuse_cast()
+	_resolve_and_transition("anim_end_fuse")
+
+
+func should_use_fuse_hurt_anim() -> bool:
+	return _use_fuse_hurt_anim
 
 
 func on_m_pressed() -> void:
@@ -384,6 +433,13 @@ func on_anim_end_attack_cancel() -> void:
 func on_anim_end_hurt() -> void:
 	_log_event("anim_end_hurt")
 	if state == State.HURT:
+		if _return_idle_after_hurt:
+			_return_idle_after_hurt = false
+			_use_fuse_hurt_anim = false
+			_do_transition(State.NONE, "anim_end_hurt->idle_after_fuse_interrupt", 90)
+			_sync_loco_to_state(&"Idle")
+			return
+		_use_fuse_hurt_anim = false
 		_resolve_and_transition("anim_end_hurt")
 
 
@@ -457,14 +513,14 @@ func _sync_loco_to_resolved(resolved: StringName) -> void:
 			_player.log_msg("ACTION", "SYNC_LOCO %s->%s (resolver)" % [from_name, to_name])
 
 
-func _sync_loco_to_state(state_name: StringName) -> void:
+func _sync_loco_to_state(target_state_name: StringName) -> void:
 	## GREEN 转换专用：立即同步 LocomotionFSM 到指定状态
 	var loco: PlayerLocomotionFSM = _player.loco_fsm
 	if loco == null:
 		return
 
 	var target_state: int = -1
-	match state_name:
+	match target_state_name:
 		&"Idle": target_state = PlayerLocomotionFSM.State.IDLE
 		&"Walk": target_state = PlayerLocomotionFSM.State.WALK
 		&"Run": target_state = PlayerLocomotionFSM.State.RUN
