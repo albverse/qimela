@@ -79,6 +79,11 @@ const LOCO_END_MAP: Dictionary = {
 	&"jump_down": &"anim_end_jump_down",
 }
 
+# 手动 Chain 动画：不向 ActionFSM 派发结束事件（避免 state=None 噪音和边缘联动）
+const MANUAL_CHAIN_ANIMS: Array[StringName] = [
+	&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"
+]
+
 var _player: CharacterBody2D = null
 var _driver = null  # AnimDriverMock 或 AnimDriverSpine
 var _visual: Node2D = null
@@ -291,19 +296,34 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 
 	if track == TRACK_LOCO:
 		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
-		# 此处只收到非 loop 的 jump_up / jump_down
-		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
-		if event != &"":
-			_player.on_loco_anim_end(event)
+		# FULLBODY 动画播放在 TRACK_LOCO：统一走 ACTION_END_MAP，避免按名字特判。
+		var handled_as_action: bool = false
+		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and anim_name == _cur_action_anim:
+			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
+			if action_event != &"" and _player != null:
+				_player.on_action_anim_end(action_event)
+			_cur_action_anim = &""
+			_cur_action_mode = -1
+			handled_as_action = true
+		
+		if not handled_as_action:
+			var event: StringName = LOCO_END_MAP.get(anim_name, &"")
+			if event != &"" and _player != null:
+				_player.on_loco_anim_end(event)
 		_cur_loco_anim = &""
 
 	elif track == TRACK_ACTION:
 		# === CRITICAL: 清除手动chain动画标志 ===
-		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
+		if anim_name in MANUAL_CHAIN_ANIMS:
 			_manual_chain_anim = false
+			# 手动链动画是 ChainSystem 输入流，不应驱动 ActionFSM attack/cancel end 事件。
+			if _cur_action_anim == anim_name:
+				_cur_action_anim = &""
+				_cur_action_mode = -1
+			return
 		
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
-		if event != &"":
+		if event != &"" and _player != null:
 			_player.on_action_anim_end(event)
 		
 		# === CRITICAL FIX: die 是终态，不清空 _cur_action_anim ===
