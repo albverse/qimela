@@ -73,6 +73,8 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 var facing: int = 1
 var jump_request: bool = false
 var _player_locked: bool = false
+var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
+var _block_chain_fire_this_frame: bool = false
 var anim_fsm = null  # 由 Animator 设置（Phase 1: ChainSystem 需要）
 
 # ── 组件引用 ──
@@ -92,6 +94,7 @@ var weapon_controller: WeaponController = null
 @export var healing_burst_area_path: NodePath = NodePath("HealingBurstArea")
 var _healing_slots: Array = [null, null, null]
 var _healing_burst_area: Area2D = null
+var _death_healing_cleanup_done: bool = false
 
 
 func _ready() -> void:
@@ -152,6 +155,10 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_healing_cleanup_done:
+		_consume_all_healing_sprites_on_death()
+		_death_healing_cleanup_done = true
+
 	# === 1) Movement: 水平/重力/消费 jump ===
 	movement.tick(dt)
 
@@ -175,10 +182,57 @@ func _physics_process(dt: float) -> void:
 	if chain_sys.has_method("tick"):
 		chain_sys.call("tick", dt)
 
+	# === 8) 提交链条发射请求（延迟到状态机/血量更新之后，避免同帧竞态） ===
+	_commit_pending_chain_fire()
+	_block_chain_fire_this_frame = false
+
+
+func _is_chain_fire_blocked() -> bool:
+	if _block_chain_fire_this_frame:
+		return true
+	if health != null and health.hp <= 0:
+		return true
+	if action_fsm != null:
+		if action_fsm.state == PlayerActionFSM.State.DIE or action_fsm.state == PlayerActionFSM.State.HURT:
+			return true
+	return false
+
+
+func _commit_pending_chain_fire() -> void:
+	if _pending_chain_fire_side == "":
+		return
+	if chain_sys == null:
+		_pending_chain_fire_side = ""
+		return
+	if _is_chain_fire_blocked():
+		if has_method("log_msg"):
+			log_msg("INPUT", "M_pressed: Chain request dropped (blocked state)")
+		_pending_chain_fire_side = ""
+		return
+	if not chain_sys.has_method("pick_fire_slot"):
+		_pending_chain_fire_side = ""
+		return
+
+	var expected_slot: int = 0 if _pending_chain_fire_side == "R" else 1
+	var current_slot: int = chain_sys.pick_fire_slot()
+	if current_slot != expected_slot:
+		if has_method("log_msg"):
+			log_msg("INPUT", "M_pressed: Chain request dropped (slot no longer available)")
+		_pending_chain_fire_side = ""
+		return
+
+	chain_sys.fire(_pending_chain_fire_side)
+	if has_method("log_msg"):
+		log_msg("INPUT", "M_pressed: Chain slot=%d fired (bypass ActionFSM, deferred)" % expected_slot)
+	_pending_chain_fire_side = ""
+
 
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+
 	# C / use healing sprite
 	if _is_action_just_pressed(event, &"use_healing", KEY_C):
 		use_healing_sprite()
@@ -243,22 +297,20 @@ func _unhandled_input(event: InputEvent) -> void:
 							return
 
 			# === Chain 专用路径：不经过 ActionFSM ===
-			# 1. 检查是否可以发射（死亡/受伤状态拒绝）
-			if action_fsm != null:
-				var state_name: StringName = action_fsm.state_name()
-				if state_name == &"Die" or state_name == &"Hurt":
-					return
+			# 1. 检查是否可以发射（死亡/受伤/本帧受击拒绝）
+			if _is_chain_fire_blocked():
+				return
 			
 			# 2. 从 ChainSystem 获取可用 slot
 			if chain_sys != null and chain_sys.has_method("pick_fire_slot"):
 				var slot: int = chain_sys.pick_fire_slot()
 				if slot >= 0:
-					# 3. 执行发射逻辑（动画由ChainSystem统一触发，避免双入口）
+					# 3. 延迟到 physics tick 末尾提交，避免同帧与 damaged/Die 竞态
 					var side: String = "R" if slot == 0 else "L"
-					chain_sys.fire(side)
+					_pending_chain_fire_side = side
 					
 					if has_method("log_msg"):
-						log_msg("INPUT", "M_pressed: Chain slot=%d fired (bypass ActionFSM)" % slot)
+						log_msg("INPUT", "M_pressed: Chain slot=%d queued (bypass ActionFSM)" % slot)
 					return
 			
 			# 没有可用 slot，忽略
@@ -331,6 +383,8 @@ func on_action_anim_end(event: StringName) -> void:
 # ── Health 信号 ──
 
 func _on_health_damage_applied(_amount: int, _source_pos: Vector2) -> void:
+	_block_chain_fire_this_frame = true
+	_pending_chain_fire_side = ""
 	action_fsm.on_damaged()
 
 
@@ -416,6 +470,8 @@ func get_healing_orbit_center_global(index: int) -> Vector2:
 
 
 func use_healing_sprite() -> bool:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return false
 	for i in range(max_healing_sprites):
 		var sp: Node = _healing_slots[i]
 		if sp != null and is_instance_valid(sp):
@@ -430,6 +486,8 @@ func use_healing_sprite() -> bool:
 
 
 func use_healing_burst() -> bool:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return false
 	var current_count: int = _healing_count()
 	if current_count < max_healing_sprites:
 		if has_method("log_msg"):
@@ -478,6 +536,21 @@ func _healing_count() -> int:
 		if _healing_slots[i] != null and is_instance_valid(_healing_slots[i]):
 			n += 1
 	return n
+
+
+func _consume_all_healing_sprites_on_death() -> void:
+	for i in range(max_healing_sprites):
+		var sp: Node = _healing_slots[i]
+		if sp == null or not is_instance_valid(sp):
+			_healing_slots[i] = null
+			continue
+		_healing_slots[i] = null
+		if sp.has_method("consume_on_death"):
+			sp.call("consume_on_death")
+		elif sp.has_method("consume"):
+			sp.call("consume")
+	if has_method("log_msg"):
+		log_msg("HEAL", "clear all healing sprites on die")
 
 
 # ── 统一日志 ──

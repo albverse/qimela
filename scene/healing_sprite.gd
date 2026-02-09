@@ -483,3 +483,10 @@ func _set_visual_alpha(a: float) -> void:
 func consume() -> void:
 	state = State.CONSUMED
 	queue_free()
+
+
+# 死亡时占位流程：未来可替换为 Spine2D 消失动画
+func consume_on_death() -> void:
+	state = State.CONSUMED
+	# TODO: 接入死亡专用 Spine2D 消失动画，动画结束后再 queue_free
+	queue_free()
