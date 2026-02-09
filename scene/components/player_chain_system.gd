@@ -1039,6 +1039,13 @@ func begin_fuse_cast() -> bool:
 			return
 		commit_fuse_cast()
 	)
+	_fuse_tween.finished.connect(func() -> void:
+		if not _fuse_cast_active or cast_id != _fuse_cast_id:
+			return
+		# 兜底：无论 ActionFSM/Animator 是否正常驱动，超时后都要退出 Fuse 状态。
+		if player != null and player.action_fsm != null and player.action_fsm.has_method("on_anim_end_fuse"):
+			player.action_fsm.on_anim_end_fuse()
+	)
 	return true
 
 

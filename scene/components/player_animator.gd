@@ -79,6 +79,11 @@ const LOCO_END_MAP: Dictionary = {
 	&"jump_down": &"anim_end_jump_down",
 }
 
+# 手动 Chain 动画：不向 ActionFSM 派发结束事件（避免 state=None 噪音和边缘联动）
+const MANUAL_CHAIN_ANIMS: Array[StringName] = [
+	&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"
+]
+
 var _player: CharacterBody2D = null
 var _driver = null  # AnimDriverMock 或 AnimDriverSpine
 var _visual: Node2D = null
@@ -316,7 +321,7 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			_manual_chain_anim = false
 
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
-		if event != &"":
+		if event != &"" and _player != null:
 			_player.on_action_anim_end(event)
 
 		# die 是终态，不清空 _cur_action_anim，防止下一帧重新播放
