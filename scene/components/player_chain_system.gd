@@ -693,6 +693,9 @@ func _update_chain(i: int, dt: float) -> void:
 			if c.linked_target == null or not is_instance_valid(c.linked_target):
 				_begin_burn_dissolve(i)
 				return
+			if c.linked_target.has_method("is_visible_for_chain") and not bool(c.linked_target.call("is_visible_for_chain")):
+				_begin_burn_dissolve(i)
+				return
 			c.end_pos = c.linked_target.global_position + c.linked_offset
 			if start.distance_to(c.end_pos) > player.chain_max_length:
 				_begin_burn_dissolve(i)
