@@ -291,10 +291,18 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 
 	if track == TRACK_LOCO:
 		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
-		# 此处只收到非 loop 的 jump_up / jump_down
-		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
-		if event != &"":
-			_player.on_loco_anim_end(event)
+		# 此处通常收到 jump_up / jump_down。
+		# 但 FUSE 使用 FULLBODY_EXCLUSIVE 时也会在 TRACK_LOCO 播放，
+		# 需要桥接到 ActionFSM 的 anim_end_fuse 回调链。
+		if anim_name == &"fuse_progress":
+			if _player != null:
+				_player.on_action_anim_end(&"anim_end_fuse")
+			_cur_action_anim = &""
+			_cur_action_mode = -1
+		else:
+			var event: StringName = LOCO_END_MAP.get(anim_name, &"")
+			if event != &"":
+				_player.on_loco_anim_end(event)
 		_cur_loco_anim = &""
 
 	elif track == TRACK_ACTION:
