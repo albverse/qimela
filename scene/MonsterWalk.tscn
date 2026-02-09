@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://drfu4onteuxd3"]
 
 [ext_resource type="Script" path="res://scene/monster_walk.gd" id="1_86voa"]
-[ext_resource type="Texture2D" path="res://shitou.png" id="2_tb0vp"]
+[ext_resource type="Texture2D" uid="uid://b1fm38k3hepbb" path="res://shitou.png" id="2_tb0vp"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="3_tb0vp"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_8dcda"]

@@ -41,10 +41,10 @@ func tick(_dt: float) -> void:
 	if _player.action_fsm != null and _player.action_fsm.state == _player.action_fsm.State.DIE:
 		# 如果尚未进入DEAD状态，立即切换
 		if state != State.DEAD:
-			var die_on_floor: bool = _player.is_on_floor()
-			var die_vy: float = _player.velocity.y
-			var die_intent: int = _player.movement.move_intent
-			_do_transition(State.DEAD, "action_fsm=Die", 100, die_on_floor, die_vy, die_intent)
+			var on_floor: bool = _player.is_on_floor()
+			var vy: float = _player.velocity.y
+			var intent: int = _player.movement.move_intent
+			_do_transition(State.DEAD, "action_fsm=Die", 100, on_floor, vy, intent)
 		return  # 终态：不处理任何逻辑
 
 	var on_floor: bool = _player.is_on_floor()

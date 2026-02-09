@@ -183,9 +183,9 @@ func check_fusion(entity_a: EntityBase, entity_b: EntityBase) -> Dictionary:
 
 	if is_light_dark:
 		# 先检查是否有特殊规则覆盖
-		var rule_key := _make_key(entity_a.species_id, entity_b.species_id)
-		if _rules.has(rule_key):
-			var rule: Dictionary = _rules[rule_key]
+		var key := _make_key(entity_a.species_id, entity_b.species_id)
+		if _rules.has(key):
+			var rule: Dictionary = _rules[key]
 			return {
 				"type": rule.get("result_type", FusionResultType.SUCCESS),
 				"scene": rule.get("result_scene", ""),
@@ -219,9 +219,9 @@ func check_fusion(entity_a: EntityBase, entity_b: EntityBase) -> Dictionary:
 	# -----------------------------------------------------------------
 	# 检查4：查找具体融合规则
 	# -----------------------------------------------------------------
-	var main_rule_key := _make_key(entity_a.species_id, entity_b.species_id)
-	if _rules.has(main_rule_key):
-		var rule: Dictionary = _rules[main_rule_key]
+	var key := _make_key(entity_a.species_id, entity_b.species_id)
+	if _rules.has(key):
+		var rule: Dictionary = _rules[key]
 		return {
 			"type": rule.get("result_type", FusionResultType.SUCCESS),
 			"scene": rule.get("result_scene", ""),
@@ -406,8 +406,8 @@ func _execute_fail_hostile(result: Dictionary, player: Player) -> Node:
 
 	print("[FusionRegistry] FAIL_HOSTILE: 生成敌对怪物")
 	print("  原料: %s + %s" % [
-		String(entity_a.species_id) if entity_a != null else "null",
-		String(entity_b.species_id) if entity_b != null else "null"
+		entity_a.species_id if entity_a else "null",
+		entity_b.species_id if entity_b else "null"
 	])
 
 	if hostile_scene_path.is_empty() or not ResourceLoader.exists(hostile_scene_path):

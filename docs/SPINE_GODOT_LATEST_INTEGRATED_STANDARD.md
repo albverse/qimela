@@ -82,13 +82,6 @@ DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-02-08）
 EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 ```
 
-### 3.3 本项目当前落地约定（2026-02）
-- **唯一 Spine API 门面：`PlayerAnimator`**。上层玩法（Player/ChainSystem/ActionFSM）不得直接调用 `SpineSprite` 或 `SpineAnimationState`。
-- `AnimDriverSpine` 仅作为 `PlayerAnimator` 的内部驱动实现，不对玩法层暴露。
-- 锁链发射动画触发统一从 `PlayerChainSystem.fire()` 进入，再由 `PlayerAnimator.play_chain_fire()` 播放，避免“输入层 + 状态层”双入口漂移。
-- 锁链锚点语义固定为 `chain_anchor_r/l`，不再使用“朝向翻转时左右骨骼交换”的历史方案。
-
-
 ---
 
 ## 4. 方法目录（每个方法都标注“干什么的”）

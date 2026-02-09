@@ -1,7 +1,7 @@
 [gd_scene load_steps=9 format=3 uid="uid://clq5t538kdf2a"]
 
-[ext_resource type="Script" path="res://scene/lightning_flower.gd" id="1_0xvv3"]
-[ext_resource type="Texture2D" path="res://art/lightflower/lightflower_0.png" id="2_7dygw"]
+[ext_resource type="Script" uid="uid://jh0fa4nlcg2f" path="res://scene/lightning_flower.gd" id="1_0xvv3"]
+[ext_resource type="Texture2D" uid="uid://dxxbtr01cscne" path="res://art/lightflower/lightflower_0.png" id="2_7dygw"]
 
 [sub_resource type="Gradient" id="Gradient_0xvv3"]
 offsets = PackedFloat32Array(0, 0.48666668, 1)

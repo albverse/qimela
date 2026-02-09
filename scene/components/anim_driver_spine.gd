@@ -95,7 +95,7 @@ func _connect_signals() -> void:
 		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	_poll_animation_completion()
 
 
@@ -138,7 +138,7 @@ func _poll_animation_completion() -> void:
 		_on_track_completed(track_id, entry)
 
 
-func _on_animation_ended(track_entry, _arg2 = null, _arg3 = null) -> void:
+func _on_animation_ended(track_entry, arg2 = null, arg3 = null) -> void:
 	## animation_ended 信号回调（可变参数以兼容不同版本）
 	if track_entry == null:
 		return
@@ -190,13 +190,13 @@ func _get_animation_name(entry) -> StringName:
 	if anim == null:
 		return &""
 
-	var anim_name_str: String = ""
+	var name: String = ""
 	if anim.has_method("get_name"):
-		anim_name_str = anim.get_name()
+		name = anim.get_name()
 	elif anim.has_method("getName"):
-		anim_name_str = anim.getName()
+		name = anim.getName()
 
-	return StringName(anim_name_str)
+	return StringName(name)
 
 
 ## === 播放 API ===
@@ -223,14 +223,14 @@ func _play_animation(track: int, anim_name: StringName, loop: bool) -> void:
 		push_error("[AnimDriverSpine] No set_animation!")
 		return
 
-	var _track_entry = null
+	var track_entry = null
 	match _api_signature:
 		1:
-			_track_entry = anim_state.set_animation(track, anim_str, loop)
+			track_entry = anim_state.set_animation(track, anim_str, loop)
 		2:
-			_track_entry = anim_state.set_animation(anim_str, loop, track)
+			track_entry = anim_state.set_animation(anim_str, loop, track)
 		_:
-			_track_entry = anim_state.set_animation(anim_str, loop, track)
+			track_entry = anim_state.set_animation(anim_str, loop, track)
 
 	_track_states[track] = {"anim": anim_name, "loop": loop}
 	_completed_entry_id.erase(track)

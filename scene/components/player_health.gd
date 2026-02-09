@@ -68,12 +68,6 @@ func is_invincible() -> bool:
 	return _inv_t > 0.0
 
 
-func grant_invincible(seconds: float) -> void:
-	if seconds <= 0.0:
-		return
-	_inv_t = maxf(_inv_t, seconds)
-
-
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if amount <= 0:
 		return
