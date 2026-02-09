@@ -87,6 +87,7 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 - `AnimDriverSpine` 仅作为 `PlayerAnimator` 的内部驱动实现，不对玩法层暴露。
 - 锁链发射动画触发统一从 `PlayerChainSystem.fire()` 进入，再由 `PlayerAnimator.play_chain_fire()` 播放，避免“输入层 + 状态层”双入口漂移。
 - 锁链锚点语义固定为 `chain_anchor_r/l`，不再使用“朝向翻转时左右骨骼交换”的历史方案。
+- 死亡态动画裁决：`Die` 必须抢占 locomotion 与手动 chain 触发，避免在死亡帧被 `jump_*` 或 `chain_*` 覆盖。
 
 
 ### 3.4 项目对齐状态（2026-02-09）

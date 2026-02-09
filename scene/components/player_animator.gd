@@ -180,9 +180,15 @@ func tick(_dt: float) -> void:
 	var loco_state: StringName = _player.get_locomotion_state()
 	var action_state: StringName = _player.get_action_state()
 
+	# Die 优先级最高：立即阻断手动 chain，并清理 track1
+	if action_state == &"Die":
+		_manual_chain_anim = false
+		if _cur_action_anim != &"" and _cur_action_anim != &"die" and _driver.has_method("stop"):
+			_driver.stop(TRACK_ACTION)
+
 	# === Track0: locomotion ===
 	# CRITICAL: 如果当前 action 是 FULLBODY_EXCLUSIVE，跳过 locomotion 更新
-	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE)
+	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE or action_state == &"Die")
 	
 	if not skip_loco_update:
 		var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
@@ -353,7 +359,13 @@ func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 func play_chain_fire(slot_idx: int) -> void:
 	## Chain 发射动画 — 由 ChainSystem 直接调用
 	## 动画独立于 ActionFSM，不受其状态控制
-	if _driver == null:
+	if _driver == null or _player == null:
+		return
+
+	# 死亡态硬闸：不允许再触发 chain 动画覆盖 die
+	if _player.get_action_state() == &"Die":
+		return
+	if _player.health != null and _player.health.hp <= 0:
 		return
 	
 	# 根据 slot 确定动画名
