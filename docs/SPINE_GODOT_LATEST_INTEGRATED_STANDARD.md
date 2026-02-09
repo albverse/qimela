@@ -89,6 +89,11 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 - 锁链锚点语义固定为 `chain_anchor_r/l`，不再使用“朝向翻转时左右骨骼交换”的历史方案。
 
 
+### 3.4 项目对齐状态（2026-02-09）
+- `AnimDriverSpine.setup()` 已执行初始化 6 项检查中的关键项，并新增 **Update Mode 检查**：当检测为 Manual 时，在每帧 `_physics_process` 主动调用 `update_skeleton()/updateSkeleton()`。
+- `AnimDriverSpine` 已补全适配层最小职责：`setup/play/queue/stop/stop_all/get_bone_world_position`。
+- Spine 方法调用已按 snake/camel 双风格做 `has_method()` 兼容（包含 `get_animation_state/getAnimationState`、`set_animation/setAnimation` 等）。
+
 ---
 
 ## 4. 方法目录（每个方法都标注“干什么的”）
@@ -238,7 +243,8 @@ func _detect_api_signature(anim_state: Object) -> int:
     # 返回：1 = (track, name, loop) ; 2 = (name, loop, track) ; -1 = unknown
     var methods: Array = anim_state.get_method_list()
     for m: Dictionary in methods:
-        if m.get("name", "") != "set_animation":
+        var method_name: String = m.get("name", "")
+        if method_name != "set_animation" and method_name != "setAnimation":
             continue
         var args: Array = m.get("args", [])
         if args.size() < 3:
@@ -249,7 +255,7 @@ func _detect_api_signature(anim_state: Object) -> int:
         var t2: int = int(args[2].get("type", -1))
 
         # Godot Variant type 常量：TYPE_INT / TYPE_STRING / TYPE_BOOL
-        if t0 == TYPE_INT and t1 == TYPE_STRING:
+        if t0 == TYPE_INT and t1 == TYPE_STRING and t2 == TYPE_BOOL:
             return 1
         if t0 == TYPE_STRING and t1 == TYPE_BOOL and t2 == TYPE_INT:
             return 2
