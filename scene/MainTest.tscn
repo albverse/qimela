@@ -16,7 +16,7 @@
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
-[ext_resource type="Script" path="res://scene/main_test_hurt_button.gd" id="14_hurtbtn"]
+[ext_resource type="Script" path="res://scene/main_test_hurt_node.gd" id="14_hurtnode"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -199,13 +199,13 @@ position = Vector2(372, 467)
 
 [node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
 
-[node name="DebugHurtButton" type="Button" parent="HUD"]
+[node name="HurtNode" type="Button" parent="HUD"]
 custom_minimum_size = Vector2(140, 40)
 offset_left = 20.0
 offset_top = 20.0
 offset_right = 160.0
 offset_bottom = 60.0
 text = "HURT TEST"
-script = ExtResource("14_hurtbtn")
+script = ExtResource("14_hurtnode")
 player_path = NodePath("../../World/Player")
 hurt_damage = 1

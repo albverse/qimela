@@ -1,5 +1,4 @@
 extends Button
-class_name MainTestHurtButton
 
 @export var player_path: NodePath = ^"../../World/Player"
 @export var hurt_damage: int = 1
@@ -11,10 +10,10 @@ func _ready() -> void:
 func _on_pressed() -> void:
 	var player_node: Node = get_node_or_null(player_path)
 	if player_node == null:
-		push_warning("[MainTestHurtButton] Player not found: %s" % player_path)
+		push_warning("[MainTestHurtNode] Player not found: %s" % player_path)
 		return
 	if not player_node.has_method("apply_damage"):
-		push_warning("[MainTestHurtButton] Player has no apply_damage()")
+		push_warning("[MainTestHurtNode] Player has no apply_damage()")
 		return
 	var src: Vector2 = Vector2.ZERO
 	if player_node is Node2D:
