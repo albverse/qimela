@@ -94,6 +94,8 @@ var weapon_controller: WeaponController = null
 @export var healing_burst_area_path: NodePath = NodePath("HealingBurstArea")
 var _healing_slots: Array = [null, null, null]
 var _healing_burst_area: Area2D = null
+var _death_healing_cleanup_done: bool = false
+var _death_chain_cleanup_done: bool = false
 
 
 func _ready() -> void:
@@ -154,6 +156,15 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_chain_cleanup_done:
+		if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
+			chain_sys.call("hard_clear_all_chains", "die_tick_guard")
+		_death_chain_cleanup_done = true
+
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_healing_cleanup_done:
+		_consume_all_healing_sprites_on_death()
+		_death_healing_cleanup_done = true
+
 	# === 1) Movement: 水平/重力/消费 jump ===
 	movement.tick(dt)
 
@@ -196,6 +207,9 @@ func _is_chain_fire_blocked() -> bool:
 func _commit_pending_chain_fire() -> void:
 	if _pending_chain_fire_side == "":
 		return
+	if action_fsm != null and action_fsm.has_method("state_name") and action_fsm.state_name() == &"Die":
+		_pending_chain_fire_side = ""
+		return
 	if chain_sys == null:
 		_pending_chain_fire_side = ""
 		return
@@ -225,6 +239,9 @@ func _commit_pending_chain_fire() -> void:
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+
 	# C / use healing sprite
 	if _is_action_just_pressed(event, &"use_healing", KEY_C):
 		use_healing_sprite()
@@ -462,6 +479,8 @@ func get_healing_orbit_center_global(index: int) -> Vector2:
 
 
 func use_healing_sprite() -> bool:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return false
 	for i in range(max_healing_sprites):
 		var sp: Node = _healing_slots[i]
 		if sp != null and is_instance_valid(sp):
@@ -476,6 +495,8 @@ func use_healing_sprite() -> bool:
 
 
 func use_healing_burst() -> bool:
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return false
 	var current_count: int = _healing_count()
 	if current_count < max_healing_sprites:
 		if has_method("log_msg"):
@@ -524,6 +545,28 @@ func _healing_count() -> int:
 		if _healing_slots[i] != null and is_instance_valid(_healing_slots[i]):
 			n += 1
 	return n
+
+
+func _consume_all_healing_sprites_on_death() -> void:
+	for i in range(max_healing_sprites):
+		var sp: Node = _healing_slots[i]
+		if sp == null or not is_instance_valid(sp):
+			_healing_slots[i] = null
+			continue
+		_healing_slots[i] = null
+		if sp.has_method("consume_on_death"):
+			sp.call("consume_on_death")
+		elif sp.has_method("consume"):
+			sp.call("consume")
+	if has_method("log_msg"):
+		log_msg("HEAL", "clear all healing sprites on die")
+
+
+func on_die_entered() -> void:
+	_pending_chain_fire_side = ""
+	_block_chain_fire_this_frame = true
+	if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
+		chain_sys.call("hard_clear_all_chains", "die_enter")
 
 
 # ── 统一日志 ──

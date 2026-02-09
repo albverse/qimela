@@ -33,11 +33,17 @@ func tick(dt: float) -> void:
 	
 	# === CRITICAL FIX: Die状态冻结移动 ===
 	if _player.action_fsm != null and _player.action_fsm.state == _player.action_fsm.State.DIE:
-		# 强制停止一切移动
+		# 死亡态：禁止输入与跳跃；保留重力下落，避免死亡前上抛速度导致持续飞天
 		_player.velocity.x = 0.0
 		move_intent = MoveIntent.NONE
 		input_dir = 0.0
-		return  # 不处理任何输入
+		_player.jump_request = false
+		if _player.velocity.y < 0.0:
+			_player.velocity.y = 0.0
+		_player.velocity.y += _player.gravity * dt
+		if _player.is_on_floor() and _player.velocity.y > 0.0:
+			_player.velocity.y = 0.0
+		return
 
 	# ── 读取输入 ──
 	var left: bool = _action_pressed(_player.action_left, KEY_A)
