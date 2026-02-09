@@ -200,7 +200,7 @@ func apply_healing_burst_stun() -> void:
 		apply_stun(healing_burst_stun_time, true)
 
 # ===== 锁链交互 =====
-func on_chain_hit(_player: Node, slot: int) -> int:
+func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 被锁链命中时调用
 	# 返回值：0=普通受击（会扣血）, 1=可链接（虚弱或眩晕状态）
 	# 【问题6】眩晕时也可以被链接

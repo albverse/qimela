@@ -457,14 +457,14 @@ func _sync_loco_to_resolved(resolved: StringName) -> void:
 			_player.log_msg("ACTION", "SYNC_LOCO %s->%s (resolver)" % [from_name, to_name])
 
 
-func _sync_loco_to_state(state_name: StringName) -> void:
+func _sync_loco_to_state(target_state_name: StringName) -> void:
 	## GREEN 转换专用：立即同步 LocomotionFSM 到指定状态
 	var loco: PlayerLocomotionFSM = _player.loco_fsm
 	if loco == null:
 		return
 
 	var target_state: int = -1
-	match state_name:
+	match target_state_name:
 		&"Idle": target_state = PlayerLocomotionFSM.State.IDLE
 		&"Walk": target_state = PlayerLocomotionFSM.State.WALK
 		&"Run": target_state = PlayerLocomotionFSM.State.RUN
