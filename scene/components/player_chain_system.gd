@@ -1042,17 +1042,20 @@ func begin_fuse_cast() -> bool:
 	var a_can_fuse: bool = entity_a.weak or entity_a.is_stunned()
 	var b_can_fuse: bool = entity_b.weak or entity_b.is_stunned()
 	if not a_can_fuse or not b_can_fuse:
+		print("[FuseDebug] begin_fuse_cast rejected: target not fusible")
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
 		return false
 
 	var result: Dictionary = FusionRegistry.check_fusion(entity_a, entity_b)
 	if result.type == FusionRegistry.FusionResultType.REJECTED:
+		print("[FuseDebug] begin_fuse_cast rejected: FusionRegistry.REJECTED")
 		if EventBus != null and EventBus.has_method("fusion_rejected"):
 			EventBus.fusion_rejected.emit()
 		return false
 
 	_fuse_cast_active = true
+	print("[FuseDebug] begin_fuse_cast active lock_time=%.3f" % player.fusion_lock_time)
 	_fuse_cast_id += 1
 	var cast_id: int = _fuse_cast_id
 	_fuse_result = result
@@ -1086,6 +1089,7 @@ func begin_fuse_cast() -> bool:
 func commit_fuse_cast() -> void:
 	if not _fuse_cast_active:
 		return
+	print("[FuseDebug] commit_fuse_cast")
 	_fuse_cast_active = false
 	if _fuse_tween != null:
 		_fuse_tween.kill()
@@ -1102,6 +1106,7 @@ func commit_fuse_cast() -> void:
 func abort_fuse_cast() -> void:
 	if not _fuse_cast_active:
 		return
+	print("[FuseDebug] abort_fuse_cast")
 	_fuse_cast_active = false
 	_fuse_cast_id += 1
 	if _fuse_tween != null:

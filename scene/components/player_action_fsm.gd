@@ -131,6 +131,7 @@ func tick(_dt: float) -> void:
 		if _player != null:
 			fuse_timeout = maxf(fuse_timeout, _player.fusion_lock_time + 0.2)
 		if _fuse_timer > fuse_timeout:
+			print("[FuseDebug] fuse timeout reached timer=%.3f timeout=%.3f state=%s" % [_fuse_timer, fuse_timeout, String(state_name())])
 			on_anim_end_fuse()
 			return
 	else:
@@ -208,6 +209,7 @@ func on_damaged() -> void:
 	
 	# === hp>0 的情况：受伤 ===
 	if state == State.FUSE:
+		print("[FuseDebug] damaged during fuse -> abort")
 		if _player.chain_sys != null and _player.chain_sys.has_method("abort_fuse_cast"):
 			_player.chain_sys.abort_fuse_cast()
 		_return_idle_after_hurt = true
@@ -234,6 +236,7 @@ func on_space_pressed() -> void:
 	if not _player.chain_sys.has_method("begin_fuse_cast"):
 		return
 	var ok: bool = bool(_player.chain_sys.begin_fuse_cast())
+	print("[FuseDebug] on_space_pressed begin_fuse_cast ok=%s" % str(ok))
 	if not ok:
 		return
 	_pending_fire_side = ""
@@ -245,6 +248,7 @@ func on_anim_end_fuse() -> void:
 	if state != State.FUSE:
 		return
 	if _player != null and _player.chain_sys != null and _player.chain_sys.has_method("commit_fuse_cast"):
+		print("[FuseDebug] on_anim_end_fuse commit_fuse_cast")
 		_player.chain_sys.commit_fuse_cast()
 	_resolve_and_transition("anim_end_fuse")
 

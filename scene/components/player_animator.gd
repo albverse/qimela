@@ -290,6 +290,17 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 	_log_end(track, anim_name)
 
 	if track == TRACK_LOCO:
+		# FULLBODY_EXCLUSIVE 动作结束（如 fuse_progress）也可能在 track0 完成
+		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE:
+			var fullbody_event: StringName = ACTION_END_MAP.get(anim_name, &"")
+			if fullbody_event != &"":
+				print("[AnimatorDebug] fullbody action completed on track0 anim=%s event=%s" % [String(anim_name), String(fullbody_event)])
+				_player.on_action_anim_end(fullbody_event)
+				if anim_name != &"die":
+					_cur_action_anim = &""
+					_cur_action_mode = -1
+				return
+
 		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
 		# 此处只收到非 loop 的 jump_up / jump_down
 		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
