@@ -79,6 +79,11 @@ const LOCO_END_MAP: Dictionary = {
 	&"jump_down": &"anim_end_jump_down",
 }
 
+# 手动 Chain 动画：不向 ActionFSM 派发结束事件（避免 state=None 噪音和边缘联动）
+const MANUAL_CHAIN_ANIMS: Array[StringName] = [
+	&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"
+]
+
 var _player: CharacterBody2D = null
 var _driver = null  # AnimDriverMock 或 AnimDriverSpine
 var _visual: Node2D = null
@@ -175,9 +180,15 @@ func tick(_dt: float) -> void:
 	var loco_state: StringName = _player.get_locomotion_state()
 	var action_state: StringName = _player.get_action_state()
 
+	# Die 优先级最高：立即阻断手动 chain，并清理 track1
+	if action_state == &"Die":
+		_manual_chain_anim = false
+		if _cur_action_anim != &"" and _cur_action_anim != &"die" and _driver.has_method("stop"):
+			_driver.stop(TRACK_ACTION)
+
 	# === Track0: locomotion ===
 	# CRITICAL: 如果当前 action 是 FULLBODY_EXCLUSIVE，跳过 locomotion 更新
-	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE)
+	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE or action_state == &"Die")
 	
 	if not skip_loco_update:
 		var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
@@ -225,7 +236,7 @@ func tick(_dt: float) -> void:
 			action_mode = MODE_OVERLAY_UPPER
 		elif action_state == &"Die":
 			target_action = &"die"
-			action_mode = MODE_OVERLAY_UPPER
+			action_mode = MODE_FULLBODY_EXCLUSIVE
 		
 		# AttackCancel_R / AttackCancel_L：使用固定cancel动画（OVERLAY）
 		elif action_state in [&"AttackCancel_R", &"AttackCancel_L"]:
@@ -290,24 +301,36 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 	_log_end(track, anim_name)
 
 	if track == TRACK_LOCO:
-		# loop 完成已在 Mock 中被过滤（loop=true 永不触发）
-		# 此处只收到非 loop 的 jump_up / jump_down
+		# === P0 FIX: FULLBODY_EXCLUSIVE 动画播放在 track0，完成事件应走 ACTION 分发 ===
+		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim == anim_name:
+			# die 是终态：不清空、不恢复、不发事件
+			if anim_name == &"die":
+				return
+			var event: StringName = ACTION_END_MAP.get(anim_name, &"")
+			if event != &"":
+				_player.on_action_anim_end(event)
+			# FULLBODY 结束：恢复状态，让下一帧 tick 重新评估 loco
+			_cur_action_anim = &""
+			_cur_action_mode = -1
+			_cur_loco_anim = &""
+			return
+
+		# 普通 locomotion 完成（jump_up / jump_down 等非 loop 动画）
 		var event: StringName = LOCO_END_MAP.get(anim_name, &"")
 		if event != &"":
 			_player.on_loco_anim_end(event)
 		_cur_loco_anim = &""
 
 	elif track == TRACK_ACTION:
-		# === CRITICAL: 清除手动chain动画标志 ===
+		# === 清除手动 chain 动画标志 ===
 		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
 			_manual_chain_anim = false
-		
+
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
-		if event != &"":
+		if event != &"" and _player != null:
 			_player.on_action_anim_end(event)
-		
-		# === CRITICAL FIX: die 是终态，不清空 _cur_action_anim ===
-		# 防止下一帧 tick 因为 "die" != "" 而重新播放
+
+		# die 是终态，不清空 _cur_action_anim，防止下一帧重新播放
 		if anim_name != &"die":
 			_cur_action_anim = &""
 
@@ -336,7 +359,13 @@ func get_chain_anchor_position(use_right_hand: bool) -> Vector2:
 func play_chain_fire(slot_idx: int) -> void:
 	## Chain 发射动画 — 由 ChainSystem 直接调用
 	## 动画独立于 ActionFSM，不受其状态控制
-	if _driver == null:
+	if _driver == null or _player == null:
+		return
+
+	# 死亡态硬闸：不允许再触发 chain 动画覆盖 die
+	if _player.get_action_state() == &"Die":
+		return
+	if _player.health != null and _player.health.hp <= 0:
 		return
 	
 	# 根据 slot 确定动画名
@@ -367,6 +396,8 @@ func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 		return
 
 	_manual_chain_anim = true
+	_cur_action_anim = anim_name
+	_cur_action_mode = MODE_OVERLAY_UPPER
 	_driver.play(TRACK_ACTION, anim_name, false)
 	_log_play(TRACK_ACTION, anim_name, false)
 

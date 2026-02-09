@@ -130,6 +130,9 @@ func _on_visibility_timeout() -> void:
 	_switch_to_invisible()
 	_force_release_all_chains()
 
+func is_visible_for_chain() -> bool:
+	return _is_visible
+
 func _force_release_all_chains() -> void:
 	if _linked_slots.is_empty():
 		return
@@ -139,10 +142,20 @@ func _force_release_all_chains() -> void:
 	_linked_player = null
 	if p == null or not is_instance_valid(p):
 		return
-	if not p.has_method("force_dissolve_chain"):
+
+	var chain_target: Node = null
+	if p.has_method("force_dissolve_chain"):
+		chain_target = p
+	elif "chain_sys" in p and p.chain_sys != null:
+		chain_target = p.chain_sys
+	elif p.has_node("Components/ChainSystem"):
+		chain_target = p.get_node_or_null("Components/ChainSystem")
+
+	if chain_target == null or not chain_target.has_method("force_dissolve_chain"):
 		return
+
 	for s in slots:
-		p.call("force_dissolve_chain", s)
+		chain_target.call("force_dissolve_chain", s)
 
 func _do_move(dt: float) -> void:
 	if weak:

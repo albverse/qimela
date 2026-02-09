@@ -6,10 +6,10 @@ class_name AnimDriverSpine
 ## DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-02-08）
 ## 官方签名：set_animation(animation_name, loop, track)
 ## 核心策略：信号 + 轮询双保险
-## 
+##
 ## 关键修正：
 ## 1. 按 TYPE 探测签名（不依赖参数名）
-## 2. 使用 animation_ended（而非 completed）作为主信号
+## 2. 使用 animation_completed 作为主信号（ended/interrupted 仅用于观测）
 ## 3. 轮询不持有 TE，只记录 instance_id 去重
 ## 4. 骨骼坐标优先用 get_global_bone_transform
 
@@ -30,6 +30,7 @@ var track1_mix_out_duration: float = 0.08
 
 ## API 签名: 1=(track,name,loop), 2=(name,loop,track)
 var _api_signature: int = 2  # 默认官方签名
+var _manual_update_mode: bool = false
 
 
 func setup(spine_sprite: Node) -> void:
@@ -45,22 +46,34 @@ func setup(spine_sprite: Node) -> void:
 		push_error("[AnimDriverSpine] Not SpineSprite!")
 		return
 
-	var anim_state = _spine_sprite.get_animation_state()
+	var anim_state = _get_animation_state()
 	if anim_state == null:
-		push_error("[AnimDriverSpine] get_animation_state() returned null!")
+		push_error("[AnimDriverSpine] get_animation_state()/getAnimationState() returned null!")
 		return
 
 	_detect_api_signature(anim_state)
 	_connect_signals()
+	_check_update_mode()
 	set_physics_process(true)
 	print("[AnimDriverSpine] Setup complete, polling enabled")
+
+
+func _get_animation_state():
+	if _spine_sprite == null:
+		return null
+	if _spine_sprite.has_method("get_animation_state"):
+		return _spine_sprite.get_animation_state()
+	if _spine_sprite.has_method("getAnimationState"):
+		return _spine_sprite.getAnimationState()
+	return null
 
 
 func _detect_api_signature(anim_state: Object) -> void:
 	## 按 TYPE 探测（更可靠）
 	var methods: Array = anim_state.get_method_list()
 	for m: Dictionary in methods:
-		if m.get("name", "") != "set_animation":
+		var method_name: String = m.get("name", "")
+		if method_name != "set_animation" and method_name != "setAnimation":
 			continue
 		var args: Array = m.get("args", [])
 		if args.size() < 3:
@@ -70,11 +83,11 @@ func _detect_api_signature(anim_state: Object) -> void:
 		var t1: int = int(args[1].get("type", -1))
 		var t2: int = int(args[2].get("type", -1))
 
-		if t0 == TYPE_INT and t1 == TYPE_STRING:
+		if t0 == TYPE_INT and t1 == TYPE_STRING and t2 == TYPE_BOOL:
 			_api_signature = 1
 			print("[AnimDriverSpine] Signature 1: (track, name, loop)")
 			return
-		if t0 == TYPE_STRING and t2 == TYPE_INT:
+		if t0 == TYPE_STRING and t1 == TYPE_BOOL and t2 == TYPE_INT:
 			_api_signature = 2
 			print("[AnimDriverSpine] Signature 2: (name, loop, track) - OFFICIAL")
 			return
@@ -84,26 +97,69 @@ func _detect_api_signature(anim_state: Object) -> void:
 
 
 func _connect_signals() -> void:
-	## 优先 animation_ended（更接近"真正结束"）
-	if _spine_sprite.has_signal("animation_ended"):
-		_spine_sprite.animation_ended.connect(_on_animation_ended)
-		print("[AnimDriverSpine] Connected animation_ended signal")
-	elif _spine_sprite.has_signal("animation_completed"):
-		_spine_sprite.animation_completed.connect(_on_animation_ended)
-		print("[AnimDriverSpine] Connected animation_completed signal")
+	## 主信号：animation_completed（自然完成）
+	## 观测信号：animation_ended / animation_interrupted（日志与排障）
+	if _spine_sprite.has_signal("animation_completed"):
+		_spine_sprite.animation_completed.connect(_on_animation_completed)
+		print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
+	elif _spine_sprite.has_signal("animation_ended"):
+		_spine_sprite.animation_ended.connect(_on_animation_completed)
+		print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
 	else:
 		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
+	if _spine_sprite.has_signal("animation_ended"):
+		_spine_sprite.animation_ended.connect(_on_animation_ended_observe)
+	if _spine_sprite.has_signal("animation_interrupted"):
+		_spine_sprite.animation_interrupted.connect(_on_animation_interrupted_observe)
+
 
 func _physics_process(_delta: float) -> void:
+	_update_manual_skeleton_if_needed()
 	_poll_animation_completion()
+
+
+func _check_update_mode() -> void:
+	_manual_update_mode = false
+	if _spine_sprite == null:
+		return
+
+	var mode: Variant = null
+	if _spine_sprite.has_method("get_update_mode"):
+		mode = _spine_sprite.get_update_mode()
+	elif _spine_sprite.has_method("getUpdateMode"):
+		mode = _spine_sprite.getUpdateMode()
+
+	if mode == null:
+		return
+
+	if mode is String:
+		_manual_update_mode = String(mode).to_lower().find("manual") >= 0
+	elif mode is int:
+		# 常见枚举: 0=Process, 1=Physics, 2=Manual
+		_manual_update_mode = int(mode) == 2
+
+	if _manual_update_mode:
+		print("[AnimDriverSpine] Update mode=Manual, will call update_skeleton each physics frame")
+
+
+func _update_manual_skeleton_if_needed() -> void:
+	if not _manual_update_mode or _spine_sprite == null:
+		return
+
+	if _spine_sprite.has_method("update_skeleton"):
+		_spine_sprite.update_skeleton()
+	elif _spine_sprite.has_method("updateSkeleton"):
+		_spine_sprite.updateSkeleton()
+	else:
+		push_warning("[AnimDriverSpine] Manual mode detected but no update_skeleton()/updateSkeleton() method")
 
 
 func _poll_animation_completion() -> void:
 	if _spine_sprite == null:
 		return
 
-	var anim_state = _spine_sprite.get_animation_state()
+	var anim_state = _get_animation_state()
 	if anim_state == null:
 		return
 
@@ -138,8 +194,8 @@ func _poll_animation_completion() -> void:
 		_on_track_completed(track_id, entry)
 
 
-func _on_animation_ended(track_entry, _arg2 = null, _arg3 = null) -> void:
-	## animation_ended 信号回调（可变参数以兼容不同版本）
+func _on_animation_completed(track_entry, _arg2 = null, _arg3 = null) -> void:
+	## 动画完成信号回调（可变参数以兼容不同版本）
 	if track_entry == null:
 		return
 
@@ -152,12 +208,41 @@ func _on_animation_ended(track_entry, _arg2 = null, _arg3 = null) -> void:
 	if track_id < 0:
 		return
 
-	print("[AnimDriverSpine] signal ended: track=%d" % track_id)
+	# === P1 FIX: 验证信号对应的动画是否与当前追踪的动画一致 ===
+	if _track_states.has(track_id):
+		var expected_anim: StringName = _track_states[track_id].get("anim", &"")
+		var signal_anim: StringName = _get_animation_name(track_entry)
+		if signal_anim != &"" and signal_anim != expected_anim:
+			print("[AnimDriverSpine] signal IGNORED: track=%d got=%s expected=%s (stale/replaced)" % [track_id, signal_anim, expected_anim])
+			return
+
+	print("[AnimDriverSpine] signal completed: track=%d" % track_id)
 	_on_track_completed(track_id, track_entry)
 
 
+func _on_animation_ended_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
+	if track_entry == null:
+		return
+	var track_id: int = -1
+	if track_entry.has_method("get_track_index"):
+		track_id = track_entry.get_track_index()
+	elif track_entry.has_method("getTrackIndex"):
+		track_id = track_entry.getTrackIndex()
+	print("[AnimDriverSpine] signal observed: animation_ended track=%d" % track_id)
+
+
+func _on_animation_interrupted_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
+	if track_entry == null:
+		return
+	var track_id: int = -1
+	if track_entry.has_method("get_track_index"):
+		track_id = track_entry.get_track_index()
+	elif track_entry.has_method("getTrackIndex"):
+		track_id = track_entry.getTrackIndex()
+	print("[AnimDriverSpine] signal observed: animation_interrupted track=%d" % track_id)
+
+
 func _on_track_completed(track_id: int, track_entry) -> void:
-	## 统一的完成处理
 	if not _track_states.has(track_id):
 		return
 
@@ -168,7 +253,6 @@ func _on_track_completed(track_id: int, track_entry) -> void:
 	var anim_name: StringName = _get_animation_name(track_entry)
 	print("[AnimDriverSpine] completed: track=%d name=%s" % [track_id, str(anim_name)])
 
-	# track1 混出防止停最后一帧
 	if track_id == 1:
 		_mix_out_track(1, track1_mix_out_duration)
 
@@ -216,21 +300,54 @@ func play(track: int, anim_name: StringName, loop: bool, mode: int = PlayMode.OV
 			_play_animation(track, anim_name, loop)
 
 
+func queue(track: int, anim_name: StringName, delay: float, loop: bool) -> void:
+	if _spine_sprite == null:
+		return
+	var anim_state = _get_animation_state()
+	if anim_state == null:
+		return
+
+	var anim_str: String = String(anim_name)
+	if anim_state.has_method("add_animation"):
+		anim_state.add_animation(anim_str, delay, loop, track)
+	elif anim_state.has_method("addAnimation"):
+		anim_state.addAnimation(anim_str, delay, loop, track)
+	else:
+		# 兼容旧实现：缺失 add_animation 时退化为直接播放
+		_play_animation(track, anim_name, loop)
+		return
+
+	_track_states[track] = {"anim": anim_name, "loop": loop}
+	_completed_entry_id.erase(track)
+
+
 func _play_animation(track: int, anim_name: StringName, loop: bool) -> void:
 	var anim_str: String = String(anim_name)
-	var anim_state = _spine_sprite.get_animation_state()
-	if anim_state == null or not anim_state.has_method("set_animation"):
-		push_error("[AnimDriverSpine] No set_animation!")
+	var anim_state = _get_animation_state()
+	if anim_state == null:
+		push_error("[AnimDriverSpine] No animation state!")
 		return
 
 	var _track_entry = null
-	match _api_signature:
-		1:
-			_track_entry = anim_state.set_animation(track, anim_str, loop)
-		2:
-			_track_entry = anim_state.set_animation(anim_str, loop, track)
-		_:
-			_track_entry = anim_state.set_animation(anim_str, loop, track)
+	if anim_state.has_method("set_animation"):
+		match _api_signature:
+			1:
+				_track_entry = anim_state.set_animation(track, anim_str, loop)
+			2:
+				_track_entry = anim_state.set_animation(anim_str, loop, track)
+			_:
+				_track_entry = anim_state.set_animation(anim_str, loop, track)
+	elif anim_state.has_method("setAnimation"):
+		match _api_signature:
+			1:
+				_track_entry = anim_state.setAnimation(track, anim_str, loop)
+			2:
+				_track_entry = anim_state.setAnimation(anim_str, loop, track)
+			_:
+				_track_entry = anim_state.setAnimation(anim_str, loop, track)
+	else:
+		push_error("[AnimDriverSpine] No set_animation/setAnimation!")
+		return
 
 	_track_states[track] = {"anim": anim_name, "loop": loop}
 	_completed_entry_id.erase(track)
@@ -249,9 +366,14 @@ func stop(track: int) -> void:
 	_completed_entry_id.erase(track)
 
 
+func stop_all() -> void:
+	_clear_all_tracks()
+	_track_states.clear()
+	_completed_entry_id.clear()
+
+
 func _mix_out_track(track: int, mix_duration: float) -> void:
-	## 使用 set_empty_animation 混出（官方推荐）
-	var anim_state = _spine_sprite.get_animation_state()
+	var anim_state = _get_animation_state()
 	if anim_state == null:
 		return
 
@@ -266,7 +388,7 @@ func _mix_out_track(track: int, mix_duration: float) -> void:
 
 
 func _clear_track(track: int) -> void:
-	var anim_state = _spine_sprite.get_animation_state()
+	var anim_state = _get_animation_state()
 	if anim_state == null:
 		return
 
@@ -277,7 +399,7 @@ func _clear_track(track: int) -> void:
 
 
 func _clear_all_tracks() -> void:
-	var anim_state = _spine_sprite.get_animation_state()
+	var anim_state = _get_animation_state()
 	if anim_state == null:
 		return
 
@@ -290,7 +412,6 @@ func _clear_all_tracks() -> void:
 ## === 骨骼位置查询 ===
 
 func get_bone_world_position(bone_name: String) -> Vector2:
-	## 优先使用 get_global_bone_transform（Godot 空间，无需翻转）
 	if _spine_sprite == null:
 		return Vector2.ZERO
 
@@ -298,7 +419,6 @@ func get_bone_world_position(bone_name: String) -> Vector2:
 		var transform: Transform2D = _spine_sprite.get_global_bone_transform(bone_name)
 		return transform.origin
 
-	# 后备：传统 world_x/world_y 方式（需翻转 Y）
 	var skeleton = null
 	if _spine_sprite.has_method("get_skeleton"):
 		skeleton = _spine_sprite.get_skeleton()
@@ -331,5 +451,4 @@ func get_bone_world_position(bone_name: String) -> Vector2:
 	elif bone.has_method("getWorldY"):
 		world_y = bone.getWorldY()
 
-	# Spine Y 向上，Godot Y 向下 → 取负
 	return Vector2(world_x, -world_y)
