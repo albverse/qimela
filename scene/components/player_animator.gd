@@ -325,10 +325,6 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 		# === 清除手动 chain 动画标志 ===
 		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
 			_manual_chain_anim = false
-			# 手动 Chain 动画由 ChainSystem 直控，不应再派发 ActionFSM 结束事件。
-			# 否则可能触发 release/cancel 的延迟回调，错误影响新的链条生命周期。
-			_cur_action_anim = &""
-			return
 
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
 		if event != &"" and _player != null:

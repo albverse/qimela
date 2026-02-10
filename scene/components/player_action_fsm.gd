@@ -332,11 +332,11 @@ func on_anim_end_attack() -> void:
 	if _weapon_controller != null:
 		is_chain_weapon = (_weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN)
 	
-	# Chain: 仅在 ATTACK 态的动画自然结束时释放槽位。
-	# 避免手动链动画/过期回调在 NONE 等状态误释放，打断新发射的链条。
-	if is_chain_weapon and attack_side != "" and state == State.ATTACK:
-		if _player.chain_sys != null and _player.chain_sys.has_method("release"):
-			_player.chain_sys.release(attack_side)
+	# Chain: 释放槽位
+	if is_chain_weapon and attack_side != "":
+		if state != State.ATTACK_CANCEL:
+			if _player.chain_sys != null and _player.chain_sys.has_method("release"):
+				_player.chain_sys.release(attack_side)
 	
 	# 只有仍在ATTACK状态时才需要resolver转移
 	if state == State.ATTACK:
