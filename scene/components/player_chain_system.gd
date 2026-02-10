@@ -428,11 +428,13 @@ func _fire_chain_at_slot(idx: int) -> void:
 	c.wave_amp = player.rope_wave_amp
 	c.wave_phase = 0.0
 	
+	_reset_rope_line(c, start, c.end_pos)
+	# 关键修复：发射当帧立即同步 Line2D 点位，避免复用 slot 时闪现上一条链的残留位置
+	_apply_rope_to_line_fast(c)
+
 	c.line.visible = true
 	c.line.material = null
 	c.line.modulate = Color.WHITE
-	
-	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
 	
@@ -636,11 +638,13 @@ func _try_fire_chain() -> void:
 	c.wave_amp = player.rope_wave_amp
 	c.wave_phase = 0.0
 
+	_reset_rope_line(c, start, c.end_pos)
+	# 关键修复：发射当帧立即同步 Line2D 点位，避免复用 slot 时闪现上一条链的残留位置
+	_apply_rope_to_line_fast(c)
+
 	c.line.visible = true
 	c.line.material = null
 	c.line.modulate = Color.WHITE
-
-	_reset_rope_line(c, start, c.end_pos)
 	c.prev_start = start
 	c.prev_end = c.end_pos
 	
