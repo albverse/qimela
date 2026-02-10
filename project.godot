@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 EventBus="*res://autoload/event_bus.gd"
 FusionRegistry="*res://autoload/fusion_registry.gd"
+AudioBus="*res://autoload/audio_bus.gd"
 
 [display]
 

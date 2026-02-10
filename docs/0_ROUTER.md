@@ -33,6 +33,7 @@
 ### 🔧 TODO
 - Boss 削弱机制
 - 存档系统
+- 音频资产替换（AudioBus 接口已就绪，占位 ID 已注册）
 
 ---
 
@@ -79,6 +80,7 @@ scene/components/player_chain_system.gd  # 锁链系统
 ```
 autoload/event_bus.gd        # 事件总线
 autoload/fusion_registry.gd  # 融合规则注册表
+autoload/audio_bus.gd        # 音频唯一入口（禁止任意脚本直播音频）
 ```
 
 ### UI
@@ -117,3 +119,42 @@ ui/hearts_ui.gd              # 血量UI
 | 7 | ChainInteract | 64 |
 
 换算：第N层 → bitmask = 1 << (N-1)
+
+---
+
+## 8. 音频系统（AudioBus）
+
+**护栏规则：音频唯一入口 = AudioBus；禁止任意脚本直接使用 AudioStreamPlayer.play()。**
+
+### 总线结构
+| 总线 | 用途 |
+|------|------|
+| Master | 总音量 |
+| BGM | 背景音乐 |
+| SFX | 战斗/环境音效 |
+| UI | 界面音效 |
+
+### API 速查
+```gdscript
+AudioBus.play_sfx(&"hit_light")              # 播放 SFX
+AudioBus.play_bgm(&"area_forest")            # 播放 BGM（自动 crossfade）
+AudioBus.stop_bgm()                          # 停止 BGM
+AudioBus.play_ui(&"confirm")                 # 播放 UI 音效
+AudioBus.set_volume_bgm(0.8)                 # 设置音量（linear 0~1）
+AudioBus.set_volume_sfx(0.8)
+AudioBus.set_volume_ui(0.8)
+AudioBus.register_sfx(&"new_id", "res://audio/sfx/new.wav")  # 运行时注册
+```
+
+### 音效触发职责
+| 来源 | 触发方式 | 示例 |
+|------|---------|------|
+| 动作音效 | PlayerAnimator（Spine events）→ AudioBus.play_sfx() | swing/hit/land |
+| 怪物受击音 | apply_hit/take_damage 结果 → AudioBus.play_sfx() | monster_hurt |
+| UI/系统音 | UI 层或系统流程 → AudioBus.play_ui() | confirm/cancel |
+| BGM | 场景切换/区域进入 → AudioBus.play_bgm() | area_forest |
+
+### 护栏机制
+- 限频：同一 sfx_id 在 80ms 内只触发一次
+- 并发上限：同一 sfx_id 最多 3 个同时播放
+- SFX 池：16 个 AudioStreamPlayer 轮询复用
