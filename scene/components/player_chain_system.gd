@@ -433,9 +433,10 @@ func _fire_chain_at_slot(idx: int) -> void:
 	c.line.modulate = Color.WHITE
 	
 	_reset_rope_line(c, start, c.end_pos)
+	_apply_rope_to_line_fast(c)  # 立即同步到 Line2D，防止第一帧显示旧点位（幽灵残影）
 	c.prev_start = start
 	c.prev_end = c.end_pos
-	
+
 	# 发射信号通知其他系统
 	if EventBus != null and EventBus.has_method("emit_chain_fired"):
 		EventBus.emit_chain_fired(idx)
