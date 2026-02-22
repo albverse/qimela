@@ -22,7 +22,6 @@ extends CharacterBody2D
 @export var action_chain_fire: StringName = &"chain_fire"
 @export var action_chain_cancel: StringName = &"cancel_chains"
 @export var action_fuse: StringName = &"fuse"
-@export var action_cancel_chains: StringName = &"cancel_chains"
 @export var action_healing_burst: StringName = &"healing_burst"
 
 # ── Phase 1: ChainSystem 配置参数 ──
@@ -431,6 +430,20 @@ func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 func heal(amount: int) -> void:
 	if health != null:
 		health.heal(amount)
+
+
+## apply_stun(seconds): 僵直效果 — 禁止输入/动作持续 seconds 秒，不扣血
+## 由外部（如 ChimeraStoneSnake 子弹）调用
+func apply_stun(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+	# 通过 ActionFSM 进入 Hurt 状态来实现僵直（不扣血）
+	if action_fsm != null:
+		action_fsm.on_stunned(seconds)
+	if has_method("log_msg"):
+		log_msg("STUN", "apply_stun %.2fs" % seconds)
 
 
 # ── HealingSprite 接口（供 healing_sprite.gd 调用）──

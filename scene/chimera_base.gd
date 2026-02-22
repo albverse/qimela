@@ -166,23 +166,4 @@ func set_player(p: Node2D) -> void:
 func on_player_interact(_player_ref: Player) -> void:
 	pass
 
-# ===== 融合消失 =====
-var _saved_collision_layer: int = -1
-var _saved_collision_mask: int = -1
-var _fusion_vanished: bool = false
-
-func set_fusion_vanish(v: bool) -> void:
-	if v:
-		if not _fusion_vanished:
-			_saved_collision_layer = collision_layer
-			_saved_collision_mask = collision_mask
-			_fusion_vanished = true
-		collision_layer = 0
-		collision_mask = 0
-	else:
-		if _fusion_vanished:
-			collision_layer = _saved_collision_layer
-			collision_mask = _saved_collision_mask
-			_fusion_vanished = false
-	if sprite != null:
-		sprite.visible = not v
+# set_fusion_vanish 已统一在 EntityBase 中实现，此处不再重复
