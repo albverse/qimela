@@ -474,10 +474,7 @@ func tick(dt: float) -> void:
 		_update_chain(i, dt)
 
 
-## [DEPRECATED] 旧版独立输入处理 — 输入已统一由 player.gd _unhandled_input 管理
-## 保留方法签名以防外部引用，但内部不再处理任何输入
-func handle_unhandled_input(_event: InputEvent) -> void:
-	pass
+## handle_unhandled_input: 已废弃，输入统一由 player.gd _unhandled_input 管理
 
 
 func _find_player() -> Player:
@@ -596,58 +593,7 @@ func _switch_to_available_slot(from_slot: int) -> void:
 			EventBus.emit_slot_switched(active_slot)
 
 
-func _try_fire_chain() -> void:
-	if chains.size() < 2:
-		return
-
-	var idx: int = -1
-	if chains[active_slot].state == ChainState.IDLE:
-		idx = active_slot
-	elif chains[1 - active_slot].state == ChainState.IDLE:
-		idx = 1 - active_slot
-	else:
-		return
-
-	var c: ChainSlot = chains[idx]
-	# === Zip2核心修复: 使用_get_hand_position ===
-	var start: Vector2 = _get_hand_position(c.use_right_hand)
-	var target: Vector2 = player.get_global_mouse_position()
-
-	var dir: Vector2 = target - start
-	if dir.length() < 0.001:
-		dir = Vector2(float(player.facing), 0.0)
-	else:
-		dir = dir.normalized()
-
-	_init_rope_buffers(c)
-	_prealloc_line_points(c)
-	_rebuild_weight_cache_if_needed(c)
-
-	_detach_link_if_needed(idx)
-
-	c.interacted.clear()
-	_try_interact_from_inside(idx, start)
-
-	c.state = ChainState.FLYING
-	c.end_pos = start
-	c.end_vel = dir * player.chain_speed
-	c.fly_t = 0.0
-	c.hold_t = 0.0
-	c.wave_amp = player.rope_wave_amp
-	c.wave_phase = 0.0
-
-	c.line.visible = true
-	c.line.material = null
-	c.line.modulate = Color.WHITE
-
-	_reset_rope_line(c, start, c.end_pos)
-	c.prev_start = start
-	c.prev_end = c.end_pos
-	
-	if EventBus != null and EventBus.has_method("emit_chain_fired"):
-		EventBus.emit_chain_fired(idx)
-	
-	_switch_to_available_slot(idx)
+## _try_fire_chain: 已废弃，由 _fire_chain_at_slot() 替代
 
 
 func _try_interact_from_inside(slot: int, start: Vector2) -> void:

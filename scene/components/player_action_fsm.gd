@@ -157,16 +157,13 @@ func _abort_chain_if_active(reason: String) -> void:
 func _force_release_slot(side: String) -> void:
 	if _player == null or _player.chain_sys == null:
 		return
-	
+
 	if _player.chain_sys.has_method("release"):
 		_player.chain_sys.release(side)
 	else:
-		# 兜底：直接把槽位打回可用（如果 release 方法不存在）
-		if side == "R":
-			_player.chain_sys.slot_R_available = true
-		elif side == "L":
-			_player.chain_sys.slot_L_available = true
-	
+		# 契约违反：ChainSystem 缺少 release 方法
+		push_warning("[ActionFSM] ChainSystem missing release() method — slot '%s' may leak" % side)
+
 	if _player.has_method("log_msg"):
 		_player.log_msg("ACTION", "force_release_slot(%s)" % side)
 
@@ -205,6 +202,17 @@ func on_damaged() -> void:
 	
 	_do_transition(State.HURT, "damaged->HURT", 90)
 
+
+
+## on_stunned(seconds): 外部僵直（不扣血，只冻结输入/动作）
+func on_stunned(seconds: float) -> void:
+	if _player == null:
+		return
+	if state == State.DIE:
+		return
+	_pending_fire_side = ""
+	_hurt_timeout = seconds  # 临时覆盖 hurt 超时为僵直时长
+	_do_transition(State.HURT, "stunned(%.2fs)" % seconds, 90)
 
 
 func on_space_pressed() -> void:

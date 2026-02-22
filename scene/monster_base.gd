@@ -38,9 +38,7 @@ var _processed_light_sources: Dictionary = {}
 var _active_light_sources: Dictionary = {}
 var _thunder_processed_this_frame: bool = false
 
-var _saved_collision_layer: int = -1
-var _saved_collision_mask: int = -1
-var _fusion_vanished: bool = false
+# _fusion_vanished 系列变量已统一在 EntityBase 中定义
 
 func _ready() -> void:
 	super._ready()
@@ -142,6 +140,7 @@ func _update_weak_state() -> void:
 	weak = has_hp and (hp <= weak_hp) and hp > 0
 	if weak and not was_weak:
 		hp_locked = true
+		vanish_fusion_count = 0  # 修复：重置泯灭计数（与 EntityBase 保持一致）
 		weak_stun_t = weak_stun_time
 
 func _restore_from_weak() -> void:
@@ -246,19 +245,4 @@ func on_chain_detached(slot: int) -> void:
 		# 还有其他链，更新_linked_slot为剩余的第一条
 		_linked_slot = _linked_slots[0]
 
-# ===== 融合消失 =====
-func set_fusion_vanish(v: bool) -> void:
-	if v:
-		if not _fusion_vanished:
-			_saved_collision_layer = collision_layer
-			_saved_collision_mask = collision_mask
-			_fusion_vanished = true
-		collision_layer = 0
-		collision_mask = 0
-	else:
-		if _fusion_vanished:
-			collision_layer = _saved_collision_layer
-			collision_mask = _saved_collision_mask
-			_fusion_vanished = false
-	if sprite != null:
-		sprite.visible = not v
+# set_fusion_vanish 已统一在 EntityBase 中实现，此处不再重复
