@@ -306,9 +306,9 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			# die 是终态：不清空、不恢复、不发事件
 			if anim_name == &"die":
 				return
-			var event: StringName = ACTION_END_MAP.get(anim_name, &"")
-			if event != &"":
-				_player.on_action_anim_end(event)
+			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
+			if action_event != &"":
+				_player.on_action_anim_end(action_event)
 			# FULLBODY 结束：恢复状态，让下一帧 tick 重新评估 loco
 			_cur_action_anim = &""
 			_cur_action_mode = -1
