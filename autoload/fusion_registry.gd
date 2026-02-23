@@ -294,7 +294,11 @@ func _resolve_fail_type(a: EntityBase, b: EntityBase) -> Dictionary:
 		_:
 			result_type = FusionResultType.FAIL_VANISH
 
-	return { "type": result_type, "entity_a": a, "entity_b": b }
+	var result: Dictionary = { "type": result_type, "entity_a": a, "entity_b": b }
+	# FAIL_HOSTILE需要hostile_scene，使用默认敌对怪物场景
+	if result_type == FusionResultType.FAIL_HOSTILE:
+		result["hostile_scene"] = "res://scene/MonsterHostile.tscn"
+	return result
 
 # =============================================================================
 # 融合执行
