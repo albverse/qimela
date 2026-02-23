@@ -16,7 +16,7 @@ signal hp_changed(new_hp: int, old_hp: int)
 @export var knockback_arc_height: float = 40.0
 
 var hp: int = 5
-var _player: CharacterBody2D = null
+var _player: Player = null
 var _inv_t: float = 0.0
 var _kb_t: float = 0.0
 var _kb_fly_t: float = 0.0
@@ -25,7 +25,7 @@ var _kb_gravity: float = 0.0
 var _pending_land_stun: float = 0.0
 
 
-func setup(player: CharacterBody2D) -> void:
+func setup(player: Player) -> void:
 	_player = player
 	hp = max_hp
 

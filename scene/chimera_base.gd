@@ -22,7 +22,6 @@ enum ChimeraOriginType {
 
 # 第3类：存储合成来源
 var source_scenes: Array[PackedScene] = []
-var source_count: int = 0
 
 # 跟随/漫游
 var _player: Node2D = null
@@ -70,6 +69,8 @@ func _move_toward_player(dt: float) -> void:
 func _idle_behavior(dt: float) -> void:
 	if not is_flying:
 		velocity.y += gravity * dt
+	else:
+		velocity.y = 0.0  # B9修复：飞行奇美拉 idle 时清零 Y 速度，防止跟随跳跃后残留
 	_wander_t -= dt
 	if _wander_t <= 0.0:
 		_pick_next_wander()

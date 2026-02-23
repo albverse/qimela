@@ -20,9 +20,9 @@ var _base_y: float = 0.0  # 基准Y坐标
 var _t: float = 0.0  # 时间累计
 var _dir: int = 1  # 移动方向
 var _is_visible: bool = false  # 当前是否可见
-
-var _saved_body_layer: int = -1  # 保存的碰撞层
-var _saved_body_mask: int = -1  # 保存的碰撞掩码
+# B2修复：使用统一的碰撞保存系统（不再独立保存，改用EntityBase的_saved_collision_layer_fv/_saved_collision_mask_fv）
+var _saved_body_layer: int = -1  # 显隐专用碰撞层保存
+var _saved_body_mask: int = -1  # 显隐专用碰撞掩码保存（注：mask保持不变，防止穿模）
 
 @export var light_node_path: NodePath = ^"PointLight2D"  # 光源节点路径
 @onready var _point_light: PointLight2D = get_node_or_null(light_node_path) as PointLight2D
@@ -34,8 +34,8 @@ func _ready() -> void:
 	species_id = &"fly_light"  # 物种ID
 	attribute_type = AttributeType.LIGHT  # 属性：光
 	size_tier = SizeTier.SMALL  # 型号：小型
-	entity_type = EntityType.MONSTER  # 类型：怪物
-	
+	# entity_type 已由 MonsterBase._ready() 统一设置
+
 	# ===== HP设置 =====
 	max_hp = 3  # 最大HP
 	weak_hp = 1  # HP≤1时进入虚弱
@@ -134,28 +134,10 @@ func is_visible_for_chain() -> bool:
 	return _is_visible
 
 func _force_release_all_chains() -> void:
+	# R6修复：统一使用父类的_release_linked_chains + hurtbox恢复
 	if _linked_slots.is_empty():
 		return
-	var slots: Array[int] = _linked_slots.duplicate()
-	var p: Node = _linked_player
-	_linked_slots.clear()
-	_linked_player = null
-	if p == null or not is_instance_valid(p):
-		return
-
-	var chain_target: Node = null
-	if p.has_method("force_dissolve_chain"):
-		chain_target = p
-	elif "chain_sys" in p and p.chain_sys != null:
-		chain_target = p.chain_sys
-	elif p.has_node("Components/ChainSystem"):
-		chain_target = p.get_node_or_null("Components/ChainSystem")
-
-	if chain_target == null or not chain_target.has_method("force_dissolve_chain"):
-		return
-
-	for s in slots:
-		chain_target.call("force_dissolve_chain", s)
+	_release_linked_chains()  # 使用MonsterBase的统一方法（包含hurtbox恢复）
 
 func _do_move(dt: float) -> void:
 	if weak:

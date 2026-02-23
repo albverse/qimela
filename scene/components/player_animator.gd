@@ -84,7 +84,7 @@ const MANUAL_CHAIN_ANIMS: Array[StringName] = [
 	&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"
 ]
 
-var _player: CharacterBody2D = null
+var _player: Player = null
 var _driver = null  # AnimDriverMock 或 AnimDriverSpine
 var _visual: Node2D = null
 var _weapon_controller: WeaponController = null
@@ -95,7 +95,7 @@ var _cur_action_mode: int = -1  # 记录当前 action 的播放模式（用于�
 var _manual_chain_anim: bool = false  # 标志：chain动画是由ChainSystem手动触发的，tick不要清理
 
 
-func setup(player: CharacterBody2D) -> void:
+func setup(player: Player) -> void:
 	_player = player
 	_weapon_controller = player.weapon_controller if player != null else null
 

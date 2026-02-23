@@ -28,6 +28,9 @@ var _completed_entry_id: Dictionary = {}  # track_id -> int
 var default_mix_duration: float = 0.1
 var track1_mix_out_duration: float = 0.08
 
+## 调试开关：设为true打印详细日志
+var debug_log: bool = false
+
 ## API 签名: 1=(track,name,loop), 2=(name,loop,track)
 var _api_signature: int = 2  # 默认官方签名
 var _manual_update_mode: bool = false
@@ -40,7 +43,7 @@ func setup(spine_sprite: Node) -> void:
 		return
 
 	var node_class: String = _spine_sprite.get_class()
-	print("[AnimDriverSpine] Node class: %s" % node_class)
+	if debug_log: print("[AnimDriverSpine] Node class: %s" % node_class)
 
 	if node_class != "SpineSprite":
 		push_error("[AnimDriverSpine] Not SpineSprite!")
@@ -55,7 +58,7 @@ func setup(spine_sprite: Node) -> void:
 	_connect_signals()
 	_check_update_mode()
 	set_physics_process(true)
-	print("[AnimDriverSpine] Setup complete, polling enabled")
+	if debug_log: print("[AnimDriverSpine] Setup complete, polling enabled")
 
 
 func _get_animation_state():
@@ -85,15 +88,15 @@ func _detect_api_signature(anim_state: Object) -> void:
 
 		if t0 == TYPE_INT and t1 == TYPE_STRING and t2 == TYPE_BOOL:
 			_api_signature = 1
-			print("[AnimDriverSpine] Signature 1: (track, name, loop)")
+			if debug_log: print("[AnimDriverSpine] Signature 1: (track, name, loop)")
 			return
 		if t0 == TYPE_STRING and t1 == TYPE_BOOL and t2 == TYPE_INT:
 			_api_signature = 2
-			print("[AnimDriverSpine] Signature 2: (name, loop, track) - OFFICIAL")
+			if debug_log: print("[AnimDriverSpine] Signature 2: (name, loop, track) - OFFICIAL")
 			return
 
 	_api_signature = 2  # 默认官方
-	print("[AnimDriverSpine] Using default signature 2")
+	if debug_log: print("[AnimDriverSpine] Using default signature 2")
 
 
 func _connect_signals() -> void:
@@ -101,10 +104,10 @@ func _connect_signals() -> void:
 	## 观测信号：animation_ended / animation_interrupted（日志与排障）
 	if _spine_sprite.has_signal("animation_completed"):
 		_spine_sprite.animation_completed.connect(_on_animation_completed)
-		print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
+		if debug_log: print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
 	elif _spine_sprite.has_signal("animation_ended"):
 		_spine_sprite.animation_ended.connect(_on_animation_completed)
-		print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
+		if debug_log: print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
 	else:
 		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
@@ -140,7 +143,7 @@ func _check_update_mode() -> void:
 		_manual_update_mode = int(mode) == 2
 
 	if _manual_update_mode:
-		print("[AnimDriverSpine] Update mode=Manual, will call update_skeleton each physics frame")
+		if debug_log: print("[AnimDriverSpine] Update mode=Manual, will call update_skeleton each physics frame")
 
 
 func _update_manual_skeleton_if_needed() -> void:
@@ -213,10 +216,10 @@ func _on_animation_completed(track_entry, _arg2 = null, _arg3 = null) -> void:
 		var expected_anim: StringName = _track_states[track_id].get("anim", &"")
 		var signal_anim: StringName = _get_animation_name(track_entry)
 		if signal_anim != &"" and signal_anim != expected_anim:
-			print("[AnimDriverSpine] signal IGNORED: track=%d got=%s expected=%s (stale/replaced)" % [track_id, signal_anim, expected_anim])
+			if debug_log: print("[AnimDriverSpine] signal IGNORED: track=%d got=%s expected=%s (stale/replaced)" % [track_id, signal_anim, expected_anim])
 			return
 
-	print("[AnimDriverSpine] signal completed: track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal completed: track=%d" % track_id)
 	_on_track_completed(track_id, track_entry)
 
 
@@ -228,7 +231,7 @@ func _on_animation_ended_observe(track_entry, _arg2 = null, _arg3 = null) -> voi
 		track_id = track_entry.get_track_index()
 	elif track_entry.has_method("getTrackIndex"):
 		track_id = track_entry.getTrackIndex()
-	print("[AnimDriverSpine] signal observed: animation_ended track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal observed: animation_ended track=%d" % track_id)
 
 
 func _on_animation_interrupted_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
@@ -239,7 +242,7 @@ func _on_animation_interrupted_observe(track_entry, _arg2 = null, _arg3 = null) 
 		track_id = track_entry.get_track_index()
 	elif track_entry.has_method("getTrackIndex"):
 		track_id = track_entry.getTrackIndex()
-	print("[AnimDriverSpine] signal observed: animation_interrupted track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal observed: animation_interrupted track=%d" % track_id)
 
 
 func _on_track_completed(track_id: int, track_entry) -> void:
@@ -251,7 +254,7 @@ func _on_track_completed(track_id: int, track_entry) -> void:
 		return
 
 	var anim_name: StringName = _get_animation_name(track_entry)
-	print("[AnimDriverSpine] completed: track=%d name=%s" % [track_id, str(anim_name)])
+	if debug_log: print("[AnimDriverSpine] completed: track=%d name=%s" % [track_id, str(anim_name)])
 
 	if track_id == 1:
 		_mix_out_track(1, track1_mix_out_duration)
@@ -352,7 +355,7 @@ func _play_animation(track: int, anim_name: StringName, loop: bool) -> void:
 	_track_states[track] = {"anim": anim_name, "loop": loop}
 	_completed_entry_id.erase(track)
 
-	print("[AnimDriverSpine] play track=%d name=%s loop=%s" % [track, anim_str, loop])
+	if debug_log: print("[AnimDriverSpine] play track=%d name=%s loop=%s" % [track, anim_str, loop])
 
 
 func stop(track: int) -> void:
@@ -384,7 +387,7 @@ func _mix_out_track(track: int, mix_duration: float) -> void:
 	else:
 		_clear_track(track)
 
-	print("[AnimDriverSpine] mix_out track=%d duration=%f" % [track, mix_duration])
+	if debug_log: print("[AnimDriverSpine] mix_out track=%d duration=%f" % [track, mix_duration])
 
 
 func _clear_track(track: int) -> void:
@@ -407,6 +410,14 @@ func _clear_all_tracks() -> void:
 		anim_state.clear_tracks()
 	elif anim_state.has_method("clearTracks"):
 		anim_state.clearTracks()
+
+
+## === 查询 API ===
+
+func get_current_anim(track: int) -> StringName:
+	if _track_states.has(track):
+		return _track_states[track].get("anim", &"")
+	return &""
 
 
 ## === 骨骼位置查询 ===

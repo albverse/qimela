@@ -7,7 +7,6 @@ class_name ChainSlotsUI
 @onready var center_icon: TextureRect = $ConnectionLine/CenterIcon
 
 var slot_states: Array[Dictionary] = [{}, {}]
-var slot_anim_playing: Array[bool] = [false, false]  # 追踪动画状态
 var _cooldown_tweens: Array[Tween] = [null, null]
 var _cooldown_duration: float = 0.5
 var _cached_target_textures: Array[Texture2D] = [null, null]
@@ -106,11 +105,8 @@ func _on_chain_bound(slot: int, target: Node, attribute: int, icon_id: int, is_c
 	if anim and show_anim:
 		var anim_name: String = ""
 		if is_chimera:
-			# 尝试两个可能的名字
 			if anim.has_animation("chimera_animation"):
 				anim_name = "chimera_animation"
-			elif anim.has_animation("chimera_animation "):
-				anim_name = "chimera_animation "
 		else:
 			if anim.has_animation("appear"):
 				anim_name = "appear"
@@ -502,15 +498,6 @@ func _setup_burn_assets() -> void:
 		gradient_tex.gradient = gradient
 		gradient_tex.width = 256
 		_burn_curve_texture = gradient_tex
-
-# 注意：旧的_play_monster_burn已被_setup_burn_shader_on_icon和_update_burn_progress替代
-
-func _is_fusion_release() -> bool:
-	if _player == null:
-		return false
-	if _player.has_method("is_player_locked"):
-		return bool(_player.call("is_player_locked"))
-	return false
 
 func _stop_cooldown_tween(slot: int) -> void:
 	var tw: Tween = _cooldown_tweens[slot]

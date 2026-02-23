@@ -17,8 +17,8 @@ func _ready() -> void:
 	species_id = &"hostile_fail"  # 物种ID
 	attribute_type = AttributeType.NORMAL  # 属性：无
 	size_tier = SizeTier.MEDIUM  # 型号：中型
-	entity_type = EntityType.MONSTER  # 类型：怪物
-	
+	# entity_type 已由 MonsterBase._ready() 统一设置
+
 	# ===== HP设置 =====
 	max_hp = 5  # 最大HP
 	weak_hp = 0  # 无法进入虚弱（关键！）

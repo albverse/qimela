@@ -241,6 +241,7 @@ func on_chain_detached(slot: int) -> void:
 		_linked_player = null
 		if _hurtbox != null and _hurtbox_original_layer >= 0:
 			_hurtbox.collision_layer = _hurtbox_original_layer  # 恢复受击判定
+			_hurtbox_original_layer = -1  # B7修复：重置，防止下次 attach/detach 使用过时值
 
 func is_linked() -> bool:
 	# 是否被链接
@@ -348,5 +349,5 @@ func get_weak_state() -> bool:
 	return weak
 
 func get_icon_id() -> int:
-	# 获取图标ID（用于UI显示）
+	# R10: 统一返回 attribute_type（与 get_attribute_type 等价，保留兼容接口）
 	return attribute_type

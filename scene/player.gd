@@ -74,7 +74,6 @@ var jump_request: bool = false
 var _player_locked: bool = false
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
-var anim_fsm = null  # 由 Animator 设置（Phase 1: ChainSystem 需要）
 
 # ── 组件引用 ──
 var movement: PlayerMovement = null
@@ -107,10 +106,6 @@ func _ready() -> void:
 		if not is_instance_valid(_healing_slots[i]):
 			_healing_slots[i] = null
 	add_to_group("player")
-	if debug_log and has_node("Visual/SpineSprite"):
-		var test = load("res://scene/components/spine_quick_test.gd")
-		if test != null:
-			test.run($Visual/SpineSprite)
 	# 缓存组件
 	movement = $Components/Movement as PlayerMovement
 	loco_fsm = $Components/LocomotionFSM as PlayerLocomotionFSM
