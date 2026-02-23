@@ -10,7 +10,7 @@ class_name PlayerMovement
 
 enum MoveIntent { NONE, WALK, RUN }
 
-var _player: CharacterBody2D = null
+var _player: Player = null
 
 # 当前意图（每帧由 tick 更新；LocomotionFSM 只读）
 var move_intent: int = MoveIntent.NONE
@@ -23,7 +23,7 @@ const INTENT_NAMES: PackedStringArray = ["None", "Walk", "Run"]
 func intent_name() -> String:
 	return INTENT_NAMES[move_intent] if move_intent >= 0 and move_intent < INTENT_NAMES.size() else "?"
 
-func setup(player: CharacterBody2D) -> void:
+func setup(player: Player) -> void:
 	_player = player
 
 

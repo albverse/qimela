@@ -137,10 +137,9 @@ func _on_light_area_entered(area: Area2D) -> void:
 # ===== 虚弱/眩晕 =====
 func _update_weak_state() -> void:
 	var was_weak := weak
-	weak = has_hp and (hp <= weak_hp) and hp > 0
+	super._update_weak_state()
+	# MonsterBase扩展：进入虚弱时追加眩晕
 	if weak and not was_weak:
-		hp_locked = true
-		vanish_fusion_count = 0  # 修复：重置泯灭计数（与 EntityBase 保持一致）
 		weak_stun_t = weak_stun_time
 
 func _restore_from_weak() -> void:

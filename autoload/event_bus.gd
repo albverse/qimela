@@ -48,3 +48,6 @@ func emit_chain_struggle_progress(chain_id: int, t01: float) -> void:
 
 func emit_slot_switched(active_slot: int) -> void:
 	slot_switched.emit(active_slot)
+
+func emit_fusion_rejected() -> void:
+	fusion_rejected.emit()

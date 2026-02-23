@@ -15,21 +15,20 @@ const STATE_NAMES: Array[StringName] = [
 	&"None", &"Attack", &"AttackCancel", &"Fuse", &"Hurt", &"Die"
 ]
 
+const DEFAULT_HURT_TIMEOUT: float = 1.0  ## Hurt 默认超时（stun 结束后恢复此值）
+
 var state: int = State.NONE
 var attack_side: String = ""  # "R" / "L" / "" - 当前攻击使用的手（仅Attack/AttackCancel时有效）
-var _player: CharacterBody2D = null
+var _player: Player = null
 var _weapon_controller: WeaponController = null
 
-## Phase 0 修复：延迟 fire 提交，防止幽灵发射
-var _pending_fire_side: String = ""  # "R" / "L" / ""
-
-## 开关：是否允许移动打断动作（默认 false = 移动不取消链）
+## PLANNED: 未来蓄力类武器可能需要"移动打断攻击"功能
 var allow_move_interrupt_action: bool = false
 
 ## S3: 卡死保护 - 超时强制 resolver
 var _attack_timeout: float = 2.0  # 2秒超时
 var _attack_timer: float = 0.0    # 当前计时器
-var _hurt_timeout: float = 1.0    # Hurt 超时（1秒）
+var _hurt_timeout: float = DEFAULT_HURT_TIMEOUT
 var _hurt_timer: float = 0.0
 var _fuse_timer: float = 0.0
 var _return_idle_after_hurt: bool = false
@@ -46,7 +45,7 @@ func state_name() -> StringName:
 	return base_name
 
 
-func setup(player: CharacterBody2D) -> void:
+func setup(player: Player) -> void:
 	_player = player
 	_weapon_controller = player.weapon_controller if player != null else null
 	state = State.NONE
@@ -56,10 +55,9 @@ func setup(player: CharacterBody2D) -> void:
 func tick(_dt: float) -> void:
 	if _player == null:
 		return
-	
-	# === CRITICAL FIX: DIE 最高优先级检查（必须在 pending fire 之前）===
+
+	# === CRITICAL FIX: DIE 最高优先级检查 ===
 	if state == State.DIE:
-		_pending_fire_side = ""  # 死亡时清空挂起的发射
 		_attack_timer = 0.0
 		_fuse_timer = 0.0
 		return  # 终态：不执行任何逻辑
@@ -67,30 +65,29 @@ func tick(_dt: float) -> void:
 	# === GLOBAL pr=100: hp<=0 → Die ===
 	var hp: int = _player.health.hp if _player.health != null else 1
 	if hp <= 0 and state != State.DIE:
-		_pending_fire_side = ""  # 清空挂起的发射
 		_attack_timer = 0.0
 		_do_transition(State.DIE, "hp<=0", 100)
 		return
-	
+
 	# === S3: 超时保护（Attack）===
 	if state == State.ATTACK or state == State.ATTACK_CANCEL:
 		_attack_timer += _dt
 		if _attack_timer > _attack_timeout:
 			if _player.has_method("log_msg"):
 				_player.log_msg("ACTION", "TIMEOUT! Attack stuck for %.2fs, forcing resolver (side=%s)" % [_attack_timer, attack_side])
-			
+
 			# 强制归还 slot
 			if attack_side != "" and _player.chain_sys != null:
 				if _player.chain_sys.has_method("release"):
 					_player.chain_sys.release(attack_side)
-			
+
 			# 强制 resolver
 			_attack_timer = 0.0
 			_resolve_and_transition("timeout_protection")
 			return
 	else:
 		_attack_timer = 0.0
-	
+
 	# === S3: 超时保护（Hurt）===
 	if state == State.HURT:
 		_hurt_timer += _dt
@@ -98,11 +95,12 @@ func tick(_dt: float) -> void:
 			if _player.has_method("log_msg"):
 				_player.log_msg("ACTION", "TIMEOUT! Hurt stuck for %.2fs, forcing resolver" % _hurt_timer)
 			_hurt_timer = 0.0
+			_hurt_timeout = DEFAULT_HURT_TIMEOUT  # B1修复：恢复默认超时
 			_resolve_and_transition("hurt_timeout_protection")
 			return
 	else:
 		_hurt_timer = 0.0
-	
+
 
 	# === Fuse 超时保护（纯安全兜底，正常由动画完成事件退出）===
 	if state == State.FUSE:
@@ -118,40 +116,9 @@ func tick(_dt: float) -> void:
 			return
 	else:
 		_fuse_timer = 0.0
-	# === 延迟 fire 提交（状态门控，防幽灵发射）===
-	# Chain 发射时机：必须在 ATTACK 状态（保持与动画系统同步）
-	if _pending_fire_side != "" and _player.chain_sys != null:
-		# 安全检查：如果已经进入 DIE/HURT，丢弃
-		if state == State.DIE or state == State.HURT:
-			_pending_fire_side = ""
-		# 只在 ATTACK 状态下发射（与 Animator 同步）
-		elif state == State.ATTACK:
-			if _pending_fire_side == "R":
-				_player.chain_sys.fire("R")
-				_pending_fire_side = ""
-			elif _pending_fire_side == "L":
-				_player.chain_sys.fire("L")
-				_pending_fire_side = ""
 
 
 # ── 外部事件入口 ──
-
-## 强制打断链条时释放 slot（避免泄漏）
-func _abort_chain_if_active(reason: String) -> void:
-	if _player == null or _player.chain_sys == null:
-		return
-	
-	match state:
-		State.ATTACK, State.ATTACK_CANCEL:
-			if attack_side == "R":
-				_player.chain_sys.cancel("R")
-				if _player.has_method("log_msg"):
-					_player.log_msg("ACTION", "abort_chain R reason=%s" % reason)
-			elif attack_side == "L":
-				_player.chain_sys.cancel("L")
-				if _player.has_method("log_msg"):
-					_player.log_msg("ACTION", "abort_chain L reason=%s" % reason)
-
 
 ## 强制释放槽位（用于 cancel 动画结束时确保 slot 不卡死）
 func _force_release_slot(side: String) -> void:
@@ -175,17 +142,14 @@ func on_damaged() -> void:
 		return
 
 	_log_event("damaged")
-	
-	# 清空挂起的发射（防止同帧 M+damaged 导致的幽灵 fire）
-	_pending_fire_side = ""
-	
+
 	var hp: int = _player.health.hp if _player.health != null else 1
-	
+
 	# === hp<=0 → Die（清理逻辑已在_do_transition中统一处理）===
 	if hp <= 0:
 		_do_transition(State.DIE, "damaged->DIE(hp<=0)", 100)
 		return
-	
+
 	# === hp>0 的情况：受伤 ===
 	if state == State.FUSE:
 		if _player.chain_sys != null and _player.chain_sys.has_method("abort_fuse_cast"):
@@ -195,11 +159,11 @@ func on_damaged() -> void:
 	elif _player.chain_sys != null and _player.chain_sys.has_method("cancel_volatile_on_damage"):
 		# 非融合受击：取消 FLYING/STUCK，但保留 LINKED
 		_player.chain_sys.cancel_volatile_on_damage()
-	
+
 	# 如果正在动作中，中断动作（但槽位已由上面的 cancel_volatile_on_damage 处理）
 	if state in [State.ATTACK, State.ATTACK_CANCEL]:
 		attack_side = ""  # 清空 side 标记
-	
+
 	_do_transition(State.HURT, "damaged->HURT", 90)
 
 
@@ -210,7 +174,6 @@ func on_stunned(seconds: float) -> void:
 		return
 	if state == State.DIE:
 		return
-	_pending_fire_side = ""
 	_hurt_timeout = seconds  # 临时覆盖 hurt 超时为僵直时长
 	_do_transition(State.HURT, "stunned(%.2fs)" % seconds, 90)
 
@@ -227,7 +190,6 @@ func on_space_pressed() -> void:
 	var ok: bool = bool(_player.chain_sys.begin_fuse_cast())
 	if not ok:
 		return
-	_pending_fire_side = ""
 	attack_side = ""
 	_do_transition(State.FUSE, "space->FUSE", 95)
 
@@ -266,7 +228,6 @@ func on_m_pressed() -> void:
 
 	# Sword / Knife: 进入 ATTACK 状态
 	attack_side = "R"
-	_pending_fire_side = ""
 	var weapon_name: String = _weapon_controller.get_weapon_name()
 	_do_transition(State.ATTACK, "M_pressed weapon=%s" % weapon_name, 5)
 
@@ -278,9 +239,6 @@ func on_x_pressed() -> void:
 		return
 
 	_log_event("X_pressed")
-	
-	# 清空挂起的发射（取消时不应再 fire）
-	_pending_fire_side = ""
 
 	# PINK pr=6: Attack → AttackCancel
 	if state == State.ATTACK:
@@ -290,7 +248,7 @@ func on_x_pressed() -> void:
 			_player.chain_sys.cancel("R")
 		elif attack_side == "L" and _player.chain_sys != null and not _player.chain_sys.slot_L_available:
 			_player.chain_sys.cancel("L")
-	
+
 	# None状态：检查是否有链条绑定，如果有则取消所有链条
 	elif state == State.NONE:
 		if _weapon_controller != null and _weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN:
@@ -306,26 +264,23 @@ func on_weapon_switched() -> void:
 		return
 	if state == State.DIE:
 		return  # 死亡时不允许切换
-	
+
 	_log_event("weapon_switched")
-	
-	# 清空 pending fire
-	_pending_fire_side = ""
-	
+
 	# === CRITICAL FIX: 切换武器时dissolve所有链（包括LINKED）===
 	# 这符合 Q3:选项A，相当于自动按X
 	if _player.chain_sys != null and _player.chain_sys.has_method("force_dissolve_all_chains"):
 		_player.chain_sys.force_dissolve_all_chains()
 		if _player.has_method("log_msg"):
 			_player.log_msg("ACTION", "weapon_switched: dissolved all chains")
-	
+
 	# 强制停止 track1 动画（防止切换后仍播放旧动画）
 	if _player.animator != null and _player.animator.has_method("force_stop_action"):
 		_player.animator.force_stop_action()
-	
+
 	# 清空 attack_side
 	attack_side = ""
-	
+
 	# 硬切回 None
 	_do_transition(State.NONE, "weapon_switched", 99)
 
@@ -334,18 +289,18 @@ func on_weapon_switched() -> void:
 
 func on_anim_end_attack() -> void:
 	_log_event("anim_end_attack")
-	
+
 	# === 检查武器类型：Chain 需要 release slot，Sword 不需要 ===
 	var is_chain_weapon: bool = true
 	if _weapon_controller != null:
 		is_chain_weapon = (_weapon_controller.current_weapon == _weapon_controller.WeaponType.CHAIN)
-	
+
 	# Chain: 释放槽位
 	if is_chain_weapon and attack_side != "":
 		if state != State.ATTACK_CANCEL:
 			if _player.chain_sys != null and _player.chain_sys.has_method("release"):
 				_player.chain_sys.release(attack_side)
-	
+
 	# 只有仍在ATTACK状态时才需要resolver转移
 	if state == State.ATTACK:
 		_resolve_and_transition("anim_end_attack")
@@ -366,11 +321,12 @@ func on_anim_end_attack_cancel() -> void:
 func on_anim_end_hurt() -> void:
 	_log_event("anim_end_hurt")
 	if state == State.HURT:
+		_hurt_timeout = DEFAULT_HURT_TIMEOUT  # B1修复：恢复默认超时
 		if _return_idle_after_hurt:
 			_return_idle_after_hurt = false
 			_use_fuse_hurt_anim = false
 			_do_transition(State.NONE, "anim_end_hurt->idle_after_fuse_interrupt", 90)
-			_sync_loco_to_state(&"Idle")
+			_sync_loco(&"Idle", "GREEN")
 			return
 		_use_fuse_hurt_anim = false
 		_resolve_and_transition("anim_end_hurt")
@@ -393,7 +349,7 @@ func _resolve_and_transition(reason: String) -> void:
 
 	# 通知 LocomotionFSM 同步到 resolver 建议的状态（可选：处理空中结束场景）
 	if _player != null and _player.loco_fsm != null:
-		_sync_loco_to_resolved(resolved)
+		_sync_loco(resolved, "resolver")
 
 
 func _resolve_post_action_state() -> StringName:
@@ -421,33 +377,8 @@ func _resolve_post_action_state() -> StringName:
 	return &"Idle"
 
 
-func _sync_loco_to_resolved(resolved: StringName) -> void:
-	## 当 ActionFSM 结束动作时，如果 LocomotionFSM 的状态与 resolver 不一致
-	## （例如在空中结束 chain 但 Loco 仍是地面态），强制同步
-	var loco: PlayerLocomotionFSM = _player.loco_fsm
-	if loco == null:
-		return
-
-	var target_state: int = -1
-	match resolved:
-		&"Idle": target_state = PlayerLocomotionFSM.State.IDLE
-		&"Walk": target_state = PlayerLocomotionFSM.State.WALK
-		&"Run": target_state = PlayerLocomotionFSM.State.RUN
-		&"Jump_up": target_state = PlayerLocomotionFSM.State.JUMP_UP
-		&"Jump_loop": target_state = PlayerLocomotionFSM.State.JUMP_LOOP
-		&"Jump_down": target_state = PlayerLocomotionFSM.State.JUMP_DOWN
-		&"Die": target_state = PlayerLocomotionFSM.State.DEAD
-
-	if target_state >= 0 and loco.state != target_state:
-		var from_name: StringName = loco.state_name()
-		loco.state = target_state
-		var to_name: StringName = loco.state_name()
-		if _player.has_method("log_msg"):
-			_player.log_msg("ACTION", "SYNC_LOCO %s->%s (resolver)" % [from_name, to_name])
-
-
-func _sync_loco_to_state(target_state_name: StringName) -> void:
-	## GREEN 转换专用：立即同步 LocomotionFSM 到指定状态
+## R3合并：统一的 LocomotionFSM 同步方法
+func _sync_loco(target_state_name: StringName, source: String) -> void:
 	var loco: PlayerLocomotionFSM = _player.loco_fsm
 	if loco == null:
 		return
@@ -467,7 +398,7 @@ func _sync_loco_to_state(target_state_name: StringName) -> void:
 		loco.state = target_state
 		var to_name: StringName = loco.state_name()
 		if _player.has_method("log_msg"):
-			_player.log_msg("ACTION", "SYNC_LOCO %s->%s (GREEN)" % [from_name, to_name])
+			_player.log_msg("ACTION", "SYNC_LOCO %s->%s (%s)" % [from_name, to_name, source])
 
 
 # ── 转移执行 ──
@@ -479,25 +410,18 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 
 	if from_name == to_name:
 		return
-	
+
 	# === S3: 进入 ATTACK 重置计时器 ===
 	if to == State.ATTACK or to == State.ATTACK_CANCEL:
 		_attack_timer = 0.0
-	
+
 	# === CRITICAL FIX: 进入Die时的全局锁定与清理 ===
 	if to == State.DIE and _player != null:
-		# 0. 先清空pending fire（防止后续fire）
-		if _pending_fire_side != "":
-			if _player.has_method("log_msg"):
-				_player.log_msg("CHAIN", "clear_pending_fire reason=die (was=%s)" % _pending_fire_side)
-			_pending_fire_side = ""
-		
 		# 1. 死亡：立即清空所有链条（不走溶解，不依赖 tick/tween）
 		if _player.chain_sys != null:
 			if _player.chain_sys.has_method("hard_clear_all_chains"):
 				_player.chain_sys.hard_clear_all_chains("die")
 			else:
-				# 旧版本fallback：至少把所有链条强制溶解（注意：若 player 被禁用处理，Tween 可能不会跑完）
 				_player.chain_sys.force_dissolve_all_chains()
 
 		# 2. 冻结movement（虽然movement自己也会检查Die，但这里主动冻结更保险）
