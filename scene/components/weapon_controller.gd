@@ -35,13 +35,13 @@ func _init_weapon_defs() -> void:
 		"lock_anim_until_end": true,  # Chain起手后不随context变化
 		"anim_map": {
 			# context -> side -> anim_name
-			"ground_idle": { "R": "chain_R", "L": "chain_L" },
-			"ground_move": { "R": "chain_R", "L": "chain_L" },
-			"air": { "R": "chain_R", "L": "chain_L" },
+			"ground_idle": { "R": "chain_/chain_R", "L": "chain_/chain_L" },
+			"ground_move": { "R": "chain_/chain_R", "L": "chain_/chain_L" },
+			"air": { "R": "chain_/chain_R", "L": "chain_/chain_L" },
 		},
 		"cancel_anim": {
-			"R": "anim_chain_cancel_R",
-			"L": "anim_chain_cancel_L",
+			"R": "chain_/anim_chain_cancel_R",
+			"L": "chain_/anim_chain_cancel_L",
 		}
 	}
 	
@@ -52,9 +52,9 @@ func _init_weapon_defs() -> void:
 		"lock_anim_until_end": false,  # Sword允许context变化时切换动画
 		"anim_map": {
 			# context -> anim_name（无需side）
-			"ground_idle": "sword_light_idle",
-			"ground_move": "sword_light_move",
-			"air": "sword_light_air",
+			"ground_idle": "chain_/sword_light_idle",
+			"ground_move": "chain_/sword_light_move",
+			"air": "chain_/sword_light_air",
 		},
 		"cancel_anim": {
 			# Sword暂无cancel动画，返回空
@@ -69,9 +69,9 @@ func _init_weapon_defs() -> void:
 		"lock_anim_until_end": true,  # Knife起手后不变
 		"anim_map": {
 			# 独立动画名（Phase1验证结构）
-			"ground_idle": "knife_light_idle",
-			"ground_move": "knife_light_move",
-			"air": "knife_light_air",
+			"ground_idle": "chain_/knife_light_idle",
+			"ground_move": "chain_/knife_light_move",
+			"air": "chain_/knife_light_air",
 		},
 		"cancel_anim": {
 			"any": "",
