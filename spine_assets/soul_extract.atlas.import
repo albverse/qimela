@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://pvv4b6dxwtu4"
+path="res://.godot/imported/soul_extract.atlas-83c06ed8eb983f5d2535ece1c34c29c9.spatlas"
+
+[deps]
+
+source_file="res://spine_assets/soul_extract.atlas"
+dest_files=["res://.godot/imported/soul_extract.atlas-83c06ed8eb983f5d2535ece1c34c29c9.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

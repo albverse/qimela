@@ -1,6 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3 uid="uid://sxgcc41ivvrs"]
 
-[ext_resource type="Script" path="res://scene/weapons/ghost_fist/ghost_fist.gd" id="1_gf"]
+[ext_resource type="Script" uid="uid://bje711dftmby0" path="res://scene/weapons/ghost_fist/ghost_fist.gd" id="1_gf"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://dx4po7cj5mlxk" path="res://spine_assets/Ghost Fist R.tres" id="2_fublm"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://c7moyhyi77weg" path="res://spine_assets/Ghost Fist L.tres" id="3_o1mwq"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_hitbox"]
 radius = 24.0
@@ -11,13 +13,26 @@ radius = 40.0
 [node name="GhostFist" type="Node2D"]
 script = ExtResource("1_gf")
 
-[node name="ghost_fist_L" type="SpineSprite" parent="."]
-z_index = -2
-
 [node name="ghost_fist_R" type="SpineSprite" parent="."]
+z_index = -2
+position = Vector2(34, 136)
+skeleton_data_res = ExtResource("2_fublm")
+preview_skin = "default"
+preview_animation = "Ghost Fist/idle"
+preview_frame = false
+preview_time = 0.0
+
+[node name="ghost_fist_L" type="SpineSprite" parent="."]
 z_index = -1
+position = Vector2(41, 176)
+skeleton_data_res = ExtResource("3_o1mwq")
+preview_skin = "Default"
+preview_animation = "Ghost Fist/idle"
+preview_frame = false
+preview_time = 0.0
 
 [node name="HitboxL" type="Area2D" parent="."]
+position = Vector2(108, -71)
 collision_layer = 0
 collision_mask = 8
 monitoring = false
@@ -27,6 +42,7 @@ monitorable = false
 shape = SubResource("CircleShape2D_hitbox")
 
 [node name="HitboxR" type="Area2D" parent="."]
+position = Vector2(-47, -139)
 collision_layer = 0
 collision_mask = 8
 monitoring = false
@@ -36,10 +52,9 @@ monitorable = false
 shape = SubResource("CircleShape2D_hitbox")
 
 [node name="LightSensor" type="Area2D" parent="."]
+position = Vector2(11, -85)
 collision_layer = 16
 collision_mask = 16
-monitoring = true
-monitorable = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LightSensor"]
 shape = SubResource("CircleShape2D_light")

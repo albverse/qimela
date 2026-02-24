@@ -14,6 +14,7 @@
 [ext_resource type="SpineSkeletonDataResource" uid="uid://bjsiupofvndxl" path="res://art/player/spine/player_spine.tres" id="9_xf0yl"]
 [ext_resource type="Script" uid="uid://cq08x3g40oedh" path="res://scene/components/player_health.gd" id="10_health"]
 [ext_resource type="Script" uid="uid://ccrhei5vjrhsa" path="res://scene/components/player_animator.gd" id="11_animator"]
+[ext_resource type="PackedScene" uid="uid://sxgcc41ivvrs" path="res://scene/weapons/ghost_fist/ghost_fist.tscn" id="12_ghost_fist"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_dc1pm"]
 radius = 12.0
@@ -24,10 +25,6 @@ shader = ExtResource("4_shader0")
 shader_parameter/burn = 0.0
 shader_parameter/edge_width = 0.08
 shader_parameter/grain_scale = 180.0
-
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_healing_burst"]
-radius = 160.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_82gks"]
 shader = ExtResource("5_shader1")
@@ -42,11 +39,13 @@ shader_parameter/black_spread = 0.12
 shader_parameter/sand_color = Vector4(0.85, 0.78, 0.62, 1)
 shader_parameter/darken = 0.85
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_healing_burst"]
+radius = 160.0
+
 [node name="Player" type="CharacterBody2D"]
 z_index = 1
 collision_layer = 2
 script = ExtResource("1_player")
-chain_interact_mask = 64
 hand_l_path = NodePath("")
 hand_r_path = NodePath("")
 
@@ -124,11 +123,9 @@ width = 15.0
 texture = ExtResource("3_chain")
 texture_mode = 1
 
-
 [node name="HealingBurstArea" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 4
-monitoring = true
 monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HealingBurstArea"]

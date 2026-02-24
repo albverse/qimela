@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://b2g20thr4fj1k"
+path="res://.godot/imported/mainghost_fist_L.skel-1b62f49a2004ff3f7edd966cd0474675.spskel"
+
+[deps]
+
+source_file="res://spine_assets/mainghost_fist_L.skel"
+dest_files=["res://.godot/imported/mainghost_fist_L.skel-1b62f49a2004ff3f7edd966cd0474675.spskel"]
+
+[params]
+
