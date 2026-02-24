@@ -24,64 +24,64 @@ const MODE_FULLBODY_EXCLUSIVE: int = 2
 
 # 动画名映射（locomotion_state → anim name）
 const LOCO_ANIM: Dictionary = {
-	&"Idle": &"idle",
-	&"Walk": &"walk",
-	&"Run": &"run",
-	&"Jump_up": &"jump_up",
-	&"Jump_loop": &"jump_loop",
-	&"Jump_down": &"jump_down",
+	&"Idle": &"Chain/idle",
+	&"Walk": &"Chain/walk",
+	&"Run": &"Chain/run",
+	&"Jump_up": &"Chain/jump_up",
+	&"Jump_loop": &"Chain/jump_loop",
+	&"Jump_down": &"Chain/jump_down",
 }
 
 # loop 表（true=loop）
 const LOCO_LOOP: Dictionary = {
-	&"idle": true,
-	&"walk": true,
-	&"run": true,
-	&"jump_up": false,
-	&"jump_loop": true,
-	&"jump_down": false,
+	&"Chain/idle": true,
+	&"Chain/walk": true,
+	&"Chain/run": true,
+	&"Chain/jump_up": false,
+	&"Chain/jump_loop": true,
+	&"Chain/jump_down": false,
 }
 
 # 动画名映射（action_state → anim name）
 const ACTION_ANIM: Dictionary = {
-	&"Chain_R": &"chain_R",
-	&"Chain_L": &"chain_L",
-	&"ChainCancel_R": &"anim_chain_cancel_R",
-	&"ChainCancel_L": &"anim_chain_cancel_L",
-	&"Fuse": &"fuse_progress",
-	&"Hurt": &"hurt",
-	&"Die": &"die",
+	&"Chain_R": &"Chain/chain_R",
+	&"Chain_L": &"Chain/chain_L",
+	&"ChainCancel_R": &"Chain/anim_chain_cancel_R",
+	&"ChainCancel_L": &"Chain/anim_chain_cancel_L",
+	&"Fuse": &"Chain/fuse_progress",
+	&"Hurt": &"Chain/hurt",
+	&"Die": &"Chain/die",
 }
 
 # Track1 anim → ActionFSM event name
 const ACTION_END_MAP: Dictionary = {
-	&"chain_R": &"anim_end_attack",
-	&"chain_L": &"anim_end_attack",
-	&"anim_chain_cancel_R": &"anim_end_attack_cancel",
-	&"anim_chain_cancel_L": &"anim_end_attack_cancel",
-	&"fuse_progress": &"anim_end_fuse",
-	&"fuse_hurt": &"anim_end_hurt",
-	&"hurt": &"anim_end_hurt",
+	&"Chain/chain_R": &"anim_end_attack",
+	&"Chain/chain_L": &"anim_end_attack",
+	&"Chain/anim_chain_cancel_R": &"anim_end_attack_cancel",
+	&"Chain/anim_chain_cancel_L": &"anim_end_attack_cancel",
+	&"Chain/fuse_progress": &"anim_end_fuse",
+	&"Chain/fuse_hurt": &"anim_end_hurt",
+	&"Chain/hurt": &"anim_end_hurt",
 	# Sword 动画
-	&"sword_light_idle": &"anim_end_attack",
-	&"sword_light_move": &"anim_end_attack",
-	&"sword_light_air": &"anim_end_attack",
+	&"Chain/sword_light_idle": &"anim_end_attack",
+	&"Chain/sword_light_move": &"anim_end_attack",
+	&"Chain/sword_light_air": &"anim_end_attack",
 	# Knife 动画
-	&"knife_light_idle": &"anim_end_attack",
-	&"knife_light_move": &"anim_end_attack",
-	&"knife_light_air": &"anim_end_attack",
+	&"Chain/knife_light_idle": &"anim_end_attack",
+	&"Chain/knife_light_move": &"anim_end_attack",
+	&"Chain/knife_light_air": &"anim_end_attack",
 	# die 是终态，不产生 anim_end
 }
 
 # Track0 anim → LocomotionFSM event name（仅非 loop）
 const LOCO_END_MAP: Dictionary = {
-	&"jump_up": &"anim_end_jump_up",
-	&"jump_down": &"anim_end_jump_down",
+	&"Chain/jump_up": &"anim_end_jump_up",
+	&"Chain/jump_down": &"anim_end_jump_down",
 }
 
 # 手动 Chain 动画：不向 ActionFSM 派发结束事件（避免 state=None 噪音和边缘联动）
 const MANUAL_CHAIN_ANIMS: Array[StringName] = [
-	&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"
+	&"Chain/chain_R", &"Chain/chain_L", &"Chain/anim_chain_cancel_R", &"Chain/anim_chain_cancel_L"
 ]
 
 var _player: Player = null
@@ -221,7 +221,7 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 ## 攻击段播放（三节点同步: PlayerSpine + L + R）
 func play_ghost_fist_attack(stage: int) -> void:
 	var player_anim: StringName = StringName("Ghost Fist/attack_%d" % stage)
-	var weapon_anim: StringName = StringName("ghost_fist_attack_%d" % stage)
+	var weapon_anim: StringName = StringName("Ghost Fist/attack_%d" % stage)
 	_play_on_player_spine(player_anim, false)
 	_play_on_gf_spine(GhostFist.Hand.LEFT, weapon_anim, false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, weapon_anim, false)
@@ -231,24 +231,24 @@ func play_ghost_fist_attack(stage: int) -> void:
 ## Cooldown 播放（三节点同步）
 func play_ghost_fist_cooldown() -> void:
 	_play_on_player_spine(&"Ghost Fist/cooldown", false)
-	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_cooldown", false)
-	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_cooldown", false)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"Ghost Fist/cooldown", false)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"Ghost Fist/cooldown", false)
 	_log_play(0, &"Ghost Fist/cooldown", false)
 
 
 ## Enter 播放（三节点同步）
 func play_ghost_fist_enter() -> void:
 	_play_on_player_spine(&"Ghost Fist/enter", false)
-	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_enter", false)
-	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_enter", false)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"Ghost Fist/enter", false)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"Ghost Fist/enter", false)
 	_log_play(0, &"Ghost Fist/enter", false)
 
 
 ## Exit 播放（三节点同步）
 func play_ghost_fist_exit() -> void:
 	_play_on_player_spine(&"Ghost Fist/exit", false)
-	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_exit", false)
-	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_exit", false)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"Ghost Fist/exit", false)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"Ghost Fist/exit", false)
 	_log_play(0, &"Ghost Fist/exit", false)
 
 
@@ -260,8 +260,8 @@ func switch_ghost_fist_locomotion(key: StringName) -> void:
 	var loop: bool = key in [&"idle", &"walk", &"run", &"jump_loop"]
 	_play_on_player_spine(player_anim, loop)
 	# 武器端在 locomotion 时播放 idle（悬浮跟随）
-	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_idle", true)
-	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_idle", true)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"Ghost Fist/idle", true)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"Ghost Fist/idle", true)
 
 
 ## 内部: 在 PlayerSpine 上播放
@@ -339,20 +339,21 @@ func tick(_dt: float) -> void:
 	# Die 优先级最高：立即阻断手动 chain，并清理 track1
 	if action_state == &"Die":
 		_manual_chain_anim = false
-		if _cur_action_anim != &"" and _cur_action_anim != &"die" and _driver.has_method("stop"):
+		if _cur_action_anim != &"" and _cur_action_anim != &"Chain/die" and _cur_action_anim != &"Ghost Fist/die" and _driver.has_method("stop"):
 			_driver.stop(TRACK_ACTION)
 
 	# === Ghost Fist 模式: 独立 locomotion 驱动 ===
 	if _gf_mode and _ghost_fist != null and _ghost_fist.is_active():
 		# GF 模式下，只在 IDLE 状态时更新 locomotion（攻击/cooldown/enter/exit 由专用方法播放）
 		if _ghost_fist.state == GhostFist.GFState.GF_IDLE:
-			var loco_key: StringName = LOCO_ANIM.get(loco_state, &"idle")
-			var gf_loco_anim: StringName = _get_gf_loco_anim(loco_key)
+			# GF 模式使用基础 locomotion 键（不带 Chain/ 前缀）
+			var base_loco_key: StringName = GF_BASE_LOCO.get(loco_state, &"idle")
+			var gf_loco_anim: StringName = _get_gf_loco_anim(base_loco_key)
 			if gf_loco_anim != _cur_loco_anim:
-				var loop: bool = LOCO_LOOP.get(loco_key, true)
+				var loop: bool = base_loco_key in [&"idle", &"walk", &"run", &"jump_loop"]
 				_play_on_player_spine(gf_loco_anim, loop)
-				_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_idle", true)
-				_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_idle", true)
+				_play_on_gf_spine(GhostFist.Hand.LEFT, &"Ghost Fist/idle", true)
+				_play_on_gf_spine(GhostFist.Hand.RIGHT, &"Ghost Fist/idle", true)
 				_cur_loco_anim = gf_loco_anim
 				_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
@@ -383,7 +384,7 @@ func tick(_dt: float) -> void:
 	var skip_loco_update: bool = (_cur_action_mode == MODE_FULLBODY_EXCLUSIVE or action_state == &"Die")
 
 	if not skip_loco_update:
-		var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
+		var target_loco: StringName = LOCO_ANIM.get(loco_state, &"Chain/idle")
 		if target_loco != _cur_loco_anim:
 			var loop: bool = LOCO_LOOP.get(target_loco, true)
 			_driver.play(TRACK_LOCO, target_loco, loop)
@@ -400,7 +401,7 @@ func tick(_dt: float) -> void:
 			# 清理 action：如果之前是 FULLBODY，需要恢复 locomotion
 			if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE:
 				# 恢复 locomotion track0
-				var target_loco: StringName = LOCO_ANIM.get(loco_state, &"idle")
+				var target_loco: StringName = LOCO_ANIM.get(loco_state, &"Chain/idle")
 				var loop: bool = LOCO_LOOP.get(target_loco, true)
 				_driver.play(TRACK_LOCO, target_loco, loop)
 				_cur_loco_anim = target_loco
@@ -418,16 +419,16 @@ func tick(_dt: float) -> void:
 		# === 委托式选动画：根据 action_state 和武器类型 ===
 		# Hurt / Die 使用固定映射（OVERLAY）
 		if action_state == &"Fuse":
-			target_action = &"fuse_progress"
+			target_action = &"Chain/fuse_progress"
 			action_mode = MODE_FULLBODY_EXCLUSIVE
 		elif action_state == &"Hurt":
 			if _player.action_fsm != null and _player.action_fsm.has_method("should_use_fuse_hurt_anim") and _player.action_fsm.should_use_fuse_hurt_anim():
-				target_action = &"fuse_hurt"
+				target_action = &"Chain/fuse_hurt"
 			else:
-				target_action = &"hurt"
+				target_action = &"Chain/hurt"
 			action_mode = MODE_OVERLAY_UPPER
 		elif action_state == &"Die":
-			target_action = &"die"
+			target_action = &"Chain/die"
 			action_mode = MODE_FULLBODY_EXCLUSIVE
 		
 		# AttackCancel_R / AttackCancel_L：使用固定cancel动画（OVERLAY）
@@ -440,7 +441,7 @@ func tick(_dt: float) -> void:
 					target_action = StringName(anim_name)
 			# Fallback
 			if target_action == &"":
-				target_action = &"anim_chain_cancel_R" if side == "R" else &"anim_chain_cancel_L"
+				target_action = &"Chain/anim_chain_cancel_R" if side == "R" else &"Chain/anim_chain_cancel_L"
 			action_mode = MODE_OVERLAY_UPPER
 		
 		# Attack_R / Attack_L：使用 WeaponController 委托
@@ -456,7 +457,7 @@ func tick(_dt: float) -> void:
 			
 			# Fallback: chain
 			if target_action == &"":
-				target_action = &"chain_R" if action_state == &"Attack_R" else &"chain_L"
+				target_action = &"Chain/chain_R" if action_state == &"Attack_R" else &"Chain/chain_L"
 				action_mode = MODE_OVERLAY_UPPER
 		
 		if target_action != &"" and target_action != _cur_action_anim:
@@ -496,7 +497,7 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 		# === P0 FIX: FULLBODY_EXCLUSIVE 动画播放在 track0，完成事件应走 ACTION 分发 ===
 		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim == anim_name:
 			# die 是终态：不清空、不恢复、不发事件
-			if anim_name == &"die":
+			if anim_name == &"Chain/die" or anim_name == &"Ghost Fist/die":
 				return
 			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
 			if action_event != &"":
@@ -515,7 +516,7 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 
 	elif track == TRACK_ACTION:
 		# === 清除手动 chain 动画标志 ===
-		if anim_name in [&"chain_R", &"chain_L", &"anim_chain_cancel_R", &"anim_chain_cancel_L"]:
+		if anim_name in [&"Chain/chain_R", &"Chain/chain_L", &"Chain/anim_chain_cancel_R", &"Chain/anim_chain_cancel_L"]:
 			_manual_chain_anim = false
 
 		var event: StringName = ACTION_END_MAP.get(anim_name, &"")
@@ -523,7 +524,7 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			_player.on_action_anim_end(event)
 
 		# die 是终态，不清空 _cur_action_anim，防止下一帧重新播放
-		if anim_name != &"die":
+		if anim_name != &"Chain/die" and anim_name != &"Ghost Fist/die":
 			_cur_action_anim = &""
 
 
@@ -561,7 +562,7 @@ func play_chain_fire(slot_idx: int) -> void:
 		return
 	
 	# 根据 slot 确定动画名
-	var anim_name: StringName = &"chain_R" if slot_idx == 0 else &"chain_L"
+	var anim_name: StringName = &"Chain/chain_R" if slot_idx == 0 else &"Chain/chain_L"
 	
 	# 直接播放在 track1（overlay）
 	_driver.play(TRACK_ACTION, anim_name, false)
@@ -581,9 +582,9 @@ func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 
 	var anim_name: StringName = &""
 	if right_active:
-		anim_name = &"anim_chain_cancel_R"
+		anim_name = &"Chain/anim_chain_cancel_R"
 	elif left_active:
-		anim_name = &"anim_chain_cancel_L"
+		anim_name = &"Chain/anim_chain_cancel_L"
 	else:
 		return
 
@@ -593,6 +594,16 @@ func play_chain_cancel(right_active: bool, left_active: bool) -> void:
 	_driver.play(TRACK_ACTION, anim_name, false)
 	_log_play(TRACK_ACTION, anim_name, false)
 
+
+# ── GF locomotion: loco_state → 基础键 ──
+const GF_BASE_LOCO: Dictionary = {
+	&"Idle": &"idle",
+	&"Walk": &"walk",
+	&"Run": &"run",
+	&"Jump_up": &"jump_up",
+	&"Jump_loop": &"jump_loop",
+	&"Jump_down": &"jump_down",
+}
 
 # ── GF locomotion 映射 ──
 const GF_LOCO_MAP: Dictionary = {
