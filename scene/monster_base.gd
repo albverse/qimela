@@ -192,6 +192,29 @@ func apply_stun(seconds: float, do_flash: bool = true) -> void:
 		_flash_once()
 	stunned_t = max(stunned_t, stun_time)
 
+## apply_hit: 通用命中接口（由武器模块调用）
+## 返回 true = 伤害生效，false = 被格挡/无效
+func apply_hit(hit: HitData) -> bool:
+	if hit == null:
+		return false
+	if not has_hp or hp <= 0:
+		return false
+	# 虚弱锁血期间：闪白但不扣血，仍返回 true 表示命中生效
+	if hp_locked:
+		_flash_once()
+		if hit.flags & HitData.Flags.STAGGER and not is_stunned():
+			apply_stun(hit_stun_time, false)
+		return true
+	hp = max(hp - hit.damage, 0)
+	_flash_once()
+	if hit.flags & HitData.Flags.STAGGER and not is_stunned():
+		apply_stun(hit_stun_time, false)
+	_update_weak_state()
+	if hp <= 0 and not hp_locked:
+		_on_death()
+	return true
+
+
 func apply_healing_burst_stun() -> void:
 	# 被治愈精灵大爆炸击中时的眩晕（使用怪物自身配置的时长）
 	if healing_burst_stun_time > 0.0:
