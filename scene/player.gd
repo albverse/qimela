@@ -83,6 +83,7 @@ var chain_sys = null  # Phase0: PlayerChainSystemStub; Phase1+: PlayerChainSyste
 var health: PlayerHealth = null
 var animator: PlayerAnimator = null
 var weapon_controller: WeaponController = null
+var ghost_fist: GhostFist = null
 
 # ── HealingSprite 持有与使用 ──
 @export var max_healing_sprites: int = 3
@@ -131,6 +132,11 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
+	# Ghost Fist 引用（Visual 子节点）
+	ghost_fist = get_node_or_null(^"Visual/GhostFist") as GhostFist
+	if ghost_fist == null:
+		push_warning("[Player] GhostFist not found under Visual — GhostFist weapon disabled")
+
 	# setup 注入
 	movement.setup(self)
 	loco_fsm.setup(self)
@@ -141,6 +147,11 @@ func _ready() -> void:
 	if health.has_method("setup"):
 		health.call("setup", self)
 	animator.setup(self)
+	# Ghost Fist setup（在 animator.setup 之后）
+	if ghost_fist != null:
+		ghost_fist.setup(self)
+		animator.setup_ghost_fist(ghost_fist)
+		ghost_fist.state_changed.connect(_on_ghost_fist_state_changed)
 
 	# 信号连接: Health.damage_applied → ActionFSM.on_damaged
 	if health.has_signal("damage_applied"):
@@ -249,9 +260,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Z / switch weapon
 	if _is_action_just_pressed(event, &"", KEY_Z):
 		if weapon_controller != null:
+			var was_gf: bool = weapon_controller.is_ghost_fist()
 			weapon_controller.switch_weapon()
+			var is_gf: bool = weapon_controller.is_ghost_fist()
+			# GhostFist exit → enter 转换
+			if was_gf and not is_gf:
+				_deactivate_ghost_fist()
 			if action_fsm != null and action_fsm.has_method("on_weapon_switched"):
 				action_fsm.on_weapon_switched()
+			if not was_gf and is_gf:
+				_activate_ghost_fist()
 		return
 
 	# Space / fuse
@@ -281,10 +299,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		is_m_pressed = true
 	
 	if is_m_pressed:
+		# === Ghost Fist 专用路径 ===
+		if weapon_controller != null and weapon_controller.is_ghost_fist():
+			_on_ghost_fist_attack_input()
+			return
+
 		# 检查当前武器是否为 Chain
-		var is_chain: bool = (weapon_controller != null and 
+		var is_chain: bool = (weapon_controller != null and
 							  weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN)
-		
+
 		if is_chain:
 			# 若当前槽位已链接奇美拉，优先触发互动（不进入融合/再发射流程）
 			if chain_sys != null:
@@ -360,6 +383,62 @@ func _unhandled_input(event: InputEvent) -> void:
 			# 非Chain武器：走ActionFSM标准流程
 			action_fsm.on_x_pressed()
 			return
+
+# ── Ghost Fist 管理 ──
+
+func _activate_ghost_fist() -> void:
+	if ghost_fist == null:
+		return
+	ghost_fist.activate()
+	if animator != null:
+		animator.set_gf_mode(true)
+		animator.play_ghost_fist_enter()
+	log_msg("WEAPON", "GhostFist ACTIVATED → GF_ENTER")
+
+
+func _deactivate_ghost_fist() -> void:
+	if ghost_fist == null:
+		return
+	ghost_fist.deactivate()
+	if animator != null:
+		animator.play_ghost_fist_exit()
+		# GF exit 动画播放后由 on_animation_complete 切 gf_mode = false
+		# 这里延迟关闭 gf_mode 以让 exit 动画播放完
+		var tw: Tween = create_tween()
+		tw.tween_interval(0.5)
+		tw.tween_callback(func() -> void:
+			if animator != null:
+				animator.set_gf_mode(false)
+		)
+	log_msg("WEAPON", "GhostFist DEACTIVATED → GF_EXIT")
+
+
+func _on_ghost_fist_attack_input() -> void:
+	if ghost_fist == null:
+		return
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.HURT:
+		return
+	# 由 GhostFist.state_changed 信号统一驱动 Animator 播放
+	ghost_fist.on_attack_input()
+
+
+func _on_ghost_fist_state_changed(new_state: int, context: StringName) -> void:
+	## 由 GhostFist.state_changed 信号触发
+	## 处理 combo_check → 续段攻击 或 cooldown 的动画播放
+	if animator == null:
+		return
+	match new_state:
+		GhostFist.GFState.GF_ATTACK_1, GhostFist.GFState.GF_ATTACK_2, \
+		GhostFist.GFState.GF_ATTACK_3, GhostFist.GFState.GF_ATTACK_4:
+			var stage: int = new_state - GhostFist.GFState.GF_ATTACK_1 + 1
+			animator.play_ghost_fist_attack(stage)
+			log_msg("GF", "combo → stage=%d" % stage)
+		GhostFist.GFState.GF_COOLDOWN:
+			animator.play_ghost_fist_cooldown()
+			log_msg("GF", "→ cooldown")
+
 
 # ── Animator → FSM 回调转发 ──
 

@@ -7,7 +7,7 @@ class_name WeaponController
 ## - 根据 Context + 武器配置返回动画名
 ## - Z键切换武器
 
-enum WeaponType { CHAIN, SWORD, KNIFE }
+enum WeaponType { CHAIN, SWORD, KNIFE, GHOST_FIST }
 enum AttackMode { 
 	OVERLAY_UPPER,      # 上半身叠加（Chain）
 	OVERLAY_CONTEXT,    # 上半身叠加 + context 选择（Sword/Knife）
@@ -78,6 +78,16 @@ func _init_weapon_defs() -> void:
 		}
 	}
 
+	# GhostFist: FULLBODY_EXCLUSIVE - 攻击由 GhostFist 模块自行管理
+	_weapon_defs[WeaponType.GHOST_FIST] = {
+		"name": "GhostFist",
+		"attack_mode": AttackMode.FULLBODY_EXCLUSIVE,
+		"lock_anim_until_end": true,
+		"ghost_fist": true,  # 标记：攻击由 GhostFist 模块管理，不走标准动画选取
+		"anim_map": {},
+		"cancel_anim": {},
+	}
+
 
 ## attack: 获取攻击动画名
 ## context: "ground_idle" / "ground_move" / "air"
@@ -137,13 +147,15 @@ func switch_weapon() -> void:
 	var old_weapon: int = current_weapon
 	var old_name: String = _weapon_defs.get(old_weapon, {}).get("name", "?")
 	
-	# Chain → Sword → Knife → Chain（循环）
+	# Chain → Sword → Knife → GhostFist → Chain（循环）
 	match current_weapon:
 		WeaponType.CHAIN:
 			current_weapon = WeaponType.SWORD
 		WeaponType.SWORD:
 			current_weapon = WeaponType.KNIFE
 		WeaponType.KNIFE:
+			current_weapon = WeaponType.GHOST_FIST
+		WeaponType.GHOST_FIST:
 			current_weapon = WeaponType.CHAIN
 		_:
 			current_weapon = WeaponType.CHAIN
@@ -157,3 +169,8 @@ func switch_weapon() -> void:
 ## get_weapon_name: 获取当前武器名（用于日志）
 func get_weapon_name() -> String:
 	return _weapon_defs.get(current_weapon, {}).get("name", "?")
+
+
+## is_ghost_fist: 当前武器是否为 GhostFist
+func is_ghost_fist() -> bool:
+	return current_weapon == WeaponType.GHOST_FIST
