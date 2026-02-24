@@ -171,15 +171,19 @@ func _connect_gf_signals() -> void:
 	for node: SpineSprite in [_gf_L, _gf_R]:
 		if node == null:
 			continue
+		# Capture node ref for lambda — spine-godot signals do NOT pass SpineSprite as arg
+		var target_node: SpineSprite = node
 		if node.has_signal("animation_event"):
+			# spine-godot signal: animation_event(track_entry, event)
 			node.animation_event.connect(
-				func(ss: SpineSprite, _entry, event) -> void:
-					_on_gf_spine_event(ss, event)
+				func(track_entry, event = null) -> void:
+					_on_gf_spine_event(target_node, event)
 			)
 		if node.has_signal("animation_completed"):
+			# spine-godot signal: animation_completed(track_entry)
 			node.animation_completed.connect(
-				func(ss: SpineSprite, entry) -> void:
-					_on_gf_anim_complete(ss, entry)
+				func(track_entry, _arg2 = null) -> void:
+					_on_gf_anim_complete(target_node, track_entry)
 			)
 
 
@@ -502,6 +506,9 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
 			if action_event != &"":
 				_player.on_action_anim_end(action_event)
+			# GF mode: player spine 完成也触发 GF 状态转移（双保险）
+			if _gf_mode and _ghost_fist != null:
+				_ghost_fist.on_animation_complete(anim_name)
 			# FULLBODY 结束：恢复状态，让下一帧 tick 重新评估 loco
 			_cur_action_anim = &""
 			_cur_action_mode = -1
