@@ -18,7 +18,7 @@ z_index = -2
 position = Vector2(34, 136)
 skeleton_data_res = ExtResource("2_fublm")
 preview_skin = "default"
-preview_animation = "Ghost Fist/idle"
+preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
 
@@ -27,7 +27,7 @@ z_index = -1
 position = Vector2(41, 176)
 skeleton_data_res = ExtResource("3_o1mwq")
 preview_skin = "Default"
-preview_animation = "Ghost Fist/idle"
+preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
 
