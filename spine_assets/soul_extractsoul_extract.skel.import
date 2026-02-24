@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://bdt3go8xty7jl"
+path="res://.godot/imported/soul_extractsoul_extract.skel-affb1549066e5346362a6c97dea72b01.spskel"
+
+[deps]
+
+source_file="res://spine_assets/soul_extractsoul_extract.skel"
+dest_files=["res://.godot/imported/soul_extractsoul_extract.skel-affb1549066e5346362a6c97dea72b01.spskel"]
+
+[params]
+

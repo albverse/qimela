@@ -14,7 +14,7 @@ const STATE_NAMES: Array[StringName] = [
 ]
 
 var state: int = State.IDLE
-var _player: CharacterBody2D = null
+var _player: Player = null
 var _prev_on_floor: bool = true
 
 ## S3: 卡死保护 - Jump_down 超时
@@ -26,7 +26,7 @@ func state_name() -> StringName:
 	return STATE_NAMES[state] if state >= 0 and state < STATE_NAMES.size() else &"?"
 
 
-func setup(player: CharacterBody2D) -> void:
+func setup(player: Player) -> void:
 	_player = player
 	state = State.IDLE
 	_prev_on_floor = true

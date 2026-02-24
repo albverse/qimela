@@ -1,6 +1,7 @@
-# 0_ROUTER.md（主索引，2026-02-02更新）
+# 0_ROUTER.md（主索引，2026-02-22更新）
 
-> **使用方式**：默认只读本文件。触发器命中时才读对应模块文档。
+> **AI 写代码首选入口：[GAME_ARCHITECTURE_MASTER.md](GAME_ARCHITECTURE_MASTER.md)**
+> 本文件是旧版路由器，仍然有效。遇到具体实现问题请查阅 `docs/detail/` 子文档。
 
 ---
 
@@ -8,11 +9,13 @@
 
 | 文档 | 用途 | 触发器 |
 |------|------|--------|
+| **GAME_ARCHITECTURE_MASTER.md** | **游戏结构大全（AI首选）** | **任何功能查询** |
 | A_PHYSICS_LAYER_TABLE.md | 碰撞层/bitmask | collision_layer, mask, RayCast, Area2D |
 | B_GAMEPLAY_RULES.md | 玩法规则/输入/状态 | 输入, weak, stun, 天气, 雷花 |
 | C_ENTITY_DIRECTORY.md | 实体目录（唯一真相） | species_id, attribute, ui_icon |
 | D_FUSION_RULES.md | 融合规则（唯一真相） | 融合, fusion, check_fusion |
 | HOWTO_ADD_ENTITY.md | 添加新实体教程 | 新怪物, 新奇美拉 |
+| **detail/*.md** | **各模块详细实现文档** | 具体实现细节 |
 
 ---
 

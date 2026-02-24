@@ -16,8 +16,8 @@ func _ready() -> void:
 	species_id = &"walk_dark_b"  # 物种ID（不同于walk_dark）
 	attribute_type = AttributeType.DARK  # 属性：暗
 	size_tier = SizeTier.SMALL  # 型号：小型
-	entity_type = EntityType.MONSTER  # 类型：怪物
-	
+	# entity_type 已由 MonsterBase._ready() 统一设置
+
 	# ===== HP设置 =====
 	max_hp = 4  # 最大HP
 	weak_hp = 1  # HP≤1时进入虚弱

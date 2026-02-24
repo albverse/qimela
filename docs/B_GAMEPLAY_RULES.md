@@ -143,15 +143,25 @@ IDLE → FLYING → STUCK/LINKED → DISSOLVING → IDLE
 
 ## 9. 奇美拉行为 ✅
 
+> **注意：** 并非所有奇美拉都能被锁链链接或跟随玩家。
+> 不同奇美拉有各自独立的行为规则，需分别定义。
+
 ### ChimeraA（跟随型）
-- 跟随玩家移动
+- 可被锁链链接（on_chain_hit 返回 1）
+- 链接后跟随玩家移动
 - 被锁链命中：闪白 + 跟随链接槽对应的手
 
-### ChimeraStoneSnake（攻击型）
-- 跟随玩家
-- 定时发射子弹
-- 子弹命中敌人：造成伤害
-- 子弹命中玩家：僵直效果
+### ChimeraStoneSnake（攻击型，不可链接）
+- **无法被锁链链接**（on_chain_hit 返回 0）
+- **不跟随玩家**（follow_player_when_linked = false）
+- 定时发射子弹攻击玩家
+- 子弹命中玩家：造成僵直效果（Player.apply_stun），不扣血
+- 属于具有攻击性的奇美拉，不适用"命中后跟随"的通用规则
+
+### 奇美拉互动（计划中）
+- 接口：`ChimeraBase.on_player_interact(player: Player)`
+- 触发：当玩家活跃槽位链接了奇美拉时，左键优先触发互动
+- 各子类需要重写此方法实现具体互动效果
 
 ---
 

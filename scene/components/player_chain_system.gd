@@ -4,26 +4,6 @@ class_name PlayerChainSystem
 ## ============================================================================
 ## PlayerChainSystem - 终极整合版 (Zip1 物理 + Zip2 Spine + 完整修复)
 ## ============================================================================
-## 
-## 版本历史:
-## - Zip1: 完美的Verlet绳索物理系统，但只支持Marker2D
-## - Zip2: 添加Spine支持，但物理参数不完整
-## - 本版本: 100%保留Zip1物理 + 支持Spine骨骼锚点 + Phase 1接口
-##
-## 核心特性:
-## ✅ Zip1的26个美术参数（rope_segments, rope_wave_amp等）
-## ✅ 完整的Verlet绳索模拟（_sim_rope方法）
-## ✅ 自然波动叠加系统
-## ✅ Spine骨骼锚点支持（chain_anchor_r/l）
-## ✅ Marker2D fallback兼容
-## ✅ Phase 1兼容接口（fire/cancel/release）
-## ✅ 连续双发支持（pick_fire_side）
-## ✅ 受击策略（cancel_volatile_on_damage）
-##
-## 美术调参入口:
-## 所有参数都在 Player.gd 中定义为 @export 变量，美术可在Inspector直接调整
-##
-## ============================================================================
 
 enum ChainState { IDLE, FLYING, STUCK, LINKED, DISSOLVING }
 
@@ -32,7 +12,6 @@ var hand_l: Node2D  # Marker2D（可选，Spine模式下可以为null）
 var hand_r: Node2D  # Marker2D（可选，Spine模式下可以为null）
 
 var _burn_shader: Shader = null
-var _chimera: Node = null
 var _fuse_cast_active: bool = false
 var _fuse_cast_id: int = 0
 var _fuse_result: Dictionary = {}
@@ -185,7 +164,7 @@ class ChainSlot:
 	var linked_target: Node2D = null
 	var linked_offset: Vector2 = Vector2.ZERO
 	var interacted: Dictionary = {}
-	
+
 	var struggle_timer: float = 0.0
 	var struggle_max: float = 5.0
 	var is_chimera: bool = false
@@ -217,7 +196,7 @@ func _ready() -> void:
 		push_error("[ChainSystem] chain line paths invalid.")
 		set_process(false)
 		return
-	
+
 	# 警告：仅在既无手部Marker也无Animator锚点接口时提示
 	if hand_l == null and hand_r == null:
 		var has_anim_anchor: bool = false
@@ -255,7 +234,7 @@ func _ready() -> void:
 ##=== Phase 1 兼容接口方法（供ActionFSM调用）===##
 
 ## setup(player): 兼容显式setup调用（可选）
-func setup(p: CharacterBody2D) -> void:
+func setup(p: Player) -> void:
 	if p != null:
 		player = p as Player
 
@@ -273,21 +252,20 @@ func fire(side: String) -> void:
 		# 如果有action_fsm，也检查DIE状态
 		if player.has_node("Components/ActionFSM"):
 			var action_fsm = player.get_node("Components/ActionFSM")
-			# === 修复：使用 state_name() 方法而不是反射 ===
 			if action_fsm != null and action_fsm.has_method("state_name"):
 				var current_state_name: StringName = action_fsm.state_name()
 				if current_state_name == &"Die":
 					if player.has_method("log_msg"):
 						player.log_msg("CHAIN", "fire(%s) REJECTED: state=Die" % side)
 					return
-	
+
 	var slot: int = 0 if side == "R" else 1
 	if slot < 0 or slot >= chains.size():
 		return
-	
+
 	_fire_chain_at_slot(slot)
 	_play_chain_fire_anim(slot)
-	
+
 	if player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "fire(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
 
@@ -296,7 +274,7 @@ func fire(side: String) -> void:
 func cancel(side: String) -> void:
 	var slot: int = 0 if side == "R" else 1
 	force_dissolve_chain(slot)
-	
+
 	if player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "cancel(%s) sR=%s sL=%s" % [side, str(slot_R_available), str(slot_L_available)])
 
@@ -321,12 +299,12 @@ func release(side: String) -> void:
 		# LINKED状态应该保持，直到玩家主动X取消或超时/机制解除
 		if c.state != ChainState.IDLE and c.state != ChainState.LINKED:
 			_finish_chain(slot)
-	
+
 	if player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "release(%s) state=%s sR=%s sL=%s" % [
-			side, 
+			side,
 			ChainState.keys()[chains[slot].state] if slot < chains.size() else "?",
-			str(slot_R_available), 
+			str(slot_R_available),
 			str(slot_L_available)
 		])
 
@@ -337,29 +315,18 @@ func release(side: String) -> void:
 func pick_fire_slot() -> int:
 	if chains.size() < 2:
 		return -1
-	
+
 	# 优先 active_slot
 	if chains[active_slot].state == ChainState.IDLE:
 		return active_slot
-	
+
 	# 其次尝试另一个 slot
 	var other_slot: int = 1 - active_slot
 	if chains[other_slot].state == ChainState.IDLE:
 		return other_slot
-	
+
 	# 都忙
 	return -1
-
-
-## pick_fire_side(): 返回应该发射的手 "R" / "L" / ""
-func pick_fire_side() -> String:
-	var slot: int = pick_fire_slot()
-	if slot == 0:
-		return "R"
-	elif slot == 1:
-		return "L"
-	else:
-		return ""
 
 
 ## switch_slot(): 手动切换 active_slot（由 Tab 键触发）
@@ -369,7 +336,7 @@ func switch_slot() -> void:
 		active_slot = new_slot
 		if EventBus != null and EventBus.has_method("emit_slot_switched"):
 			EventBus.emit_slot_switched(active_slot)
-		
+
 		if player != null and player.has_method("log_msg"):
 			player.log_msg("CHAIN", "switch_slot → active_slot=%d" % active_slot)
 
@@ -379,15 +346,15 @@ func switch_slot() -> void:
 ## cancel_volatile_on_damage(): 受击时取消 FLYING/STUCK，但保留 LINKED
 func cancel_volatile_on_damage() -> void:
 	var cancelled_any: bool = false
-	
+
 	for i in range(chains.size()):
 		var c: ChainSlot = chains[i]
-		
+
 		# 只取消 FLYING 和 STUCK，LINKED 保留
 		if c.state == ChainState.FLYING or c.state == ChainState.STUCK:
 			force_dissolve_chain(i)
 			cancelled_any = true
-	
+
 	if cancelled_any and player != null and player.has_method("log_msg"):
 		player.log_msg("CHAIN", "cancel_volatile_on_damage: cancelled FLYING/STUCK chains")
 
@@ -396,30 +363,29 @@ func cancel_volatile_on_damage() -> void:
 func _fire_chain_at_slot(idx: int) -> void:
 	if idx < 0 or idx >= chains.size():
 		return
-	
+
 	var c: ChainSlot = chains[idx]
 	if c.state != ChainState.IDLE:
 		return  # 槽位已被占用
-	
-	# === Zip2核心修复: 使用_get_hand_position而不是直接访问Marker2D ===
+
 	var start: Vector2 = _get_hand_position(c.use_right_hand)
 	var target: Vector2 = player.get_global_mouse_position()
-	
+
 	var dir: Vector2 = target - start
 	if dir.length() < 0.001:
 		dir = Vector2(float(player.facing), 0.0)
 	else:
 		dir = dir.normalized()
-	
+
 	_init_rope_buffers(c)
 	_prealloc_line_points(c)
 	_rebuild_weight_cache_if_needed(c)
-	
+
 	_detach_link_if_needed(idx)
-	
+
 	c.interacted.clear()
 	_try_interact_from_inside(idx, start)
-	
+
 	c.state = ChainState.FLYING
 	c.end_pos = start
 	c.end_vel = dir * player.chain_speed
@@ -427,26 +393,25 @@ func _fire_chain_at_slot(idx: int) -> void:
 	c.hold_t = 0.0
 	c.wave_amp = player.rope_wave_amp
 	c.wave_phase = 0.0
-	
+
 	c.line.visible = true
 	c.line.material = null
 	c.line.modulate = Color.WHITE
-	
+
 	_reset_rope_line(c, start, c.end_pos)
+	_apply_rope_to_line_fast(c)
 	c.prev_start = start
 	c.prev_end = c.end_pos
-	
+
 	# 发射信号通知其他系统
 	if EventBus != null and EventBus.has_method("emit_chain_fired"):
 		EventBus.emit_chain_fired(idx)
-	
+
 	_switch_to_available_slot(idx)
 
 
 ##=== Zip2核心新增：锚点获取逻辑（Spine优先 → Marker2D fallback）===##
 
-## _get_hand_position: 获取手部锚点位置
-## 优先级：Animator骨骼桥接 → Marker2D → player坐标
 func _get_hand_position(use_right_hand: bool) -> Vector2:
 	# 1) 优先：通过 Animator 公开接口获取 Spine 骨骼位置
 	if player.has_node("Animator"):
@@ -463,21 +428,12 @@ func _get_hand_position(use_right_hand: bool) -> Vector2:
 	return player.global_position
 
 
-##=== Zip1原有方法（100%保留，只修改hand_r.global_position为_get_hand_position）===##
-
-
 func tick(dt: float) -> void:
-	# 死亡态：立即跳过链更新（链已由ActionFSM进入Die时清空）
+	# 死亡态：立即跳过链更新
 	if player != null and player.action_fsm != null and player.action_fsm.state == PlayerActionFSM.State.DIE:
 		return
 	for i: int in range(chains.size()):
 		_update_chain(i, dt)
-
-
-## [DEPRECATED] 旧版独立输入处理 — 输入已统一由 player.gd _unhandled_input 管理
-## 保留方法签名以防外部引用，但内部不再处理任何输入
-func handle_unhandled_input(_event: InputEvent) -> void:
-	pass
 
 
 func _find_player() -> Player:
@@ -485,10 +441,6 @@ func _find_player() -> Player:
 	while p != null and not (p is Player):
 		p = p.get_parent()
 	return p as Player
-
-
-func _has_action(a: StringName) -> bool:
-	return InputMap.has_action(a)
 
 
 func _setup_chain_slot(c: ChainSlot) -> void:
@@ -558,18 +510,6 @@ func _rebuild_weight_cache_if_needed(c: ChainSlot) -> void:
 		c.w_start[k] = pow(1.0 - t, 1.6)
 
 
-func _resolve_monster(n: Node) -> MonsterBase:
-	var cur: Node = n
-	for _i: int in range(6):
-		if cur == null:
-			return null
-		var mb: MonsterBase = cur as MonsterBase
-		if mb != null:
-			return mb
-		cur = cur.get_parent()
-	return null
-
-
 func _resolve_entity(n: Node) -> EntityBase:
 	var cur: Node = n
 	for _i: int in range(6):
@@ -582,72 +522,12 @@ func _resolve_entity(n: Node) -> EntityBase:
 	return null
 
 
-func _switch_slot() -> void:
-	active_slot = 1 - active_slot
-	if EventBus != null and EventBus.has_method("emit_slot_switched"):
-		EventBus.emit_slot_switched(active_slot)
-
-
 func _switch_to_available_slot(from_slot: int) -> void:
 	var other_slot: int = 1 - from_slot
 	if chains[other_slot].state == ChainState.IDLE and active_slot != other_slot:
 		active_slot = other_slot
 		if EventBus != null and EventBus.has_method("emit_slot_switched"):
 			EventBus.emit_slot_switched(active_slot)
-
-
-func _try_fire_chain() -> void:
-	if chains.size() < 2:
-		return
-
-	var idx: int = -1
-	if chains[active_slot].state == ChainState.IDLE:
-		idx = active_slot
-	elif chains[1 - active_slot].state == ChainState.IDLE:
-		idx = 1 - active_slot
-	else:
-		return
-
-	var c: ChainSlot = chains[idx]
-	# === Zip2核心修复: 使用_get_hand_position ===
-	var start: Vector2 = _get_hand_position(c.use_right_hand)
-	var target: Vector2 = player.get_global_mouse_position()
-
-	var dir: Vector2 = target - start
-	if dir.length() < 0.001:
-		dir = Vector2(float(player.facing), 0.0)
-	else:
-		dir = dir.normalized()
-
-	_init_rope_buffers(c)
-	_prealloc_line_points(c)
-	_rebuild_weight_cache_if_needed(c)
-
-	_detach_link_if_needed(idx)
-
-	c.interacted.clear()
-	_try_interact_from_inside(idx, start)
-
-	c.state = ChainState.FLYING
-	c.end_pos = start
-	c.end_vel = dir * player.chain_speed
-	c.fly_t = 0.0
-	c.hold_t = 0.0
-	c.wave_amp = player.rope_wave_amp
-	c.wave_phase = 0.0
-
-	c.line.visible = true
-	c.line.material = null
-	c.line.modulate = Color.WHITE
-
-	_reset_rope_line(c, start, c.end_pos)
-	c.prev_start = start
-	c.prev_end = c.end_pos
-	
-	if EventBus != null and EventBus.has_method("emit_chain_fired"):
-		EventBus.emit_chain_fired(idx)
-	
-	_switch_to_available_slot(idx)
 
 
 func _try_interact_from_inside(slot: int, start: Vector2) -> void:
@@ -679,7 +559,6 @@ func _update_chain(i: int, dt: float) -> void:
 	if c.state == ChainState.IDLE:
 		return
 
-	# === Zip2核心修复: 使用_get_hand_position ===
 	var start: Vector2 = _get_hand_position(c.use_right_hand)
 
 	if c.state != ChainState.DISSOLVING:
@@ -703,7 +582,7 @@ func _update_chain(i: int, dt: float) -> void:
 			if start.distance_to(c.end_pos) > player.chain_max_length:
 				_begin_burn_dissolve(i)
 				return
-			
+
 			if not c.is_chimera:
 				c.struggle_timer += dt
 				var progress: float = c.struggle_timer / c.struggle_max
@@ -771,18 +650,18 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 	var rid: RID = area.get_rid()
 	if c.interacted.has(rid):
 		return
-	
+
 	if debug_interact:
 		var debug_host: Node = area.owner
 		if debug_host == null:
 			debug_host = area.get_parent()
 		var host_name: String = String(debug_host.name) if debug_host != null else ""
 		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
-	
+
 	var host: Node = area.get_parent()
 	if host == null:
 		return
-	
+
 	if host.has_method("on_chain_hit"):
 		var result: int = int(host.call("on_chain_hit", player, slot))
 		if result != 0:
@@ -794,7 +673,7 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 		return
 	var c: ChainSlot = chains[slot]
 	var other_slot: int = 1 - slot
-	
+
 	if chains[other_slot].state == ChainState.LINKED:
 		if chains[other_slot].linked_target == target:
 			if target != null and target.has_method("take_damage"):
@@ -803,7 +682,7 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 			return
 
 	_detach_link_if_needed(slot)
-	
+
 	c.state = ChainState.LINKED
 	c.linked_target = target
 	c.linked_offset = (hit_pos - target.global_position) if target != null else Vector2.ZERO
@@ -813,7 +692,7 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 
 	if target != null and target.has_method("on_chain_attached"):
 		target.call("on_chain_attached", slot)
-	
+
 	var attr_type: int = -1
 	var icon_id: int = -1
 	if target != null:
@@ -821,7 +700,7 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 			attr_type = target.call("get_attribute_type")
 		if target.has_method("get_icon_id"):
 			icon_id = target.call("get_icon_id")
-	
+
 	var should_show_anim: bool = c.is_chimera
 	if not c.is_chimera:
 		if target != null and target.has_method("get_weak_state"):
@@ -844,7 +723,7 @@ func _detach_link_if_needed(slot: int) -> void:
 	c.linked_offset = Vector2.ZERO
 	c.struggle_timer = 0.0
 	c.is_chimera = false
-	
+
 	if c.state == ChainState.LINKED:
 		if EventBus != null and EventBus.has_method("emit_chain_released"):
 			EventBus.emit_chain_released(slot, &"detached")
@@ -876,7 +755,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	c.burn_mat.set_shader_parameter("burn", 0.0)
 	c.line.visible = true
 	c.state = ChainState.DISSOLVING
-	
+
 	if EventBus != null and EventBus.has_method("emit_chain_released"):
 		EventBus.emit_chain_released(i, &"dissolve")
 
@@ -895,7 +774,8 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	)
 
 
-func _force_dissolve_all_chains() -> void:
+## R2合并：force_dissolve_all_chains 直接包含逻辑
+func force_dissolve_all_chains() -> void:
 	for i: int in range(chains.size()):
 		var c: ChainSlot = chains[i]
 		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
@@ -914,10 +794,6 @@ func force_dissolve_chain(slot: int) -> void:
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
 	_begin_burn_dissolve(slot, player.cancel_dissolve_time, true)
-
-
-func force_dissolve_all_chains() -> void:
-	_force_dissolve_all_chains()
 
 
 ## hard_clear_all_chains(reason): 立即清空所有链条（用于死亡/场景重置）
@@ -940,7 +816,6 @@ func _hard_reset_slot(i: int) -> void:
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
-	# 先 detach 再改 state，确保 LINKED 时会正确发出 chain_released 事件（驱动UI刷新）
 	_detach_link_if_needed(i)
 	c.state = ChainState.IDLE
 	c.line.visible = false
@@ -959,8 +834,7 @@ func _finish_chain(i: int) -> void:
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
-	
-	# 如果还在LINKED状态，需要先detach并发信号
+
 	if c.state == ChainState.LINKED:
 		_detach_link_if_needed(i)
 
@@ -971,15 +845,11 @@ func _finish_chain(i: int) -> void:
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
 	c.interacted.clear()
-	
+
 	var other_slot: int = 1 - i
 	if chains[other_slot].state == ChainState.LINKED and not chains[other_slot].is_chimera:
 		if active_slot != i:
-			_switch_slot()
-
-
-func _try_fuse() -> void:
-	begin_fuse_cast()
+			switch_slot()
 
 
 func begin_fuse_cast() -> bool:
@@ -1008,13 +878,14 @@ func begin_fuse_cast() -> bool:
 	var a_can_fuse: bool = entity_a.weak or entity_a.is_stunned()
 	var b_can_fuse: bool = entity_b.weak or entity_b.is_stunned()
 	if not a_can_fuse or not b_can_fuse:
-		if EventBus != null and EventBus.has_method("fusion_rejected"):
+		# B3修复：直接发射信号，不使用has_method检查
+		if EventBus != null:
 			EventBus.fusion_rejected.emit()
 		return false
 
 	var result: Dictionary = FusionRegistry.check_fusion(entity_a, entity_b)
 	if result.type == FusionRegistry.FusionResultType.REJECTED:
-		if EventBus != null and EventBus.has_method("fusion_rejected"):
+		if EventBus != null:
 			EventBus.fusion_rejected.emit()
 		return false
 
@@ -1049,7 +920,6 @@ func begin_fuse_cast() -> bool:
 	_fuse_tween.finished.connect(func() -> void:
 		if not _fuse_cast_active or cast_id != _fuse_cast_id:
 			return
-		# 兜底：无论 ActionFSM/Animator 是否正常驱动，超时后都要退出 Fuse 状态。
 		if player != null and player.action_fsm != null and player.action_fsm.has_method("on_anim_end_fuse"):
 			player.action_fsm.on_anim_end_fuse()
 	)
@@ -1063,9 +933,7 @@ func commit_fuse_cast() -> void:
 	if _fuse_tween != null:
 		_fuse_tween.kill()
 		_fuse_tween = null
-	var spawned: Node = FusionRegistry.execute_fusion(_fuse_result, player)
-	if spawned != null:
-		_chimera = spawned
+	FusionRegistry.execute_fusion(_fuse_result, player)
 	player.set_player_locked(false)
 	_fuse_result = {}
 	_fuse_entity_a = null
@@ -1129,7 +997,7 @@ func _reset_rope_line(c: ChainSlot, start_world: Vector2, end_world: Vector2) ->
 		c.prev[k] = p
 
 
-## === Zip1核心：完整的Verlet绳索物理模拟（100%保留）===
+## === Zip1核心：完整的Verlet绳索物理模拟 ===
 func _sim_rope(c: ChainSlot, start_world: Vector2, end_world: Vector2, dt: float) -> void:
 	var n: int = c.pts.size()
 	if n < 2:

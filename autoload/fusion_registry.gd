@@ -294,7 +294,11 @@ func _resolve_fail_type(a: EntityBase, b: EntityBase) -> Dictionary:
 		_:
 			result_type = FusionResultType.FAIL_VANISH
 
-	return { "type": result_type, "entity_a": a, "entity_b": b }
+	var result: Dictionary = { "type": result_type, "entity_a": a, "entity_b": b }
+	# FAIL_HOSTILE需要hostile_scene，使用默认敌对怪物场景
+	if result_type == FusionResultType.FAIL_HOSTILE:
+		result["hostile_scene"] = "res://scene/MonsterHostile.tscn"
+	return result
 
 # =============================================================================
 # 融合执行
@@ -424,8 +428,11 @@ func _execute_fail_hostile(result: Dictionary, player: Player) -> Node:
 		(hostile as Node2D).global_position = player.global_position
 	player.get_parent().add_child(hostile)
 
+	# D11修复：统一调用setup注入player引用
 	if hostile.has_method("setup"):
 		hostile.call("setup", player)
+	elif hostile.has_method("set_player"):
+		hostile.call("set_player", player)
 
 	return hostile
 
@@ -580,6 +587,8 @@ func _execute_weaken_boss(result: Dictionary, _player: Player) -> void:
 # 辅助函数
 # =============================================================================
 
+var _healing_sprite_scene: PackedScene = preload("res://scene/HealingSprite.tscn")
+
 func _spawn_healing_sprites(ent: EntityBase, player: Player) -> void:
 	# 根据实体型号生成治愈精灵
 	# 参数：
@@ -587,7 +596,7 @@ func _spawn_healing_sprites(ent: EntityBase, player: Player) -> void:
 	#   player: 玩家节点
 	# 生成数量：小型1只，中型2只，大型3只
 
-	var healing_scene: PackedScene = load("res://scene/HealingSprite.tscn") as PackedScene
+	var healing_scene: PackedScene = _healing_sprite_scene
 
 	if healing_scene == null:
 		push_error("[FusionRegistry] 治愈精灵场景不存在")
@@ -613,10 +622,11 @@ func _spawn_healing_sprites(ent: EntityBase, player: Player) -> void:
 
 # =============================================================================
 # 规则管理API
+# ## PLANNED: 运行时规则增删，用于未来的配方解锁系统
 # =============================================================================
 
 func add_rule(species_a: StringName, species_b: StringName, rule: Dictionary) -> void:
-	# 添加融合规则
+	## PLANNED: 配方解锁系统将调用此方法动态添加规则
 	# 参数：
 	#   species_a: 第一个物种ID
 	#   species_b: 第二个物种ID
@@ -626,13 +636,13 @@ func add_rule(species_a: StringName, species_b: StringName, rule: Dictionary) ->
 	print("[FusionRegistry] 添加规则: %s" % key)
 
 func remove_rule(species_a: StringName, species_b: StringName) -> void:
-	# 移除融合规则
+	## PLANNED: 配方解锁系统将调用此方法动态移除规则
 	var key := _make_key(species_a, species_b)
 	_rules.erase(key)
 	print("[FusionRegistry] 移除规则: %s" % key)
 
 func has_rule(species_a: StringName, species_b: StringName) -> bool:
-	# 检查是否存在融合规则
+	## PLANNED: 配方解锁系统将调用此方法查询规则
 	var key := _make_key(species_a, species_b)
 	return _rules.has(key)
 

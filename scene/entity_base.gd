@@ -241,6 +241,7 @@ func on_chain_detached(slot: int) -> void:
 		_linked_player = null
 		if _hurtbox != null and _hurtbox_original_layer >= 0:
 			_hurtbox.collision_layer = _hurtbox_original_layer  # 恢复受击判定
+			_hurtbox_original_layer = -1  # B7修复：重置，防止下次 attach/detach 使用过时值
 
 func is_linked() -> bool:
 	# 是否被链接
@@ -310,6 +311,29 @@ func _flash_once() -> void:
 	_flash_tw.parallel().tween_property(sprite, "self_modulate", _original_self_modulate, flash_time)
 
 # =============================================================================
+# 融合消失（统一实现，MonsterBase/ChimeraBase 不再重复定义）
+# =============================================================================
+var _saved_collision_layer_fv: int = -1
+var _saved_collision_mask_fv: int = -1
+var _fusion_vanished: bool = false
+
+func set_fusion_vanish(v: bool) -> void:
+	if v:
+		if not _fusion_vanished:
+			_saved_collision_layer_fv = collision_layer
+			_saved_collision_mask_fv = collision_mask
+			_fusion_vanished = true
+		collision_layer = 0
+		collision_mask = 0
+	else:
+		if _fusion_vanished:
+			collision_layer = _saved_collision_layer_fv
+			collision_mask = _saved_collision_mask_fv
+			_fusion_vanished = false
+	if sprite != null:
+		sprite.visible = not v
+
+# =============================================================================
 # Getter方法
 # =============================================================================
 func get_ui_icon() -> Texture2D:
@@ -325,5 +349,5 @@ func get_weak_state() -> bool:
 	return weak
 
 func get_icon_id() -> int:
-	# 获取图标ID（用于UI显示）
+	# R10: 统一返回 attribute_type（与 get_attribute_type 等价，保留兼容接口）
 	return attribute_type
