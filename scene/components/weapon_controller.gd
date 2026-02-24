@@ -3,7 +3,7 @@ class_name WeaponController
 
 ## WeaponController: 管理武器切换与动画选择
 ## 功能：
-## - 维护当前武器（chain_/Sword）
+## - 维护当前武器（Chain/Sword）
 ## - 根据 Context + 武器配置返回动画名
 ## - Z键切换武器
 
