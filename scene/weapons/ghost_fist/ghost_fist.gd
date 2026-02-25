@@ -25,8 +25,8 @@ enum Hand { LEFT, RIGHT }
 const ATTACK_HAND: Dictionary = {
 	GFState.GF_ATTACK_1: Hand.LEFT,   # ✅ L先攻击
 	GFState.GF_ATTACK_2: Hand.RIGHT,  # ✅ 连击时R攻击
-	GFState.GF_ATTACK_3: Hand.LEFT,   # 根据实际需求调整
-	GFState.GF_ATTACK_4: Hand.RIGHT,  # 根据实际需求调整
+	GFState.GF_ATTACK_3: Hand.RIGHT,
+	GFState.GF_ATTACK_4: Hand.RIGHT,
 }
 
 # V7规范：L=-2/2, R=-1/3，玩家本体=0
@@ -47,6 +47,7 @@ signal state_changed(new_state: int, context: StringName)
 @export var damage_per_hit: int = 1
 @export var soul_capture_threshold: int = 4
 @export var soul_extract_vfx_scene: PackedScene
+@export var healing_sprite_scene: PackedScene
 
 # ════════════════════════════════════════
 # 子节点引用
@@ -78,9 +79,12 @@ var _thunder_processed_this_frame: bool = false
 var state: int = GFState.GF_IDLE
 var queued_next: bool = false
 var hit_confirmed: bool = false
+var _combo_check_handled: bool = false
 var _combo_hit_count: int = 0
 var _hit_this_swing: Dictionary = {}   # RID → true
 var _last_hit_monster: Node2D = null   # 最近命中的怪物（摄魂用）
+@export var idle_anima_delay: float = 5.0
+var _idle_timer: float = 0.0
 
 # ════════════════════════════════════════
 # 外部依赖（setup 注入）
@@ -96,13 +100,11 @@ func setup(p: Node2D) -> void:
 	# 连接 Hitbox 信号
 	if _hitbox_L != null:
 		_hitbox_L.area_entered.connect(_on_hitbox_area_entered)
-		print("[GF_SETUP] HitboxL area_entered signal connected")
 	else:
 		push_error("[GF_SETUP] HitboxL is null!")
 	
 	if _hitbox_R != null:
 		_hitbox_R.area_entered.connect(_on_hitbox_area_entered)
-		print("[GF_SETUP] HitboxR area_entered signal connected")
 	else:
 		push_error("[GF_SETUP] HitboxR is null!")
 	
@@ -120,41 +122,6 @@ func setup(p: Node2D) -> void:
 	if _light_sensor != null:
 		_light_sensor.area_entered.connect(_on_light_area_entered)
 	
-	# ✅ 诊断：测试直接播放动画看是否有事件
-	print("[GF_SETUP] ════════════════════════════════════════")
-	print("[GF_SETUP] Diagnostics:")
-	print("[GF_SETUP] L SpineSprite: %s" % (_gf_L != null))
-	print("[GF_SETUP] R SpineSprite: %s" % (_gf_R != null))
-	
-	if _gf_L != null:
-		print("[GF_SETUP] L signals:")
-		for sig in _gf_L.get_signal_list():
-			if "animation" in sig["name"]:
-				print("[GF_SETUP]   - %s" % sig["name"])
-		
-		# ✅ 测试：直接连接animation_event来验证
-		if _gf_L.has_signal("animation_event"):
-			print("[GF_SETUP] L: Connecting test animation_event...")
-			_gf_L.animation_event.connect(func(a1, a2, a3, a4): 
-				print("[GF_TEST] L animation_event FIRED!")
-			)
-	
-	if _gf_R != null:
-		print("[GF_SETUP] R signals:")
-		for sig in _gf_R.get_signal_list():
-			if "animation" in sig["name"]:
-				print("[GF_SETUP]   - %s" % sig["name"])
-		
-		if _gf_R.has_signal("animation_event"):
-			print("[GF_SETUP] R: Connecting test animation_event...")
-			_gf_R.animation_event.connect(func(args): 
-				print("[GF_TEST] R animation_event FIRED! args=%s" % str(args))
-			)
-	
-	print("[GF_SETUP] ATTACK_HAND:")
-	print("[GF_SETUP]   Attack 1 → %s" % ("L" if ATTACK_HAND[GFState.GF_ATTACK_1] == Hand.LEFT else "R"))
-	print("[GF_SETUP]   Attack 2 → %s" % ("L" if ATTACK_HAND[GFState.GF_ATTACK_2] == Hand.LEFT else "R"))
-	print("[GF_SETUP] ════════════════════════════════════════")
 
 
 # ════════════════════════════════════════
@@ -174,19 +141,20 @@ func get_spine_R() -> SpineSprite:
 func activate() -> void:
 	visible = true
 	_gf_L.z_index = GF_Z_FRONT_L  # 2
-	_gf_R.z_index = GF_Z_BACK_R   # -1
+	_gf_R.z_index = GF_Z_FRONT_R  # 3
 	# ——后续不变——
 	_combo_hit_count = 0
 	queued_next = false
 	hit_confirmed = false
+	_combo_check_handled = false
 	_hit_this_swing.clear()
 	_last_hit_monster = null
 	state = GFState.GF_ENTER
 	
-	# ✅ CRITICAL: 初始化能量，确保立即实体化可攻击
-	visible_time = visible_time_max
+	# 切换到 GhostFist 时不附赠初始能量，必须依靠外部事件充能
+	visible_time = 0.0
 	light_counter = 0.0
-	_materialized = true
+	_materialized = false
 	_update_opacity()
 	
 	print("[GF] ═══════════════════════════════════════")
@@ -226,6 +194,7 @@ func _start_attack(stage: int) -> void:
 	state = GFState.GF_ATTACK_1 + (stage - 1)
 	queued_next = false
 	hit_confirmed = false
+	_combo_check_handled = false
 	_hit_this_swing.clear()
 	_disable_all_hitboxes()
 	state_changed.emit(state, StringName("attack_%d" % stage))
@@ -270,7 +239,7 @@ func on_spine_event(hand: int, event_name: StringName) -> void:
 				_disable_hitbox_for(hand)
 				print("[GF] │ → hit_off for %s" % hand_str)
 			else:
-				print("[GF] │ → hit_off IGNORED" % hand_str)
+				print("[GF] │ → hit_off IGNORED")
 		
 		&"combo_check":
 			# combo_check 只响应主攻手的事件
@@ -306,24 +275,31 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			state = GFState.GF_IDLE
 			print("[GF]   → Enter complete, now IDLE")
 		GFState.GF_COOLDOWN:
+			if _anim_name != &"" and _anim_name != &"ghost_fist_/cooldown":
+				print("[GF] Cooldown completion ignored: anim=%s" % _anim_name)
+				return
 			state = GFState.GF_IDLE
 			print("[GF]   → Cooldown complete, now IDLE")
 		GFState.GF_EXIT:
 			pass
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
-			# ✅ 攻击期间不做任何事！combo_check 是唯一的状态转移驱动
-			# 防止 player spine 先播完导致竞速杀死连击
-			print("[GF]   → Ignored during attack (combo_check handles transitions)")
-			
-func _reset_z_defaults() -> void:
-	_gf_L.z_index = GF_Z_FRONT_L  # 2（玩家前面）
-	_gf_R.z_index = GF_Z_BACK_R   # -1（玩家后面）
-	print("[GF] z_index reset: L=%d R=%d" % [_gf_L.z_index, _gf_R.z_index])
+			if _combo_check_handled:
+				print("[GF] Attack completion ignored (combo_check already handled)")
+				return
+			var stage: int = state - GFState.GF_ATTACK_1 + 1
+			if stage >= 3:
+				print("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
+				_enter_cooldown()
+			else:
+				print("[GF] ⚠ Attack %d ended → direct idle (no cooldown)" % stage)
+				state = GFState.GF_IDLE
+
 # ════════════════════════════════════════
 # 连击门控
 # ════════════════════════════════════════
 func _on_combo_check() -> void:
+	_combo_check_handled = true
 	_disable_all_hitboxes()
 	var stage: int = state - GFState.GF_ATTACK_1 + 1  # 1..4
 	
@@ -349,11 +325,23 @@ func _on_combo_check() -> void:
 		print("[GF] └──────────────────────────────────────")
 		_start_attack(stage + 1)
 	else:
-		print("[GF] │ → Combo broken (hit=%s queued=%s), entering cooldown ✗" % [hit_confirmed, queued_next])
-		print("[GF] └──────────────────────────────────────")
-		_enter_cooldown()
+		if stage >= 3:
+			print("[GF] │ → Combo broken (hit=%s queued=%s), entering cooldown ✗" % [hit_confirmed, queued_next])
+			print("[GF] └──────────────────────────────────────")
+			_enter_cooldown()
+		else:
+			print("[GF] │ → Light combo break (stage %d), skipping cooldown" % stage)
+			print("[GF] └──────────────────────────────────────")
+			state = GFState.GF_IDLE
 
 
+## Cooldown 状态说明：
+## - 在连击断裂（miss 或未按键）时播放的"收招"过渡动画
+## - 例如 attack_1 打空 → cooldown → idle
+## - 或者 attack_3 连击失败 → cooldown → idle
+## - 动画应表现为拳头从攻击姿态平滑回到待机姿态
+## - 播放期间禁止攻击输入（防止连击系统被绕过）
+## - cooldown 完成后自动回到 GF_IDLE 状态
 func _enter_cooldown() -> void:
 	state = GFState.GF_COOLDOWN
 	state_changed.emit(state, &"cooldown")
@@ -374,6 +362,29 @@ func _trigger_soul_capture() -> void:
 	vfx.position = Vector2.ZERO
 	_combo_hit_count = 0
 	print("[GhostFist] SOUL CAPTURE → ", _last_hit_monster.name)
+	_spawn_healing_sprite()
+
+
+func _spawn_healing_sprite() -> void:
+	if healing_sprite_scene == null:
+		return
+	if player == null or not is_instance_valid(player):
+		return
+	if player.has_method("get_healing_sprite_count"):
+		var cur: int = int(player.call("get_healing_sprite_count"))
+		if cur >= player.max_healing_sprites:
+			print("[GF] Healing sprite NOT spawned: player at max (%d)" % player.max_healing_sprites)
+			return
+
+	var sprite: Node2D = healing_sprite_scene.instantiate() as Node2D
+	if sprite == null:
+		return
+
+	var parent: Node = player.get_parent()
+	if parent == null:
+		parent = player
+	parent.add_child(sprite)
+	sprite.global_position = player.global_position + Vector2(randf_range(-30.0, 30.0), -80.0)
 
 
 # ════════════════════════════════════════
@@ -382,49 +393,29 @@ func _trigger_soul_capture() -> void:
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area == null:
 		return
-	
-	var hitbox_name: String = "?"
-	if area.get_parent() == _hitbox_L:
-		hitbox_name = "L"
-	elif area.get_parent() == _hitbox_R:
-		hitbox_name = "R"
-	
-	print("[GF_HIT] ┌─ HITBOX COLLISION ───────────────────")
-	print("[GF_HIT] │ Hitbox: %s" % hitbox_name)
-	print("[GF_HIT] │ Area: %s" % area.name)
-	print("[GF_HIT] │ Materialized: %s" % _materialized)
-	
-	# 未实体化时攻击不奏效
 	if not _materialized:
-		print("[GF_HIT] │ → REJECTED: not materialized (visible_time=%s) ✗" % visible_time)
-		print("[GF_HIT] └──────────────────────────────────────")
 		return
-	
+
 	var rid: RID = area.get_rid()
 	if _hit_this_swing.has(rid):
-		print("[GF_HIT] │ → Already hit this swing ✗")
-		print("[GF_HIT] └──────────────────────────────────────")
 		return
-	
+
 	var monster = _resolve_monster(area)
-	if monster == null:
-		print("[GF_HIT] │ → No monster found ✗")
-		print("[GF_HIT] └──────────────────────────────────────")
+	if monster != null:
+		var hit: HitData = HitData.create(damage_per_hit, player, &"ghost_fist", HitData.Flags.STAGGER)
+		var applied: bool = monster.apply_hit(hit)
+		_hit_this_swing[rid] = true
+		if applied:
+			hit_confirmed = true
+			_combo_hit_count += 1
+			_last_hit_monster = monster
 		return
-	
-	print("[GF_HIT] │ → Applying hit to: %s" % monster.name)
-	var hit: HitData = HitData.create(damage_per_hit, player, &"ghost_fist", HitData.Flags.STAGGER)
-	var applied: bool = monster.apply_hit(hit)
-	_hit_this_swing[rid] = true
-	
-	if applied:
-		hit_confirmed = true
-		_combo_hit_count += 1
-		_last_hit_monster = monster
-		print("[GF_HIT] │ → HIT CONFIRMED! combo_count=%d ✓" % _combo_hit_count)
-	else:
-		print("[GF_HIT] │ → Hit not applied ✗")
-	print("[GF_HIT] └──────────────────────────────────────")
+
+	var flower = _resolve_lightning_flower(area)
+	if flower != null:
+		_hit_this_swing[rid] = true
+		flower.on_chain_hit(player, 0)
+		return
 
 
 # ════════════════════════════════════════
@@ -522,6 +513,17 @@ func _resolve_monster(area_or_body: Node) -> Node:
 	return null
 
 
+func _resolve_lightning_flower(area_or_body: Node) -> LightningFlower:
+	var cur: Node = area_or_body
+	for _i: int in range(4):
+		if cur == null:
+			return null
+		if cur is LightningFlower:
+			return cur as LightningFlower
+		cur = cur.get_parent()
+	return null
+
+
 func get_current_stage() -> int:
 	if state >= GFState.GF_ATTACK_1 and state <= GFState.GF_ATTACK_4:
 		return state - GFState.GF_ATTACK_1 + 1
@@ -547,6 +549,14 @@ func _physics_process(delta: float) -> void:
 	_update_visibility(delta)
 	# ✅ CRITICAL: 每帧更新 Hitbox 位置
 	update_hitbox_positions()
+
+	if state == GFState.GF_IDLE:
+		_idle_timer += delta
+		if _idle_timer >= idle_anima_delay:
+			_idle_timer = 0.0
+			state_changed.emit(state, &"idle_anima")
+	else:
+		_idle_timer = 0.0
 
 
 func _update_visibility(dt: float) -> void:
