@@ -317,8 +317,9 @@ func _sync_hitbox_to_bone(hb: Area2D, spine: SpineSprite) -> void:
 	var bone = skeleton.find_bone("fist_core")
 	if bone == null:
 		return
-	var bone_pos: Vector2 = Vector2(bone.get_world_x(), -bone.get_world_y())
-	hb.position = bone_pos  # 相对 GhostFist 节点的局部坐标
+	# bone.get_world_x/Y 是 Spine 骨架局部空间，需加上 SpineSprite 在 GhostFist 中的偏移
+	var bone_pos: Vector2 = spine.position + Vector2(bone.get_world_x(), -bone.get_world_y())
+	hb.position = bone_pos
 
 
 # ════════════════════════════════════════
