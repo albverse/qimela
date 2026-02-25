@@ -126,7 +126,8 @@ func get_spine_R() -> SpineSprite:
 # ════════════════════════════════════════
 func activate() -> void:
 	visible = true
-	_gf_L.z_index = GF_Z_BACK_L
+	# 默认: L 在玩家前方, R 在玩家后方（攻击时由 z_front/z_back 事件切换）
+	_gf_L.z_index = GF_Z_FRONT_L
 	_gf_R.z_index = GF_Z_BACK_R
 	_combo_hit_count = 0
 	queued_next = false
@@ -171,20 +172,27 @@ func _start_attack(stage: int) -> void:
 # ════════════════════════════════════════
 # Spine 事件回调（PlayerAnimator 转发，附带 hand 标识）
 # ════════════════════════════════════════
-func on_spine_event(hand: int, event_name: StringName) -> void:
+func on_spine_event(_hand: int, event_name: StringName) -> void:
+	# 根据当前攻击段的 ATTACK_HAND 决定激活哪只手的 hitbox/z_index
+	# 不依赖事件来源手（因为 L/R spine 共享动画，事件可能只在一方触发）
+	var active_hand: int = ATTACK_HAND.get(state, -1)
+	print("[GF] on_spine_event: %s  state=%d  active_hand=%d  materialized=%s" % [
+		event_name, state, active_hand, str(_materialized)])
 	match event_name:
 		&"hit_on":
-			_enable_hitbox_for(hand)
+			if active_hand >= 0:
+				_enable_hitbox_for(active_hand)
 		&"hit_off":
-			_disable_hitbox_for(hand)
+			if active_hand >= 0:
+				_disable_hitbox_for(active_hand)
 		&"combo_check":
-			var expected: int = ATTACK_HAND.get(state, -1)
-			if hand == expected:
-				_on_combo_check()
+			_on_combo_check()
 		&"z_front":
-			_set_z(hand, true)
+			if active_hand >= 0:
+				_set_z(active_hand, true)
 		&"z_back":
-			_set_z(hand, false)
+			if active_hand >= 0:
+				_set_z(active_hand, false)
 
 
 func on_animation_complete(_anim_name: StringName) -> void:
@@ -310,14 +318,20 @@ func update_hitbox_positions() -> void:
 func _sync_hitbox_to_bone(hb: Area2D, spine: SpineSprite) -> void:
 	if hb == null or spine == null:
 		return
+	# 优先: get_global_bone_transform（直接返回全局坐标）
+	if spine.has_method("get_global_bone_transform"):
+		var t: Transform2D = spine.get_global_bone_transform("fist_core")
+		hb.global_position = t.origin
+		return
+	# Fallback: 手动骨骼坐标 → to_global
 	var skeleton = spine.get_skeleton()
 	if skeleton == null:
 		return
 	var bone = skeleton.find_bone("fist_core")
 	if bone == null:
 		return
-	var bone_pos: Vector2 = Vector2(bone.get_world_x(), -bone.get_world_y())
-	hb.position = bone_pos  # 相对 GhostFist 节点的局部坐标
+	var bone_local: Vector2 = Vector2(bone.get_world_x(), -bone.get_world_y())
+	hb.global_position = spine.to_global(bone_local)
 
 
 # ════════════════════════════════════════
