@@ -424,7 +424,7 @@ func _on_ghost_fist_attack_input() -> void:
 	ghost_fist.on_attack_input()
 
 
-func _on_ghost_fist_state_changed(new_state: int, context: StringName) -> void:
+func _on_ghost_fist_state_changed(new_state: int, _context: StringName) -> void:
 	## 由 GhostFist.state_changed 信号触发
 	## 处理 combo_check → 续段攻击 或 cooldown 的动画播放
 	if animator == null:

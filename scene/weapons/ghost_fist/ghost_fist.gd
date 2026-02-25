@@ -53,6 +53,22 @@ signal state_changed(new_state: int, context: StringName)
 @onready var _gf_R: SpineSprite = $ghost_fist_R
 @onready var _hitbox_L: Area2D = $HitboxL
 @onready var _hitbox_R: Area2D = $HitboxR
+@onready var _light_sensor: Area2D = $LightSensor
+
+# ════════════════════════════════════════
+# 能量可见性参数
+# ════════════════════════════════════════
+@export var light_counter_max: float = 10.0
+@export var visible_time_max: float = 6.0
+@export var opacity_full_threshold: float = 2.0  ## visible_time 达到此值时完全不透明
+@export var energy_transfer_rate: float = 10.0   ## light_counter → visible_time 转换倍率
+
+var light_counter: float = 0.0
+var visible_time: float = 0.0
+var _materialized: bool = false  ## 当前是否处于"实体化"状态
+var _processed_light_sources: Dictionary = {}
+var _active_light_sources: Dictionary = {}
+var _thunder_processed_this_frame: bool = false
 
 # ════════════════════════════════════════
 # 状态
@@ -79,6 +95,19 @@ func setup(p: Node2D) -> void:
 		_hitbox_L.area_entered.connect(_on_hitbox_area_entered)
 	if _hitbox_R != null:
 		_hitbox_R.area_entered.connect(_on_hitbox_area_entered)
+	# 连接 EventBus 光照信号
+	if EventBus != null:
+		if EventBus.has_signal("thunder_burst"):
+			EventBus.thunder_burst.connect(_on_thunder_burst)
+		if EventBus.has_signal("healing_burst"):
+			EventBus.healing_burst.connect(_on_healing_burst)
+		if EventBus.has_signal("light_started"):
+			EventBus.light_started.connect(_on_light_started)
+		if EventBus.has_signal("light_finished"):
+			EventBus.light_finished.connect(_on_light_finished)
+	# LightSensor overlap
+	if _light_sensor != null:
+		_light_sensor.area_entered.connect(_on_light_area_entered)
 
 
 # ════════════════════════════════════════
@@ -166,6 +195,12 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			state = GFState.GF_IDLE
 		GFState.GF_EXIT:
 			pass  # WeaponController 处理后续
+		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
+		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
+			# 攻击动画播完但没有 combo_check 事件 → 进入 cooldown
+			# （正常流程由 combo_check spine 事件驱动，这是安全网）
+			_disable_all_hitboxes()
+			_enter_cooldown()
 
 
 # ════════════════════════════════════════
@@ -215,6 +250,9 @@ func _trigger_soul_capture() -> void:
 # ════════════════════════════════════════
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area == null:
+		return
+	# 未实体化时攻击不奏效
+	if not _materialized:
 		return
 	var rid: RID = area.get_rid()
 	if _hit_this_swing.has(rid):
@@ -310,3 +348,100 @@ func is_in_attack() -> bool:
 
 func is_active() -> bool:
 	return visible and state != GFState.GF_EXIT
+
+
+# ════════════════════════════════════════
+# 能量 / 可见性系统
+# ════════════════════════════════════════
+
+func _physics_process(delta: float) -> void:
+	_thunder_processed_this_frame = false
+	if not visible:
+		return
+	_update_visibility(delta)
+
+
+func _update_visibility(dt: float) -> void:
+	# 1) light_counter → visible_time（快速转换）
+	if light_counter > 0.0:
+		var transfer: float = min(light_counter, dt * energy_transfer_rate)
+		visible_time += transfer
+		light_counter -= transfer
+		visible_time = min(visible_time, visible_time_max)
+
+	# 2) visible_time 自然衰减（1 秒 / 秒）
+	if visible_time > 0.0:
+		if not _materialized:
+			_materialized = true
+		_update_opacity()
+		visible_time -= dt
+		visible_time = max(visible_time, 0.0)
+	else:
+		if _materialized:
+			_materialized = false
+			_update_opacity()
+
+
+func _update_opacity() -> void:
+	var alpha: float
+	if visible_time >= opacity_full_threshold:
+		alpha = 1.0
+	elif visible_time > 0.0:
+		alpha = clampf(visible_time / opacity_full_threshold, 0.0, 1.0)
+	else:
+		alpha = 0.0
+	if _gf_L != null:
+		_gf_L.modulate.a = alpha
+	if _gf_R != null:
+		_gf_R.modulate.a = alpha
+
+
+# ── EventBus 信号处理 ──
+
+func _on_thunder_burst(add_seconds: float) -> void:
+	if _thunder_processed_this_frame:
+		return
+	_thunder_processed_this_frame = true
+	light_counter += add_seconds
+	light_counter = min(light_counter, light_counter_max)
+
+
+func _on_healing_burst(light_energy: float) -> void:
+	light_counter += light_energy
+	light_counter = min(light_counter, light_counter_max)
+
+
+func _on_light_started(source_id: int, remaining_time: float, source_light_area: Area2D) -> void:
+	if _light_sensor == null or source_light_area == null:
+		return
+	if not source_light_area.overlaps_area(_light_sensor):
+		_active_light_sources[source_id] = {
+			"area": source_light_area,
+			"remaining_time": remaining_time,
+		}
+		return
+	if _processed_light_sources.has(source_id):
+		return
+	_processed_light_sources[source_id] = true
+	light_counter += remaining_time
+	light_counter = min(light_counter, light_counter_max)
+
+
+func _on_light_finished(source_id: int) -> void:
+	_processed_light_sources.erase(source_id)
+	_active_light_sources.erase(source_id)
+
+
+func _on_light_area_entered(area: Area2D) -> void:
+	# LightSensor 进入了某个 light source 的 Area2D
+	# 检查是否有对应的待处理 active_light_source
+	for src_id: int in _active_light_sources.keys():
+		var info: Dictionary = _active_light_sources[src_id]
+		if info.get("area") == area:
+			if not _processed_light_sources.has(src_id):
+				_processed_light_sources[src_id] = true
+				var remaining: float = info.get("remaining_time", 0.0)
+				light_counter += remaining
+				light_counter = min(light_counter, light_counter_max)
+			_active_light_sources.erase(src_id)
+			break

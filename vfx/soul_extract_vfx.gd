@@ -27,5 +27,5 @@ func _enter_tree() -> void:
 	)
 
 
-func _on_complete(_ss, _entry = null) -> void:
+func _on_complete(_a1 = null, _a2 = null, _a3 = null) -> void:
 	queue_free()
