@@ -47,6 +47,7 @@ signal state_changed(new_state: int, context: StringName)
 @export var damage_per_hit: int = 1
 @export var soul_capture_threshold: int = 4
 @export var soul_extract_vfx_scene: PackedScene
+@export var healing_sprite_scene: PackedScene
 
 # ════════════════════════════════════════
 # 子节点引用
@@ -148,10 +149,10 @@ func activate() -> void:
 	_last_hit_monster = null
 	state = GFState.GF_ENTER
 	
-	# ✅ CRITICAL: 初始化能量，确保立即实体化可攻击
-	visible_time = visible_time_max
+	# 切换到 GhostFist 时不附赠初始能量，必须依靠外部事件充能
+	visible_time = 0.0
 	light_counter = 0.0
-	_materialized = true
+	_materialized = false
 	_update_opacity()
 	
 	print("[GF] ═══════════════════════════════════════")
@@ -342,6 +343,24 @@ func _trigger_soul_capture() -> void:
 	vfx.position = Vector2.ZERO
 	_combo_hit_count = 0
 	print("[GhostFist] SOUL CAPTURE → ", _last_hit_monster.name)
+	_spawn_healing_sprite()
+
+
+func _spawn_healing_sprite() -> void:
+	if healing_sprite_scene == null:
+		return
+	if player == null or not is_instance_valid(player):
+		return
+
+	var sprite: Node2D = healing_sprite_scene.instantiate() as Node2D
+	if sprite == null:
+		return
+
+	var parent: Node = player.get_parent()
+	if parent == null:
+		parent = player
+	parent.add_child(sprite)
+	sprite.global_position = player.global_position + Vector2(randf_range(-30.0, 30.0), -80.0)
 
 
 # ════════════════════════════════════════

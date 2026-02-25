@@ -240,19 +240,27 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if _ghost_fist == null:
 		return
 	var gf_state: int = _ghost_fist.state
-	if gf_state < GhostFist.GFState.GF_ATTACK_1 or gf_state > GhostFist.GFState.GF_ATTACK_4:
-		return
 	var hand: int = GhostFist.Hand.LEFT if ss == _gf_L else GhostFist.Hand.RIGHT
-	var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
-	if hand == expected:
-		var anim_name: StringName = &""
-		if entry != null:
-			var anim = null
-			if entry.has_method("get_animation"):
-				anim = entry.get_animation()
-			if anim != null and anim.has_method("get_name"):
-				anim_name = StringName(anim.get_name())
-		_ghost_fist.on_animation_complete(anim_name)
+
+	if gf_state >= GhostFist.GFState.GF_ATTACK_1 and gf_state <= GhostFist.GFState.GF_ATTACK_4:
+		var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
+		if hand == expected:
+			_ghost_fist.on_animation_complete(_extract_anim_name(entry))
+		return
+
+	# 非攻击状态（enter/cooldown/exit）只接受 R 手完成，避免 L+R 双触发
+	if hand == GhostFist.Hand.RIGHT:
+		_ghost_fist.on_animation_complete(_extract_anim_name(entry))
+
+
+func _extract_anim_name(entry) -> StringName:
+	if entry != null:
+		var anim = null
+		if entry.has_method("get_animation"):
+			anim = entry.get_animation()
+		if anim != null and anim.has_method("get_name"):
+			return StringName(anim.get_name())
+	return &""
 
 
 # ════════════════════════════════════════
@@ -394,20 +402,22 @@ func tick(_dt: float) -> void:
 	if _gf_mode and _ghost_fist != null and _ghost_fist.is_active():
 		# GF 模式下，只在 IDLE 状态时更新 locomotion（攻击/cooldown/enter/exit 由专用方法播放）
 		if _ghost_fist.state == GhostFist.GFState.GF_IDLE:
-			# GF 模式使用基础 locomotion 键（不带 chain_/ 前缀）
-			var base_loco_key: StringName = GF_BASE_LOCO.get(loco_state, &"idle")
-			var gf_loco_anim: StringName = _get_gf_loco_anim(base_loco_key)
-			if gf_loco_anim != _cur_loco_anim:
-				var loop: bool = base_loco_key in [&"idle", &"walk", &"run", &"jump_loop"]
-				# GF locomotion: 直接播放在 TRACK_LOCO，不用 EXCLUSIVE 模式
-				# 不设 action 字段 — jump_up/jump_down 完成时走 LOCO_END_MAP 而非 FULLBODY 路径
-				_driver.play(TRACK_LOCO, gf_loco_anim, loop)
-				_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle", true)
-				_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle", true)
-				_cur_loco_anim = gf_loco_anim
-				_cur_action_anim = &""
-				_cur_action_mode = -1
-				_log_play(TRACK_LOCO, gf_loco_anim, loop)
+			# FULLBODY_EXCLUSIVE（enter/cooldown/exit/idle_anima）播放期间不要覆盖
+			if _cur_action_mode != MODE_FULLBODY_EXCLUSIVE:
+				# GF 模式使用基础 locomotion 键（不带 chain_/ 前缀）
+				var base_loco_key: StringName = GF_BASE_LOCO.get(loco_state, &"idle")
+				var gf_loco_anim: StringName = _get_gf_loco_anim(base_loco_key)
+				if gf_loco_anim != _cur_loco_anim:
+					var loop: bool = base_loco_key in [&"idle", &"walk", &"run", &"jump_loop"]
+					# GF locomotion: 直接播放在 TRACK_LOCO，不用 EXCLUSIVE 模式
+					# 不设 action 字段 — jump_up/jump_down 完成时走 LOCO_END_MAP 而非 FULLBODY 路径
+					_driver.play(TRACK_LOCO, gf_loco_anim, loop)
+					_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle", true)
+					_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle", true)
+					_cur_loco_anim = gf_loco_anim
+					_cur_action_anim = &""
+					_cur_action_mode = -1
+					_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
 		if action_state == &"Hurt":
 			var hurt_anim: StringName = &"ghost_fist_/hurt"
