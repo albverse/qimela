@@ -23,7 +23,7 @@ preview_frame = false
 preview_time = 0.0
 
 [node name="ghost_fist_L" type="SpineSprite" parent="."]
-z_index = 1
+z_index = 2
 position = Vector2(41, 176)
 skeleton_data_res = ExtResource("3_o1mwq")
 preview_skin = "Default"
@@ -39,7 +39,9 @@ monitoring = false
 monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxL"]
+scale = Vector2(4.5302234, 4.55063)
 shape = SubResource("CircleShape2D_hitbox")
+debug_color = Color(0.1526117, 0.6454194, 1.92523e-07, 0.41960785)
 
 [node name="HitboxR" type="Area2D" parent="."]
 position = Vector2(-47, -139)
@@ -49,7 +51,9 @@ monitoring = false
 monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxR"]
+scale = Vector2(4.4902864, 4.4902864)
 shape = SubResource("CircleShape2D_hitbox")
+debug_color = Color(4.2595716e-06, 0.64794725, 0.20535463, 0.41960785)
 
 [node name="LightSensor" type="Area2D" parent="."]
 position = Vector2(11, -85)
