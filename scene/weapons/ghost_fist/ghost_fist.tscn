@@ -3,8 +3,8 @@
 [ext_resource type="Script" uid="uid://bje711dftmby0" path="res://scene/weapons/ghost_fist/ghost_fist.gd" id="1_gf"]
 [ext_resource type="SpineSkeletonDataResource" uid="uid://dx4po7cj5mlxk" path="res://spine_assets/Ghost Fist R.tres" id="2_fublm"]
 [ext_resource type="SpineSkeletonDataResource" uid="uid://c7moyhyi77weg" path="res://spine_assets/Ghost Fist L.tres" id="3_o1mwq"]
-[ext_resource type="PackedScene" uid="uid://d3f25nqjc8h68" path="res://vfx/soul_extract_vfx.tscn" id="4_soul"]
-[ext_resource type="PackedScene" path="res://scene/healing_sprite.tscn" id="5_heal"]
+[ext_resource type="PackedScene" uid="uid://82vvau8vtl6r" path="res://vfx/soul_extract_vfx.tscn" id="4_soul"]
+[ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_heal"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_hitbox"]
 radius = 24.0
