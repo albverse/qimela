@@ -239,9 +239,11 @@ func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
 func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if _ghost_fist == null:
 		return
+	var gf_state: int = _ghost_fist.state
+	if gf_state < GhostFist.GFState.GF_ATTACK_1 or gf_state > GhostFist.GFState.GF_ATTACK_4:
+		return
 	var hand: int = GhostFist.Hand.LEFT if ss == _gf_L else GhostFist.Hand.RIGHT
-	# 只用主攻手（或 R 手默认）的回调触发状态转移
-	var expected: int = GhostFist.ATTACK_HAND.get(_ghost_fist.state, GhostFist.Hand.RIGHT)
+	var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
 	if hand == expected:
 		var anim_name: StringName = &""
 		if entry != null:
@@ -289,6 +291,13 @@ func play_ghost_fist_exit() -> void:
 	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/exit", false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/exit", false)
 	_log_play(0, &"ghost_fist_/exit", false)
+
+
+func play_ghost_fist_idle_anima() -> void:
+	_play_on_player_spine(&"ghost_fist_/idle_anima", false)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle_anima", false)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle_anima", false)
+	_log_play(0, &"ghost_fist_/idle_anima", false)
 
 
 ## GF 模式下的 locomotion 切换（PlayerSpine 切 GF locomotion + 武器端 idle）
