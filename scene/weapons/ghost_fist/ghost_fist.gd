@@ -25,8 +25,8 @@ enum Hand { LEFT, RIGHT }
 const ATTACK_HAND: Dictionary = {
 	GFState.GF_ATTACK_1: Hand.LEFT,   # ✅ L先攻击
 	GFState.GF_ATTACK_2: Hand.RIGHT,  # ✅ 连击时R攻击
-	GFState.GF_ATTACK_3: Hand.LEFT,   # 根据实际需求调整
-	GFState.GF_ATTACK_4: Hand.RIGHT,  # 根据实际需求调整
+	GFState.GF_ATTACK_3: Hand.RIGHT,
+	GFState.GF_ATTACK_4: Hand.RIGHT,
 }
 
 # V7规范：L=-2/2, R=-1/3，玩家本体=0
@@ -278,9 +278,9 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			pass
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
-			# ✅ 攻击期间不做任何事！combo_check 是唯一的状态转移驱动
-			# 防止 player spine 先播完导致竞速杀死连击
-			print("[GF]   → Ignored during attack (combo_check handles transitions)")
+			# 兜底：若动画结束前未收到 combo_check，强制进入 cooldown 防卡死
+			print("[GF] ⚠ Attack anim ended without combo_check → fallback cooldown")
+			_enter_cooldown()
 
 # ════════════════════════════════════════
 # 连击门控
