@@ -311,15 +311,20 @@ func update_hitbox_positions() -> void:
 func _sync_hitbox_to_bone(hb: Area2D, spine: SpineSprite) -> void:
 	if hb == null or spine == null:
 		return
+	# 优先: get_global_bone_transform（直接返回全局坐标）
+	if spine.has_method("get_global_bone_transform"):
+		var t: Transform2D = spine.get_global_bone_transform("fist_core")
+		hb.global_position = t.origin
+		return
+	# Fallback: 手动骨骼坐标 → to_global
 	var skeleton = spine.get_skeleton()
 	if skeleton == null:
 		return
 	var bone = skeleton.find_bone("fist_core")
 	if bone == null:
 		return
-	# bone.get_world_x/Y 是 Spine 骨架局部空间，需加上 SpineSprite 在 GhostFist 中的偏移
-	var bone_pos: Vector2 = spine.position + Vector2(bone.get_world_x(), -bone.get_world_y())
-	hb.position = bone_pos
+	var bone_local: Vector2 = Vector2(bone.get_world_x(), -bone.get_world_y())
+	hb.global_position = spine.to_global(bone_local)
 
 
 # ════════════════════════════════════════
