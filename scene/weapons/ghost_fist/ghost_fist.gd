@@ -175,6 +175,7 @@ func activate() -> void:
 	visible = true
 	_gf_L.z_index = GF_Z_FRONT_L  # 2
 	_gf_R.z_index = GF_Z_BACK_R   # -1
+	# ——后续不变——
 	_combo_hit_count = 0
 	queued_next = false
 	hit_confirmed = false
@@ -303,24 +304,18 @@ func on_animation_complete(_anim_name: StringName) -> void:
 	match state:
 		GFState.GF_ENTER:
 			state = GFState.GF_IDLE
-			_reset_z_defaults()
 			print("[GF]   → Enter complete, now IDLE")
 		GFState.GF_COOLDOWN:
 			state = GFState.GF_IDLE
-			_reset_z_defaults()
 			print("[GF]   → Cooldown complete, now IDLE")
 		GFState.GF_EXIT:
 			pass
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
-			var stage: int = state - GFState.GF_ATTACK_1 + 1
-			var expected_anim: StringName = StringName("ghost_fist_/attack_%d" % stage)
-			if _anim_name != expected_anim:
-				print("[GF]   → IGNORED stale complete (expected %s, got %s)" % [expected_anim, _anim_name])
-				return
-			print("[GF]   → Attack %d ended, entering cooldown" % stage)
-			_disable_all_hitboxes()
-			_enter_cooldown()
+			# ✅ 攻击期间不做任何事！combo_check 是唯一的状态转移驱动
+			# 防止 player spine 先播完导致竞速杀死连击
+			print("[GF]   → Ignored during attack (combo_check handles transitions)")
+			
 func _reset_z_defaults() -> void:
 	_gf_L.z_index = GF_Z_FRONT_L  # 2（玩家前面）
 	_gf_R.z_index = GF_Z_BACK_R   # -1（玩家后面）
@@ -361,7 +356,6 @@ func _on_combo_check() -> void:
 
 func _enter_cooldown() -> void:
 	state = GFState.GF_COOLDOWN
-	_reset_z_defaults()
 	state_changed.emit(state, &"cooldown")
 	print("[GF] Entering cooldown")
 
