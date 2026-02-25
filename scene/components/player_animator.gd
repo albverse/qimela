@@ -174,13 +174,33 @@ func _connect_gf_signals() -> void:
 		if node == null:
 			continue
 		var target_node: SpineSprite = node  # capture for lambda closure
-		if node.has_signal("animation_event"):
-			# spine-godot: arg count varies by version — use defaults + introspection
-			node.animation_event.connect(
+		var node_name: String = node.name
+
+		# ── 诊断: 列出 SpineSprite 所有信号 ──
+		var sig_names: Array[String] = []
+		for sig: Dictionary in node.get_signal_list():
+			sig_names.append(sig.get("name", "?"))
+		print("[GF_DIAG] %s signals: %s" % [node_name, ", ".join(sig_names)])
+
+		# ── 连接 animation_event（或备选名称） ──
+		var event_signal_name: String = ""
+		for candidate: String in ["animation_event", "spine_event", "event_fired"]:
+			if node.has_signal(candidate):
+				event_signal_name = candidate
+				break
+		if event_signal_name != "":
+			print("[GF_DIAG] %s → connecting event signal: %s" % [node_name, event_signal_name])
+			node.connect(event_signal_name,
 				func(_a1 = null, _a2 = null, _a3 = null, _a4 = null) -> void:
+					print("[GF_DIAG] EVENT FIRED on %s: a1=%s a2=%s a3=%s a4=%s" % [
+						node_name, type_string(typeof(_a1)), type_string(typeof(_a2)),
+						type_string(typeof(_a3)), type_string(typeof(_a4))])
 					var evt = _find_spine_event(_a1, _a2, _a3, _a4)
 					_on_gf_spine_event(target_node, evt)
 			)
+		else:
+			print("[GF_DIAG] %s → NO event signal found!" % node_name)
+
 		if node.has_signal("animation_completed"):
 			# spine-godot: confirmed 3 args at runtime — use defaults for safety
 			node.animation_completed.connect(
