@@ -14,7 +14,7 @@ radius = 40.0
 script = ExtResource("1_gf")
 
 [node name="ghost_fist_R" type="SpineSprite" parent="."]
-z_index = -2
+z_index = -1
 position = Vector2(34, 136)
 skeleton_data_res = ExtResource("2_fublm")
 preview_skin = "default"
@@ -23,7 +23,7 @@ preview_frame = false
 preview_time = 0.0
 
 [node name="ghost_fist_L" type="SpineSprite" parent="."]
-z_index = -1
+z_index = 1
 position = Vector2(41, 176)
 skeleton_data_res = ExtResource("3_o1mwq")
 preview_skin = "Default"
