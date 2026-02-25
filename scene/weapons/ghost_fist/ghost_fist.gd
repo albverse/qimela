@@ -275,6 +275,9 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			state = GFState.GF_IDLE
 			print("[GF]   → Enter complete, now IDLE")
 		GFState.GF_COOLDOWN:
+			if _anim_name != &"" and _anim_name != &"ghost_fist_/cooldown":
+				print("[GF] Cooldown completion ignored: anim=%s" % _anim_name)
+				return
 			state = GFState.GF_IDLE
 			print("[GF]   → Cooldown complete, now IDLE")
 		GFState.GF_EXIT:
