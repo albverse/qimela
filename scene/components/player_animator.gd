@@ -77,6 +77,8 @@ const ACTION_END_MAP: Dictionary = {
 const LOCO_END_MAP: Dictionary = {
 	&"chain_/jump_up": &"anim_end_jump_up",
 	&"chain_/jump_down": &"anim_end_jump_down",
+	&"ghost_fist_/jump_up": &"anim_end_jump_up",
+	&"ghost_fist_/jump_down": &"anim_end_jump_down",
 }
 
 # 手动 Chain 动画：不向 ActionFSM 派发结束事件（避免 state=None 噪音和边缘联动）
@@ -171,20 +173,37 @@ func _connect_gf_signals() -> void:
 	for node: SpineSprite in [_gf_L, _gf_R]:
 		if node == null:
 			continue
-		# Capture node ref for lambda — spine-godot signals do NOT pass SpineSprite as arg
-		var target_node: SpineSprite = node
+		var target_node: SpineSprite = node  # capture for lambda closure
 		if node.has_signal("animation_event"):
-			# spine-godot signal: animation_event(track_entry, event)
+			# spine-godot: arg count varies by version — use defaults + introspection
 			node.animation_event.connect(
-				func(track_entry, event = null) -> void:
-					_on_gf_spine_event(target_node, event)
+				func(_a1 = null, _a2 = null, _a3 = null, _a4 = null) -> void:
+					var evt = _find_spine_event(_a1, _a2, _a3, _a4)
+					_on_gf_spine_event(target_node, evt)
 			)
 		if node.has_signal("animation_completed"):
-			# spine-godot signal: animation_completed(track_entry)
+			# spine-godot: confirmed 3 args at runtime — use defaults for safety
 			node.animation_completed.connect(
-				func(track_entry, _arg2 = null) -> void:
-					_on_gf_anim_complete(target_node, track_entry)
+				func(_a1 = null, _a2 = null, _a3 = null, _a4 = null) -> void:
+					var entry = _find_track_entry(_a1, _a2, _a3, _a4)
+					_on_gf_anim_complete(target_node, entry)
 			)
+
+
+## 从可变信号参数中找到 SpineTrackEntry（has get_track_index）
+func _find_track_entry(a1, a2, a3, a4):
+	for a in [a1, a2, a3, a4]:
+		if a is Object and a.has_method("get_track_index"):
+			return a
+	return a1  # fallback: 第一个参数
+
+
+## 从可变信号参数中找到 SpineEvent（has get_data）
+func _find_spine_event(a1, a2, a3, a4):
+	for a in [a1, a2, a3, a4]:
+		if a is Object and a.has_method("get_data"):
+			return a
+	return null
 
 
 func _on_gf_spine_event(ss: SpineSprite, event) -> void:
@@ -355,10 +374,14 @@ func tick(_dt: float) -> void:
 			var gf_loco_anim: StringName = _get_gf_loco_anim(base_loco_key)
 			if gf_loco_anim != _cur_loco_anim:
 				var loop: bool = base_loco_key in [&"idle", &"walk", &"run", &"jump_loop"]
-				_play_on_player_spine(gf_loco_anim, loop)
+				# GF locomotion: 直接播放在 TRACK_LOCO，不用 EXCLUSIVE 模式
+				# 不设 action 字段 — jump_up/jump_down 完成时走 LOCO_END_MAP 而非 FULLBODY 路径
+				_driver.play(TRACK_LOCO, gf_loco_anim, loop)
 				_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle", true)
 				_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle", true)
 				_cur_loco_anim = gf_loco_anim
+				_cur_action_anim = &""
+				_cur_action_mode = -1
 				_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
 		if action_state == &"Hurt":
@@ -506,13 +529,14 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
 			if action_event != &"":
 				_player.on_action_anim_end(action_event)
-			# GF mode: player spine 完成也触发 GF 状态转移（双保险）
-			if _gf_mode and _ghost_fist != null:
-				_ghost_fist.on_animation_complete(anim_name)
-			# FULLBODY 结束：恢复状态，让下一帧 tick 重新评估 loco
+			# FULLBODY 结束：先恢复字段（后续 on_animation_complete 可能触发新动画，不能被覆盖）
 			_cur_action_anim = &""
 			_cur_action_mode = -1
 			_cur_loco_anim = &""
+			# GF mode: player spine 完成也触发 GF 状态转移（双保险）
+			# 放在字段重置之后：如果触发 cooldown→play_ghost_fist_cooldown，新值不会被覆盖
+			if _gf_mode and _ghost_fist != null:
+				_ghost_fist.on_animation_complete(anim_name)
 			return
 
 		# 普通 locomotion 完成（jump_up / jump_down 等非 loop 动画）
