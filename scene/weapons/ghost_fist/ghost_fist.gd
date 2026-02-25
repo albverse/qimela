@@ -278,9 +278,13 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			pass
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
-			# 兜底：若动画结束前未收到 combo_check，强制进入 cooldown 防卡死
-			print("[GF] ⚠ Attack anim ended without combo_check → fallback cooldown")
-			_enter_cooldown()
+			var stage: int = state - GFState.GF_ATTACK_1 + 1
+			if stage >= 3:
+				print("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
+				_enter_cooldown()
+			else:
+				print("[GF] ⚠ Attack %d ended → direct idle (no cooldown)" % stage)
+				state = GFState.GF_IDLE
 
 # ════════════════════════════════════════
 # 连击门控
@@ -311,9 +315,14 @@ func _on_combo_check() -> void:
 		print("[GF] └──────────────────────────────────────")
 		_start_attack(stage + 1)
 	else:
-		print("[GF] │ → Combo broken (hit=%s queued=%s), entering cooldown ✗" % [hit_confirmed, queued_next])
-		print("[GF] └──────────────────────────────────────")
-		_enter_cooldown()
+		if stage >= 3:
+			print("[GF] │ → Combo broken (hit=%s queued=%s), entering cooldown ✗" % [hit_confirmed, queued_next])
+			print("[GF] └──────────────────────────────────────")
+			_enter_cooldown()
+		else:
+			print("[GF] │ → Light combo break (stage %d), skipping cooldown" % stage)
+			print("[GF] └──────────────────────────────────────")
+			state = GFState.GF_IDLE
 
 
 ## Cooldown 状态说明：

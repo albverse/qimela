@@ -247,10 +247,7 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if gf_state >= GhostFist.GFState.GF_ATTACK_1 and gf_state <= GhostFist.GFState.GF_ATTACK_4:
 		var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
 		if hand == expected:
-			var anim_name: StringName = _extract_anim_name(entry)
-			var expected_anim: StringName = StringName("ghost_fist_/attack_%d" % (gf_state - GhostFist.GFState.GF_ATTACK_1 + 1))
-			if anim_name == expected_anim:
-				_ghost_fist.on_animation_complete(anim_name)
+			_ghost_fist.on_animation_complete(_extract_anim_name(entry))
 		return
 
 	# 非攻击状态（enter/cooldown/exit）只接受 R 手完成，避免 L+R 双触发
@@ -425,11 +422,21 @@ func tick(_dt: float) -> void:
 					_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
 		if action_state == &"Hurt":
+			if _ghost_fist.state != GhostFist.GFState.GF_IDLE and _ghost_fist.state != GhostFist.GFState.GF_ENTER:
+				_ghost_fist.state = GhostFist.GFState.GF_IDLE
+				_ghost_fist.queued_next = false
+				_ghost_fist.hit_confirmed = false
+				_ghost_fist._disable_all_hitboxes()
 			var hurt_anim: StringName = &"ghost_fist_/hurt"
 			if hurt_anim != _cur_action_anim:
 				_play_on_player_spine(hurt_anim, false)
 				_cur_action_anim = hurt_anim
 		elif action_state == &"Die":
+			if _ghost_fist.state != GhostFist.GFState.GF_IDLE:
+				_ghost_fist.state = GhostFist.GFState.GF_IDLE
+				_ghost_fist.queued_next = false
+				_ghost_fist.hit_confirmed = false
+				_ghost_fist._disable_all_hitboxes()
 			var die_anim: StringName = &"ghost_fist_/die"
 			if die_anim != _cur_action_anim:
 				_play_on_player_spine(die_anim, false)
