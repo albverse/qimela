@@ -126,7 +126,8 @@ func get_spine_R() -> SpineSprite:
 # ════════════════════════════════════════
 func activate() -> void:
 	visible = true
-	_gf_L.z_index = GF_Z_BACK_L
+	# 默认: L 在玩家前方, R 在玩家后方（攻击时由 z_front/z_back 事件切换）
+	_gf_L.z_index = GF_Z_FRONT_L
 	_gf_R.z_index = GF_Z_BACK_R
 	_combo_hit_count = 0
 	queued_next = false
