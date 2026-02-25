@@ -173,21 +173,30 @@ func _connect_gf_signals() -> void:
 	for node: SpineSprite in [_gf_L, _gf_R]:
 		if node == null:
 			continue
-		var target_node: SpineSprite = node  # capture for lambda closure
+		var target_node: SpineSprite = node
 		if node.has_signal("animation_event"):
-			# spine-godot: arg count varies by version — use defaults + introspection
 			node.animation_event.connect(
-				func(_a1 = null, _a2 = null, _a3 = null, _a4 = null) -> void:
-					var evt = _find_spine_event(_a1, _a2, _a3, _a4)
-					_on_gf_spine_event(target_node, evt)
+				func(a1, a2, a3, a4) -> void:
+					var spine_event = null
+					for a in [a1, a2, a3, a4]:
+						if a is Object and a.has_method("get_data"):
+							spine_event = a
+							break
+					if spine_event != null:
+						_on_gf_spine_event(target_node, spine_event)
 			)
 		if node.has_signal("animation_completed"):
-			# spine-godot: confirmed 3 args at runtime — use defaults for safety
 			node.animation_completed.connect(
-				func(_a1 = null, _a2 = null, _a3 = null, _a4 = null) -> void:
-					var entry = _find_track_entry(_a1, _a2, _a3, _a4)
-					_on_gf_anim_complete(target_node, entry)
+				func(a1, a2 = null, a3 = null, a4 = null) -> void:
+					var track_entry = null
+					for a in [a1, a2, a3, a4]:
+						if a is Object and a != null and a.has_method("get_track_index"):
+							track_entry = a
+							break
+					_on_gf_anim_complete(target_node, track_entry if track_entry else a1)
 			)
+	print("[PA_TEST] _connect_gf_signals complete, L=%s R=%s" % [_gf_L != null, _gf_R != null])
+
 
 
 ## 从可变信号参数中找到 SpineTrackEntry（has get_track_index）
@@ -206,17 +215,24 @@ func _find_spine_event(a1, a2, a3, a4):
 	return null
 
 
-func _on_gf_spine_event(ss: SpineSprite, event) -> void:
+func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
+	print("[PA_TEST] _on_gf_spine_event CALLED! ss=%s event=%s" % [ss.name if ss else "null", event != null])
+	
 	if _ghost_fist == null:
 		return
+	
 	var hand: int = GhostFist.Hand.LEFT if ss == _gf_L else GhostFist.Hand.RIGHT
 	var event_name: StringName = &""
+	
+	# ✅ 修复：使用 get_event_name() 而不是 get_name()
 	if event != null and event.has_method("get_data"):
 		var data = event.get_data()
-		if data != null and data.has_method("get_name"):
-			event_name = StringName(data.get_name())
+		if data != null and data.has_method("get_event_name"):
+			event_name = StringName(data.get_event_name())
+	
 	if event_name == &"":
 		return
+	
 	_ghost_fist.on_spine_event(hand, event_name)
 
 
