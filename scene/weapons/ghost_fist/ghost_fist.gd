@@ -172,20 +172,27 @@ func _start_attack(stage: int) -> void:
 # ════════════════════════════════════════
 # Spine 事件回调（PlayerAnimator 转发，附带 hand 标识）
 # ════════════════════════════════════════
-func on_spine_event(hand: int, event_name: StringName) -> void:
+func on_spine_event(_hand: int, event_name: StringName) -> void:
+	# 根据当前攻击段的 ATTACK_HAND 决定激活哪只手的 hitbox/z_index
+	# 不依赖事件来源手（因为 L/R spine 共享动画，事件可能只在一方触发）
+	var active_hand: int = ATTACK_HAND.get(state, -1)
+	print("[GF] on_spine_event: %s  state=%d  active_hand=%d  materialized=%s" % [
+		event_name, state, active_hand, str(_materialized)])
 	match event_name:
 		&"hit_on":
-			_enable_hitbox_for(hand)
+			if active_hand >= 0:
+				_enable_hitbox_for(active_hand)
 		&"hit_off":
-			_disable_hitbox_for(hand)
+			if active_hand >= 0:
+				_disable_hitbox_for(active_hand)
 		&"combo_check":
-			var expected: int = ATTACK_HAND.get(state, -1)
-			if hand == expected:
-				_on_combo_check()
+			_on_combo_check()
 		&"z_front":
-			_set_z(hand, true)
+			if active_hand >= 0:
+				_set_z(active_hand, true)
 		&"z_back":
-			_set_z(hand, false)
+			if active_hand >= 0:
+				_set_z(active_hand, false)
 
 
 func on_animation_complete(_anim_name: StringName) -> void:

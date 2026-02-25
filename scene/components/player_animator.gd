@@ -235,6 +235,11 @@ func _on_gf_spine_event(ss: SpineSprite, event) -> void:
 		var data = event.get_data()
 		if data != null and data.has_method("get_name"):
 			event_name = StringName(data.get_name())
+	# 诊断: 打印事件提取结果
+	var ss_name: String = ss.name if ss != null else "null"
+	print("[GF_DIAG] _on_gf_spine_event: ss=%s hand=%d event=%s evt_obj=%s" % [
+		ss_name, hand, str(event_name),
+		"has_get_data" if (event != null and event is Object and event.has_method("get_data")) else "NO_get_data"])
 	if event_name == &"":
 		return
 	_ghost_fist.on_spine_event(hand, event_name)
