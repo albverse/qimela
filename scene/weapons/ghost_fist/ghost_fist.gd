@@ -351,6 +351,11 @@ func _spawn_healing_sprite() -> void:
 		return
 	if player == null or not is_instance_valid(player):
 		return
+	if player.has_method("get_healing_sprite_count"):
+		var cur: int = int(player.call("get_healing_sprite_count"))
+		if cur >= player.max_healing_sprites:
+			print("[GF] Healing sprite NOT spawned: player at max (%d)" % player.max_healing_sprites)
+			return
 
 	var sprite: Node2D = healing_sprite_scene.instantiate() as Node2D
 	if sprite == null:

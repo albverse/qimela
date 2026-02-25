@@ -637,6 +637,11 @@ func _healing_count() -> int:
 	return n
 
 
+
+func get_healing_sprite_count() -> int:
+	return _healing_count()
+
+
 func _consume_all_healing_sprites_on_death() -> void:
 	for i in range(max_healing_sprites):
 		var sp: Node = _healing_slots[i]

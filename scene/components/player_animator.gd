@@ -62,6 +62,8 @@ const ACTION_END_MAP: Dictionary = {
 	&"chain_/fuse_progress": &"anim_end_fuse",
 	&"chain_/fuse_hurt": &"anim_end_hurt",
 	&"chain_/hurt": &"anim_end_hurt",
+	&"ghost_fist_/hurt": &"anim_end_hurt",
+	&"ghost_fist_/die": &"anim_end_hurt",
 	# Sword 动画
 	&"chain_/sword_light_idle": &"anim_end_attack",
 	&"chain_/sword_light_move": &"anim_end_attack",
@@ -245,7 +247,10 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if gf_state >= GhostFist.GFState.GF_ATTACK_1 and gf_state <= GhostFist.GFState.GF_ATTACK_4:
 		var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
 		if hand == expected:
-			_ghost_fist.on_animation_complete(_extract_anim_name(entry))
+			var anim_name: StringName = _extract_anim_name(entry)
+			var expected_anim: StringName = StringName("ghost_fist_/attack_%d" % (gf_state - GhostFist.GFState.GF_ATTACK_1 + 1))
+			if anim_name == expected_anim:
+				_ghost_fist.on_animation_complete(anim_name)
 		return
 
 	# 非攻击状态（enter/cooldown/exit）只接受 R 手完成，避免 L+R 双触发
@@ -568,10 +573,6 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			_cur_action_anim = &""
 			_cur_action_mode = -1
 			_cur_loco_anim = &""
-			# GF mode: player spine 完成也触发 GF 状态转移（双保险）
-			# 放在字段重置之后：如果触发 cooldown→play_ghost_fist_cooldown，新值不会被覆盖
-			if _gf_mode and _ghost_fist != null:
-				_ghost_fist.on_animation_complete(anim_name)
 			return
 
 		# 普通 locomotion 完成（jump_up / jump_down 等非 loop 动画）
