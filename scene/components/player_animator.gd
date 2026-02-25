@@ -247,7 +247,13 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if gf_state >= GhostFist.GFState.GF_ATTACK_1 and gf_state <= GhostFist.GFState.GF_ATTACK_4:
 		var expected: int = GhostFist.ATTACK_HAND.get(gf_state, GhostFist.Hand.RIGHT)
 		if hand == expected:
-			_ghost_fist.on_animation_complete(_extract_anim_name(entry))
+			var anim_name: StringName = _extract_anim_name(entry)
+			var expected_stage: int = gf_state - GhostFist.GFState.GF_ATTACK_1 + 1
+			var expected_anim: StringName = StringName("ghost_fist_/attack_%d" % expected_stage)
+			if anim_name == &"" or anim_name == expected_anim:
+				_ghost_fist.on_animation_complete(anim_name)
+			else:
+				print("[PA] Stale attack completion ignored: got=%s expected=%s" % [anim_name, expected_anim])
 		return
 
 	# 非攻击状态（enter/cooldown/exit）只接受 R 手完成，避免 L+R 双触发

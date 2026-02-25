@@ -79,6 +79,7 @@ var _thunder_processed_this_frame: bool = false
 var state: int = GFState.GF_IDLE
 var queued_next: bool = false
 var hit_confirmed: bool = false
+var _combo_check_handled: bool = false
 var _combo_hit_count: int = 0
 var _hit_this_swing: Dictionary = {}   # RID → true
 var _last_hit_monster: Node2D = null   # 最近命中的怪物（摄魂用）
@@ -139,12 +140,13 @@ func get_spine_R() -> SpineSprite:
 # ════════════════════════════════════════
 func activate() -> void:
 	visible = true
-	_gf_L.z_index = GF_Z_BACK_L   # -2
-	_gf_R.z_index = GF_Z_BACK_R   # -1
+	_gf_L.z_index = GF_Z_FRONT_L  # 2
+	_gf_R.z_index = GF_Z_FRONT_R  # 3
 	# ——后续不变——
 	_combo_hit_count = 0
 	queued_next = false
 	hit_confirmed = false
+	_combo_check_handled = false
 	_hit_this_swing.clear()
 	_last_hit_monster = null
 	state = GFState.GF_ENTER
@@ -192,6 +194,7 @@ func _start_attack(stage: int) -> void:
 	state = GFState.GF_ATTACK_1 + (stage - 1)
 	queued_next = false
 	hit_confirmed = false
+	_combo_check_handled = false
 	_hit_this_swing.clear()
 	_disable_all_hitboxes()
 	state_changed.emit(state, StringName("attack_%d" % stage))
@@ -278,6 +281,9 @@ func on_animation_complete(_anim_name: StringName) -> void:
 			pass
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
+			if _combo_check_handled:
+				print("[GF] Attack completion ignored (combo_check already handled)")
+				return
 			var stage: int = state - GFState.GF_ATTACK_1 + 1
 			if stage >= 3:
 				print("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
@@ -290,6 +296,7 @@ func on_animation_complete(_anim_name: StringName) -> void:
 # 连击门控
 # ════════════════════════════════════════
 func _on_combo_check() -> void:
+	_combo_check_handled = true
 	_disable_all_hitboxes()
 	var stage: int = state - GFState.GF_ATTACK_1 + 1  # 1..4
 	
