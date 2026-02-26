@@ -506,7 +506,6 @@ func tick(_dt: float) -> void:
 				_play_on_gf_spine(GhostFist.Hand.LEFT, die_anim, false)
 				_play_on_gf_spine(GhostFist.Hand.RIGHT, die_anim, false)
 				_cur_action_anim = die_anim
-				_gf_mode = false
 		# facing
 		if _visual != null:
 			var facing_val: int = _player.facing

@@ -274,6 +274,9 @@ func on_animation_complete(_anim_name: StringName) -> void:
 	print("[GF] Animation complete: %s (state=%s)" % [_anim_name, GFState.keys()[state]])
 	match state:
 		GFState.GF_ENTER:
+			if _anim_name != &"" and _anim_name != &"ghost_fist_/enter":
+				print("[GF] Enter completion ignored: anim=%s" % _anim_name)
+				return
 			state = GFState.GF_IDLE
 			print("[GF]   → Enter complete, now IDLE")
 		GFState.GF_COOLDOWN:
@@ -634,13 +637,23 @@ func _on_healing_burst(light_energy: float) -> void:
 	light_counter = min(light_counter, light_counter_max)
 
 
+func _get_current_light_remaining(info: Dictionary) -> float:
+	var total_duration: float = info.get("total_duration", 0.0)
+	if total_duration <= 0.0:
+		return 0.0
+	var start_ms: int = int(info.get("start_time_ms", 0))
+	var elapsed: float = maxf((Time.get_ticks_msec() - start_ms) / 1000.0, 0.0)
+	return maxf(total_duration - elapsed, 0.0)
+
+
 func _on_light_started(source_id: int, remaining_time: float, source_light_area: Area2D) -> void:
 	if _light_sensor == null or source_light_area == null:
 		return
 	if not source_light_area.overlaps_area(_light_sensor):
 		_active_light_sources[source_id] = {
 			"area": source_light_area,
-			"remaining_time": remaining_time,
+			"total_duration": remaining_time,
+			"start_time_ms": Time.get_ticks_msec(),
 		}
 		return
 	if _processed_light_sources.has(source_id):
@@ -663,7 +676,7 @@ func _on_light_area_entered(area: Area2D) -> void:
 		if info.get("area") == area:
 			if not _processed_light_sources.has(src_id):
 				_processed_light_sources[src_id] = true
-				var remaining: float = info.get("remaining_time", 0.0)
+				var remaining: float = _get_current_light_remaining(info)
 				light_counter += remaining
 				light_counter = min(light_counter, light_counter_max)
 			_active_light_sources.erase(src_id)
