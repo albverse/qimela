@@ -83,6 +83,7 @@ var _combo_check_handled: bool = false
 var _combo_hit_count: int = 0
 var _hit_this_swing: Dictionary = {}   # RID → true
 var _last_hit_monster: Node2D = null   # 最近命中的怪物（摄魂用）
+var _attack4_first_detected_monster: Node2D = null  # attack_4 首次检测到的怪物（摄魂VFX目标）
 @export var idle_anima_delay: float = 5.0
 var _idle_timer: float = 0.0
 
@@ -160,6 +161,7 @@ func activate() -> void:
 	_combo_check_handled = false
 	_hit_this_swing.clear()
 	_last_hit_monster = null
+	_attack4_first_detected_monster = null
 	state = GFState.GF_ENTER
 	
 	# 切换到 GhostFist 时不附赠初始能量，必须依靠外部事件充能
@@ -209,6 +211,7 @@ func _start_attack(stage: int) -> void:
 	hit_confirmed = false
 	_combo_check_handled = false
 	_hit_this_swing.clear()
+	_attack4_first_detected_monster = null
 	_disable_all_hitboxes()
 	state_changed.emit(state, StringName("attack_%d" % stage))
 	
@@ -389,16 +392,19 @@ func on_hurt_animation_finished() -> void:
 # 摄魂
 # ════════════════════════════════════════
 func _trigger_soul_capture() -> void:
-	if _last_hit_monster == null or not is_instance_valid(_last_hit_monster):
+	var target_monster: Node2D = _attack4_first_detected_monster
+	if target_monster == null or not is_instance_valid(target_monster):
+		target_monster = _last_hit_monster
+	if target_monster == null or not is_instance_valid(target_monster):
 		return
 	if soul_extract_vfx_scene == null:
 		push_error("[GhostFist] soul_extract_vfx_scene not assigned!")
 		return
 	var vfx: Node2D = soul_extract_vfx_scene.instantiate() as Node2D
-	_last_hit_monster.add_child(vfx)
+	target_monster.add_child(vfx)
 	vfx.position = Vector2.ZERO
 	_combo_hit_count = 0
-	_gf_log("[GhostFist] SOUL CAPTURE → ", _last_hit_monster.name)
+	_gf_log("[GhostFist] SOUL CAPTURE → ", target_monster.name)
 	_spawn_healing_sprite()
 
 
@@ -437,15 +443,19 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	if _hit_this_swing.has(rid):
 		return
 
-	var monster = _resolve_monster(area)
+	var monster: Node = _resolve_monster(area)
 	if monster != null:
+		var monster_2d: Node2D = monster as Node2D
+		if state == GFState.GF_ATTACK_4 and monster_2d != null and (_attack4_first_detected_monster == null or not is_instance_valid(_attack4_first_detected_monster)):
+			_attack4_first_detected_monster = monster_2d
+			_gf_log("[GF] attack_4 first detected target=%s" % monster_2d.name)
 		var hit: HitData = HitData.create(damage_per_hit, player, &"ghost_fist", HitData.Flags.STAGGER)
 		var applied: bool = monster.apply_hit(hit)
 		_hit_this_swing[rid] = true
 		if applied:
 			hit_confirmed = true
 			_combo_hit_count += 1
-			_last_hit_monster = monster
+			_last_hit_monster = monster_2d
 		return
 
 	var flower = _resolve_lightning_flower(area)
