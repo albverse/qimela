@@ -289,10 +289,11 @@ func _extract_anim_name(entry) -> StringName:
 func _prepare_gf_fullbody_playback() -> void:
 	if _player != null:
 		_player.velocity.x = 0.0
+	# 只清理 overlay 轨（track1），不要 clear track0。
+	# clear track0 会把 Spine 停在上一姿势最后一帧（run/hurt 旋转残留），
+	# 正确做法是直接用后续 EXCLUSIVE 播放替换 track0。
 	if _driver != null and _driver.has_method("stop"):
 		_driver.stop(TRACK_ACTION)
-		_driver.stop(TRACK_LOCO)
-	_cur_loco_anim = &""
 
 
 ## 攻击段播放（三节点同步: PlayerSpine + L + R）
