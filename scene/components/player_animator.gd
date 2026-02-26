@@ -372,10 +372,41 @@ func _play_on_gf_spine(hand: int, anim_name: StringName, loop: bool) -> void:
 	var spine: SpineSprite = _gf_L if hand == GhostFist.Hand.LEFT else _gf_R
 	if spine == null:
 		return
+	if not _set_spine_track_animation(spine, 0, anim_name, loop):
+		return
+
+	# 非循环动作（attack/cooldown/hurt/enter/exit）在武器骨骼轨道上补一段 empty mix-out，
+	# 防止高姿态残留覆盖后续 idle/run。
+	if not loop:
+		_add_spine_empty_animation(spine, 0, 0.15, 0.0)
+
+
+func _set_spine_track_animation(spine: SpineSprite, track: int, anim_name: StringName, loop: bool) -> bool:
+	if spine == null:
+		return false
+	var anim_state = spine.get_animation_state()
+	if anim_state == null:
+		return false
+	var anim_str: String = String(anim_name)
+	if anim_state.has_method("set_animation"):
+		anim_state.set_animation(anim_str, loop, track)
+		return true
+	if anim_state.has_method("setAnimation"):
+		anim_state.setAnimation(anim_str, loop, track)
+		return true
+	return false
+
+
+func _add_spine_empty_animation(spine: SpineSprite, track: int, mix_duration: float, delay: float) -> void:
+	if spine == null:
+		return
 	var anim_state = spine.get_animation_state()
 	if anim_state == null:
 		return
-	anim_state.set_animation(String(anim_name), loop, 0)
+	if anim_state.has_method("add_empty_animation"):
+		anim_state.add_empty_animation(track, mix_duration, delay)
+	elif anim_state.has_method("addEmptyAnimation"):
+		anim_state.addEmptyAnimation(track, mix_duration, delay)
 
 
 ## _compute_context: 计算当前上下文（用于武器动画选择）
