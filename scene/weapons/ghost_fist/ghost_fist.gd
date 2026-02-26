@@ -187,6 +187,24 @@ func on_attack_input() -> void:
 			print("[GF]   → IGNORED (state=%s)" % GFState.keys()[state])
 
 
+func on_hurt() -> void:
+	if state == GFState.GF_EXIT:
+		return
+	_disable_all_hitboxes()
+	queued_next = false
+	hit_confirmed = false
+	_combo_check_handled = false
+	state = GFState.GF_COOLDOWN
+
+
+func on_die() -> void:
+	_disable_all_hitboxes()
+	queued_next = false
+	hit_confirmed = false
+	_combo_check_handled = false
+	state = GFState.GF_IDLE
+
+
 # ════════════════════════════════════════
 # 攻击段
 # ════════════════════════════════════════
