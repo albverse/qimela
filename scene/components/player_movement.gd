@@ -72,6 +72,8 @@ func tick(dt: float) -> void:
 
 	# ── 水平速度 ──
 	if _player.is_horizontal_input_locked():
+		move_intent = MoveIntent.NONE
+		input_dir = 0.0
 		_player.velocity.x = 0.0
 	else:
 		var speed: float = _player.move_speed

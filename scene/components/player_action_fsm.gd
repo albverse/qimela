@@ -329,6 +329,10 @@ func on_anim_end_hurt() -> void:
 			_sync_loco(&"Idle", "GREEN")
 			return
 		_use_fuse_hurt_anim = false
+		if _player != null and _player.weapon_controller != null and _player.weapon_controller.is_ghost_fist() and _player.is_on_floor():
+			_do_transition(State.NONE, "anim_end_hurt->gf_force_idle", 90)
+			_sync_loco(&"Idle", "gf_hurt_recover")
+			return
 		_resolve_and_transition("anim_end_hurt")
 
 
