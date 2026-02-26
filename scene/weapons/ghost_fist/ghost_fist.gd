@@ -92,6 +92,17 @@ var _idle_timer: float = 0.0
 var player: Node2D = null
 
 
+func _gf_log(message: Variant, extra: Variant = null) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if not player.has_method("log_msg"):
+		return
+	var text: String = str(message)
+	if extra != null:
+		text += str(extra)
+	player.call("log_msg", "GF", text)
+
+
 func setup(p: Node2D) -> void:
 	player = p
 	_disable_all_hitboxes()
@@ -157,11 +168,11 @@ func activate() -> void:
 	_materialized = false
 	_update_opacity()
 	
-	print("[GF] ═══════════════════════════════════════")
-	print("[GF] ACTIVATED")
-	print("[GF] z_L=%d z_R=%d" % [_gf_L.z_index, _gf_R.z_index])
-	print("[GF] materialized=%s visible_time=%s" % [_materialized, visible_time])
-	print("[GF] ═══════════════════════════════════════")
+	_gf_log("[GF] ═══════════════════════════════════════")
+	_gf_log("[GF] ACTIVATED")
+	_gf_log("[GF] z_L=%d z_R=%d" % [_gf_L.z_index, _gf_R.z_index])
+	_gf_log("[GF] materialized=%s visible_time=%s" % [_materialized, visible_time])
+	_gf_log("[GF] ═══════════════════════════════════════")
 	# PlayerAnimator 负责播放 enter 动画（三节点）
 
 
@@ -171,22 +182,22 @@ func deactivate() -> void:
 	hit_confirmed = false
 	_combo_check_handled = false
 	state = GFState.GF_EXIT
-	print("[GF] DEACTIVATED -> GF_EXIT")
+	_gf_log("[GF] DEACTIVATED -> GF_EXIT")
 
 
 # ════════════════════════════════════════
 # 输入
 # ════════════════════════════════════════
 func on_attack_input() -> void:
-	print("[GF] on_attack_input: state=%s" % GFState.keys()[state])
+	_gf_log("[GF] on_attack_input: state=%s" % GFState.keys()[state])
 	match state:
 		GFState.GF_IDLE:
 			_start_attack(1)
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, GFState.GF_ATTACK_3:
 			queued_next = true
-			print("[GF]   → queued_next = true")
+			_gf_log("[GF]   → queued_next = true")
 		_:
-			print("[GF]   → IGNORED (state=%s)" % GFState.keys()[state])
+			_gf_log("[GF]   → IGNORED (state=%s)" % GFState.keys()[state])
 
 
 # ════════════════════════════════════════
@@ -202,11 +213,11 @@ func _start_attack(stage: int) -> void:
 	state_changed.emit(state, StringName("attack_%d" % stage))
 	
 	var expected_hand_str: String = "L" if ATTACK_HAND.get(state, -1) == Hand.LEFT else "R"
-	print("[GF] ─────────────────────────────────────")
-	print("[GF] START ATTACK %d" % stage)
-	print("[GF] Expected hand: %s" % expected_hand_str)
-	print("[GF] State: %s" % GFState.keys()[state])
-	print("[GF] ─────────────────────────────────────")
+	_gf_log("[GF] ─────────────────────────────────────")
+	_gf_log("[GF] START ATTACK %d" % stage)
+	_gf_log("[GF] Expected hand: %s" % expected_hand_str)
+	_gf_log("[GF] State: %s" % GFState.keys()[state])
+	_gf_log("[GF] ─────────────────────────────────────")
 
 
 # ════════════════════════════════════════
@@ -220,86 +231,86 @@ func on_spine_event(hand: int, event_name: StringName) -> void:
 	var expected_hand: int = ATTACK_HAND.get(state, -1)
 	var expected_str: String = "L" if expected_hand == Hand.LEFT else "R"
 	
-	print("[GF] ┌─ SPINE EVENT ────────────────────────")
-	print("[GF] │ Event: %s" % event_name)
-	print("[GF] │ From hand: %s" % hand_str)
-	print("[GF] │ State: %s" % GFState.keys()[state])
-	print("[GF] │ Expected hand: %s" % expected_str)
-	print("[GF] │ Materialized: %s" % _materialized)
+	_gf_log("[GF] ┌─ SPINE EVENT ────────────────────────")
+	_gf_log("[GF] │ Event: %s" % event_name)
+	_gf_log("[GF] │ From hand: %s" % hand_str)
+	_gf_log("[GF] │ State: %s" % GFState.keys()[state])
+	_gf_log("[GF] │ Expected hand: %s" % expected_str)
+	_gf_log("[GF] │ Materialized: %s" % _materialized)
 	
 	match event_name:
 		&"hit_on":
 			# 只有预期的主攻手才启用 hitbox
 			if hand == expected_hand:
 				_enable_hitbox_for(hand)
-				print("[GF] │ → hit_on ACCEPTED for %s ✓" % hand_str)
+				_gf_log("[GF] │ → hit_on ACCEPTED for %s ✓" % hand_str)
 			else:
-				print("[GF] │ → hit_on IGNORED (expected %s) ✗" % expected_str)
+				_gf_log("[GF] │ → hit_on IGNORED (expected %s) ✗" % expected_str)
 		
 		&"hit_off":
 			if hand == expected_hand:
 				_disable_hitbox_for(hand)
-				print("[GF] │ → hit_off for %s" % hand_str)
+				_gf_log("[GF] │ → hit_off for %s" % hand_str)
 			else:
-				print("[GF] │ → hit_off IGNORED")
+				_gf_log("[GF] │ → hit_off IGNORED")
 		
 		&"combo_check":
 			# combo_check 只响应主攻手的事件
 			if hand == expected_hand:
-				print("[GF] │ → combo_check ACCEPTED from %s ✓" % hand_str)
+				_gf_log("[GF] │ → combo_check ACCEPTED from %s ✓" % hand_str)
 				_on_combo_check()
 			else:
-				print("[GF] │ → combo_check IGNORED (expected %s) ✗" % expected_str)
+				_gf_log("[GF] │ → combo_check IGNORED (expected %s) ✗" % expected_str)
 		
 		&"z_front":
 			# z 事件响应各自的手
 			var old_z: int = _gf_L.z_index if hand == Hand.LEFT else _gf_R.z_index
 			_set_z(hand, true)
 			var new_z: int = _gf_L.z_index if hand == Hand.LEFT else _gf_R.z_index
-			print("[GF] │ → z_front for %s: %d → %d ✓" % [hand_str, old_z, new_z])
+			_gf_log("[GF] │ → z_front for %s: %d → %d ✓" % [hand_str, old_z, new_z])
 		
 		&"z_back":
 			var old_z: int = _gf_L.z_index if hand == Hand.LEFT else _gf_R.z_index
 			_set_z(hand, false)
 			var new_z: int = _gf_L.z_index if hand == Hand.LEFT else _gf_R.z_index
-			print("[GF] │ → z_back for %s: %d → %d ✓" % [hand_str, old_z, new_z])
+			_gf_log("[GF] │ → z_back for %s: %d → %d ✓" % [hand_str, old_z, new_z])
 		
 		_:
-			print("[GF] │ → Unknown event: %s" % event_name)
+			_gf_log("[GF] │ → Unknown event: %s" % event_name)
 	
-	print("[GF] └──────────────────────────────────────")
+	_gf_log("[GF] └──────────────────────────────────────")
 
 
 func on_animation_complete(_anim_name: StringName) -> void:
-	print("[GF] Animation complete: %s (state=%s)" % [_anim_name, GFState.keys()[state]])
+	_gf_log("[GF] Animation complete: %s (state=%s)" % [_anim_name, GFState.keys()[state]])
 	match state:
 		GFState.GF_ENTER:
 			if _anim_name != &"" and _anim_name != &"ghost_fist_/enter":
-				print("[GF] Enter completion ignored: anim=%s" % _anim_name)
+				_gf_log("[GF] Enter completion ignored: anim=%s" % _anim_name)
 				return
 			state = GFState.GF_IDLE
-			print("[GF]   → Enter complete, now IDLE")
+			_gf_log("[GF]   → Enter complete, now IDLE")
 		GFState.GF_COOLDOWN:
 			if _anim_name != &"" and _anim_name != &"ghost_fist_/cooldown":
-				print("[GF] Cooldown completion ignored: anim=%s" % _anim_name)
+				_gf_log("[GF] Cooldown completion ignored: anim=%s" % _anim_name)
 				return
 			state = GFState.GF_IDLE
-			print("[GF]   → Cooldown complete, now IDLE")
+			_gf_log("[GF]   → Cooldown complete, now IDLE")
 		GFState.GF_EXIT:
 			if _anim_name != &"" and _anim_name != &"ghost_fist_/exit":
-				print("[GF] Exit completion ignored: anim=%s" % _anim_name)
+				_gf_log("[GF] Exit completion ignored: anim=%s" % _anim_name)
 				return
 			visible = false
 			state = GFState.GF_IDLE
 			state_changed.emit(state, &"exit_done")
-			print("[GF]   → Exit complete, hidden")
+			_gf_log("[GF]   → Exit complete, hidden")
 		GFState.GF_ATTACK_1, GFState.GF_ATTACK_2, \
 		GFState.GF_ATTACK_3, GFState.GF_ATTACK_4:
 			if _combo_check_handled:
-				print("[GF] Attack completion ignored (combo_check already handled)")
+				_gf_log("[GF] Attack completion ignored (combo_check already handled)")
 				return
 			var stage: int = state - GFState.GF_ATTACK_1 + 1
-			print("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
+			_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
 			_enter_cooldown()
 
 # ════════════════════════════════════════
@@ -310,30 +321,30 @@ func _on_combo_check() -> void:
 	_disable_all_hitboxes()
 	var stage: int = state - GFState.GF_ATTACK_1 + 1  # 1..4
 	
-	print("[GF] ┌─ COMBO CHECK ────────────────────────")
-	print("[GF] │ Stage: %d" % stage)
-	print("[GF] │ Hit confirmed: %s" % hit_confirmed)
-	print("[GF] │ Queued next: %s" % queued_next)
-	print("[GF] │ Combo count: %d" % _combo_hit_count)
+	_gf_log("[GF] ┌─ COMBO CHECK ────────────────────────")
+	_gf_log("[GF] │ Stage: %d" % stage)
+	_gf_log("[GF] │ Hit confirmed: %s" % hit_confirmed)
+	_gf_log("[GF] │ Queued next: %s" % queued_next)
+	_gf_log("[GF] │ Combo count: %d" % _combo_hit_count)
 
 	if stage == 4:
 		# 第四段：摄魂判定 + 直接进 cooldown
 		if hit_confirmed and _combo_hit_count >= soul_capture_threshold:
-			print("[GF] │ → Triggering soul capture!")
+			_gf_log("[GF] │ → Triggering soul capture!")
 			_trigger_soul_capture()
-		print("[GF] │ → Stage 4 complete, entering cooldown")
+		_gf_log("[GF] │ → Stage 4 complete, entering cooldown")
 		_enter_cooldown()
-		print("[GF] └──────────────────────────────────────")
+		_gf_log("[GF] └──────────────────────────────────────")
 		return
 
 	# 1~3 段：命中 + 按键 → 续段
 	if hit_confirmed and queued_next:
-		print("[GF] │ → Combo continues to stage %d ✓" % (stage + 1))
-		print("[GF] └──────────────────────────────────────")
+		_gf_log("[GF] │ → Combo continues to stage %d ✓" % (stage + 1))
+		_gf_log("[GF] └──────────────────────────────────────")
 		_start_attack(stage + 1)
 	else:
-		print("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), entering cooldown ✗" % [stage, hit_confirmed, queued_next])
-		print("[GF] └──────────────────────────────────────")
+		_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), entering cooldown ✗" % [stage, hit_confirmed, queued_next])
+		_gf_log("[GF] └──────────────────────────────────────")
 		_enter_cooldown()
 
 
@@ -347,7 +358,7 @@ func _on_combo_check() -> void:
 func _enter_cooldown() -> void:
 	state = GFState.GF_COOLDOWN
 	state_changed.emit(state, &"cooldown")
-	print("[GF] Entering cooldown")
+	_gf_log("[GF] Entering cooldown")
 
 
 func on_hurt() -> void:
@@ -387,7 +398,7 @@ func _trigger_soul_capture() -> void:
 	_last_hit_monster.add_child(vfx)
 	vfx.position = Vector2.ZERO
 	_combo_hit_count = 0
-	print("[GhostFist] SOUL CAPTURE → ", _last_hit_monster.name)
+	_gf_log("[GhostFist] SOUL CAPTURE → ", _last_hit_monster.name)
 	_spawn_healing_sprite()
 
 
@@ -399,7 +410,7 @@ func _spawn_healing_sprite() -> void:
 	if player.has_method("get_healing_sprite_count"):
 		var cur: int = int(player.call("get_healing_sprite_count"))
 		if cur >= player.max_healing_sprites:
-			print("[GF] Healing sprite NOT spawned: player at max (%d)" % player.max_healing_sprites)
+			_gf_log("[GF] Healing sprite NOT spawned: player at max (%d)" % player.max_healing_sprites)
 			return
 
 	var sprite: Node2D = healing_sprite_scene.instantiate() as Node2D
@@ -461,7 +472,7 @@ func _enable_hitbox_for(hand: int) -> void:
 	var hb: Area2D = _hitbox_L if hand == Hand.LEFT else _hitbox_R
 	if hb != null:
 		hb.set_deferred("monitoring", true)
-		print("[GF] │   ➤ Enable hitbox %s (global_pos=%s)" % [
+		_gf_log("[GF] │   ➤ Enable hitbox %s (global_pos=%s)" % [
 			"L" if hand == Hand.LEFT else "R",
 			hb.global_position
 		])
@@ -495,7 +506,7 @@ func _sync_hitbox_to_bone(hb: Area2D, spine: SpineSprite, hand_name: String) -> 
 		var t: Transform2D = spine.get_global_bone_transform("fist_core")
 		hb.global_position = t.origin
 		if Engine.get_physics_frames() % 60 == 0 and hb.monitoring:
-			print("[GF_HITBOX] %s: global_pos=%s monitoring=%s" % [
+			_gf_log("[GF_HITBOX] %s: global_pos=%s monitoring=%s" % [
 				hand_name, hb.global_position, hb.monitoring
 			])
 		return
@@ -518,7 +529,7 @@ func _sync_hitbox_to_bone(hb: Area2D, spine: SpineSprite, hand_name: String) -> 
 	hb.global_position = spine.to_global(bone_local)
 	
 	if Engine.get_physics_frames() % 60 == 0 and hb.monitoring:
-		print("[GF_HITBOX] %s: bone_local=%s global_pos=%s monitoring=%s" % [
+		_gf_log("[GF_HITBOX] %s: bone_local=%s global_pos=%s monitoring=%s" % [
 			hand_name, bone_local, hb.global_position, hb.monitoring
 		])
 
@@ -597,14 +608,14 @@ func _update_visibility(dt: float) -> void:
 	if visible_time > 0.0:
 		if not _materialized:
 			_materialized = true
-			print("[GF] Materialized: visible_time=%s" % visible_time)
+			_gf_log("[GF] Materialized: visible_time=%s" % visible_time)
 		_update_opacity()
 		visible_time -= dt
 		visible_time = max(visible_time, 0.0)
 	else:
 		if _materialized:
 			_materialized = false
-			print("[GF] Dematerialized")
+			_gf_log("[GF] Dematerialized")
 			_update_opacity()
 
 
