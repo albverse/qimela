@@ -4,3 +4,6 @@
 .godot/
 .import/
 *.tmp
+
+# Godot scene temp artifacts
+scene/MainTest.tscn*.tmp
