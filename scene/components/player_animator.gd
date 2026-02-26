@@ -62,6 +62,13 @@ const ACTION_END_MAP: Dictionary = {
 	&"chain_/fuse_progress": &"anim_end_fuse",
 	&"chain_/fuse_hurt": &"anim_end_hurt",
 	&"chain_/hurt": &"anim_end_hurt",
+	&"ghost_fist_/attack_1": &"anim_end_attack",
+	&"ghost_fist_/attack_2": &"anim_end_attack",
+	&"ghost_fist_/attack_3": &"anim_end_attack",
+	&"ghost_fist_/attack_4": &"anim_end_attack",
+	&"ghost_fist_/cooldown": &"anim_end_attack",
+	&"ghost_fist_/enter": &"anim_end_attack",
+	&"ghost_fist_/exit": &"anim_end_attack",
 	&"ghost_fist_/hurt": &"anim_end_hurt",
 	&"ghost_fist_/die": &"anim_end_hurt",
 	# Sword 动画
@@ -408,10 +415,11 @@ func tick(_dt: float) -> void:
 
 	# === Ghost Fist 模式: 独立 locomotion 驱动 ===
 	if _gf_mode and _ghost_fist != null and _ghost_fist.is_active():
+		var gf_fullbody_playing: bool = _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim.begins_with("ghost_fist_/")
 		# GF 模式下，只在 IDLE 状态时更新 locomotion（攻击/cooldown/enter/exit 由专用方法播放）
 		if _ghost_fist.state == GhostFist.GFState.GF_IDLE:
 			# FULLBODY_EXCLUSIVE（enter/cooldown/exit/idle_anima）播放期间不要覆盖
-			if _cur_action_mode != MODE_FULLBODY_EXCLUSIVE:
+			if not gf_fullbody_playing:
 				# GF 模式使用基础 locomotion 键（不带 chain_/ 前缀）
 				var base_loco_key: StringName = GF_BASE_LOCO.get(loco_state, &"idle")
 				var gf_loco_anim: StringName = _get_gf_loco_anim(base_loco_key)
@@ -428,7 +436,9 @@ func tick(_dt: float) -> void:
 					_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
 		if action_state == &"Hurt":
-			if _ghost_fist.state != GhostFist.GFState.GF_IDLE and _ghost_fist.state != GhostFist.GFState.GF_ENTER:
+			if _ghost_fist.has_method("on_hurt"):
+				_ghost_fist.on_hurt()
+			elif _ghost_fist.state != GhostFist.GFState.GF_IDLE and _ghost_fist.state != GhostFist.GFState.GF_ENTER:
 				_ghost_fist.state = GhostFist.GFState.GF_IDLE
 				_ghost_fist.queued_next = false
 				_ghost_fist.hit_confirmed = false
@@ -436,9 +446,13 @@ func tick(_dt: float) -> void:
 			var hurt_anim: StringName = &"ghost_fist_/hurt"
 			if hurt_anim != _cur_action_anim:
 				_play_on_player_spine(hurt_anim, false)
+				_play_on_gf_spine(GhostFist.Hand.LEFT, hurt_anim, false)
+				_play_on_gf_spine(GhostFist.Hand.RIGHT, hurt_anim, false)
 				_cur_action_anim = hurt_anim
 		elif action_state == &"Die":
-			if _ghost_fist.state != GhostFist.GFState.GF_IDLE:
+			if _ghost_fist.has_method("on_die"):
+				_ghost_fist.on_die()
+			elif _ghost_fist.state != GhostFist.GFState.GF_IDLE:
 				_ghost_fist.state = GhostFist.GFState.GF_IDLE
 				_ghost_fist.queued_next = false
 				_ghost_fist.hit_confirmed = false
@@ -446,6 +460,8 @@ func tick(_dt: float) -> void:
 			var die_anim: StringName = &"ghost_fist_/die"
 			if die_anim != _cur_action_anim:
 				_play_on_player_spine(die_anim, false)
+				_play_on_gf_spine(GhostFist.Hand.LEFT, die_anim, false)
+				_play_on_gf_spine(GhostFist.Hand.RIGHT, die_anim, false)
 				_cur_action_anim = die_anim
 				_gf_mode = false
 		# facing
@@ -574,6 +590,11 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 	_log_end(track, anim_name)
 
 	if track == TRACK_LOCO:
+		if _gf_mode and anim_name.begins_with("ghost_fist_/attack_"):
+			if _cur_action_anim == anim_name:
+				_cur_loco_anim = &""
+			return
+
 		# === P0 FIX: FULLBODY_EXCLUSIVE 动画播放在 track0，完成事件应走 ACTION 分发 ===
 		if _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim == anim_name:
 			# die 是终态：不清空、不恢复、不发事件

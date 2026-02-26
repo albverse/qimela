@@ -420,6 +420,10 @@ func _on_ghost_fist_attack_input() -> void:
 		return
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.HURT:
 		return
+	if ghost_fist.state == GhostFist.GFState.GF_COOLDOWN:
+		return
+	if ghost_fist.state == GhostFist.GFState.GF_ENTER or ghost_fist.state == GhostFist.GFState.GF_EXIT:
+		return
 	# 由 GhostFist.state_changed 信号统一驱动 Animator 播放
 	ghost_fist.on_attack_input()
 
