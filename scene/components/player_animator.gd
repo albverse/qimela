@@ -436,29 +436,29 @@ func tick(_dt: float) -> void:
 					_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
 		if action_state == &"Hurt":
-			if _ghost_fist.has_method("on_hurt"):
-				_ghost_fist.on_hurt()
-			elif _ghost_fist.state != GhostFist.GFState.GF_IDLE and _ghost_fist.state != GhostFist.GFState.GF_ENTER:
-				_ghost_fist.state = GhostFist.GFState.GF_IDLE
-				_ghost_fist.queued_next = false
-				_ghost_fist.hit_confirmed = false
-				_ghost_fist._disable_all_hitboxes()
 			var hurt_anim: StringName = &"ghost_fist_/hurt"
 			if hurt_anim != _cur_action_anim:
+				if _ghost_fist.has_method("on_hurt"):
+					_ghost_fist.on_hurt()
+				elif _ghost_fist.state != GhostFist.GFState.GF_IDLE and _ghost_fist.state != GhostFist.GFState.GF_ENTER:
+					_ghost_fist.state = GhostFist.GFState.GF_IDLE
+					_ghost_fist.queued_next = false
+					_ghost_fist.hit_confirmed = false
+					_ghost_fist._disable_all_hitboxes()
 				_play_on_player_spine(hurt_anim, false)
 				_play_on_gf_spine(GhostFist.Hand.LEFT, hurt_anim, false)
 				_play_on_gf_spine(GhostFist.Hand.RIGHT, hurt_anim, false)
 				_cur_action_anim = hurt_anim
 		elif action_state == &"Die":
-			if _ghost_fist.has_method("on_die"):
-				_ghost_fist.on_die()
-			elif _ghost_fist.state != GhostFist.GFState.GF_IDLE:
-				_ghost_fist.state = GhostFist.GFState.GF_IDLE
-				_ghost_fist.queued_next = false
-				_ghost_fist.hit_confirmed = false
-				_ghost_fist._disable_all_hitboxes()
 			var die_anim: StringName = &"ghost_fist_/die"
 			if die_anim != _cur_action_anim:
+				if _ghost_fist.has_method("on_die"):
+					_ghost_fist.on_die()
+				elif _ghost_fist.state != GhostFist.GFState.GF_IDLE:
+					_ghost_fist.state = GhostFist.GFState.GF_IDLE
+					_ghost_fist.queued_next = false
+					_ghost_fist.hit_confirmed = false
+					_ghost_fist._disable_all_hitboxes()
 				_play_on_player_spine(die_anim, false)
 				_play_on_gf_spine(GhostFist.Hand.LEFT, die_anim, false)
 				_play_on_gf_spine(GhostFist.Hand.RIGHT, die_anim, false)
@@ -600,6 +600,8 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			# die 是终态：不清空、不恢复、不发事件
 			if anim_name == &"chain_/die" or anim_name == &"ghost_fist_/die":
 				return
+			if anim_name == &"ghost_fist_/hurt" and _ghost_fist != null and _ghost_fist.has_method("on_hurt_animation_finished"):
+				_ghost_fist.on_hurt_animation_finished()
 			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
 			if action_event != &"":
 				_player.on_action_anim_end(action_event)

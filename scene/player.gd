@@ -402,14 +402,6 @@ func _deactivate_ghost_fist() -> void:
 	ghost_fist.deactivate()
 	if animator != null:
 		animator.play_ghost_fist_exit()
-		# GF exit 动画播放后由 on_animation_complete 切 gf_mode = false
-		# 这里延迟关闭 gf_mode 以让 exit 动画播放完
-		var tw: Tween = create_tween()
-		tw.tween_interval(0.5)
-		tw.tween_callback(func() -> void:
-			if animator != null:
-				animator.set_gf_mode(false)
-		)
 	log_msg("WEAPON", "GhostFist DEACTIVATED → GF_EXIT")
 
 
@@ -435,6 +427,9 @@ func _on_ghost_fist_state_changed(new_state: int, context: StringName) -> void:
 		return
 	if context == &"idle_anima":
 		animator.play_ghost_fist_idle_anima()
+		return
+	if context == &"exit_done":
+		animator.set_gf_mode(false)
 		return
 	match new_state:
 		GhostFist.GFState.GF_ATTACK_1, GhostFist.GFState.GF_ATTACK_2, \
