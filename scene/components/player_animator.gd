@@ -449,9 +449,11 @@ func tick(_dt: float) -> void:
 
 	# === Ghost Fist 模式: 独立 locomotion 驱动 ===
 	if _gf_mode and _ghost_fist != null and _ghost_fist.is_active():
+		var gf_hurt_active: bool = (action_state == &"Hurt")
 		var gf_fullbody_playing: bool = _cur_action_mode == MODE_FULLBODY_EXCLUSIVE and _cur_action_anim.begins_with("ghost_fist_/")
 		# GF 模式下，只在 IDLE 状态时更新 locomotion（攻击/cooldown/enter/exit 由专用方法播放）
-		if _ghost_fist.state == GhostFist.GFState.GF_IDLE:
+		# 关键：Hurt 期间禁止 loco 更新，否则 jump_down/run/walk 会持续重播并覆盖/重置受击流程。
+		if _ghost_fist.state == GhostFist.GFState.GF_IDLE and not gf_hurt_active:
 			# FULLBODY_EXCLUSIVE（enter/cooldown/exit/idle_anima）播放期间不要覆盖
 			if not gf_fullbody_playing:
 				# GF 模式使用基础 locomotion 键（不带 chain_/ 前缀）
@@ -469,7 +471,7 @@ func tick(_dt: float) -> void:
 					_cur_action_mode = -1
 					_log_play(TRACK_LOCO, gf_loco_anim, loop)
 		# GF 模式: Hurt/Die 需特殊处理
-		if action_state == &"Hurt":
+		if gf_hurt_active:
 			var hurt_anim: StringName = &"ghost_fist_/hurt"
 			if hurt_anim != _cur_action_anim:
 				if _player != null and _player.has_method("log_msg"):
