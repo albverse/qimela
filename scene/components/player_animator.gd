@@ -248,6 +248,7 @@ func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
 func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	if _ghost_fist == null:
 		return
+	var prev_state: int = _ghost_fist.state
 	var gf_state: int = _ghost_fist.state
 	var hand: int = GhostFist.Hand.LEFT if ss == _gf_L else GhostFist.Hand.RIGHT
 
@@ -266,6 +267,8 @@ func _on_gf_anim_complete(ss: SpineSprite, entry) -> void:
 	# 非攻击状态（enter/cooldown/exit）只接受 R 手完成，避免 L+R 双触发
 	if hand == GhostFist.Hand.RIGHT:
 		_ghost_fist.on_animation_complete(_extract_anim_name(entry))
+		if prev_state == GhostFist.GFState.GF_COOLDOWN and _ghost_fist.state == GhostFist.GFState.GF_IDLE:
+			_cur_loco_anim = &""
 
 
 func _extract_anim_name(entry) -> StringName:
@@ -282,8 +285,19 @@ func _extract_anim_name(entry) -> StringName:
 # Ghost Fist 三节点播放接口
 # ════════════════════════════════════════
 
+
+func _prepare_gf_fullbody_playback() -> void:
+	if _player != null:
+		_player.velocity.x = 0.0
+	if _driver != null and _driver.has_method("stop"):
+		_driver.stop(TRACK_ACTION)
+		_driver.stop(TRACK_LOCO)
+	_cur_loco_anim = &""
+
+
 ## 攻击段播放（三节点同步: PlayerSpine + L + R）
 func play_ghost_fist_attack(stage: int) -> void:
+	_prepare_gf_fullbody_playback()
 	var player_anim: StringName = StringName("ghost_fist_/attack_%d" % stage)
 	var weapon_anim: StringName = StringName("ghost_fist_/attack_%d" % stage)
 	_play_on_player_spine(player_anim, false)
@@ -294,6 +308,7 @@ func play_ghost_fist_attack(stage: int) -> void:
 
 ## Cooldown 播放（三节点同步）
 func play_ghost_fist_cooldown() -> void:
+	_prepare_gf_fullbody_playback()
 	_play_on_player_spine(&"ghost_fist_/cooldown", false)
 	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/cooldown", false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/cooldown", false)
@@ -302,6 +317,7 @@ func play_ghost_fist_cooldown() -> void:
 
 ## Enter 播放（三节点同步）
 func play_ghost_fist_enter() -> void:
+	_prepare_gf_fullbody_playback()
 	_play_on_player_spine(&"ghost_fist_/enter", false)
 	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/enter", false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/enter", false)
@@ -310,6 +326,7 @@ func play_ghost_fist_enter() -> void:
 
 ## Exit 播放（三节点同步）
 func play_ghost_fist_exit() -> void:
+	_prepare_gf_fullbody_playback()
 	_play_on_player_spine(&"ghost_fist_/exit", false)
 	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/exit", false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/exit", false)
@@ -317,6 +334,7 @@ func play_ghost_fist_exit() -> void:
 
 
 func play_ghost_fist_idle_anima() -> void:
+	_prepare_gf_fullbody_playback()
 	_play_on_player_spine(&"ghost_fist_/idle_anima", false)
 	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle_anima", false)
 	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle_anima", false)

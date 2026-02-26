@@ -487,6 +487,9 @@ func is_horizontal_input_locked() -> bool:
 		return true
 	if health != null and health.is_knockback_active():
 		return true
+	if ghost_fist != null and weapon_controller != null and weapon_controller.is_ghost_fist():
+		if ghost_fist.state != GhostFist.GFState.GF_IDLE:
+			return true
 	return false
 
 func is_player_locked() -> bool:
