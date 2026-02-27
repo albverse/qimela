@@ -82,6 +82,20 @@ var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
+var _current_anim_deadline_sec: float = -1.0
+
+# 单次动画的兜底时长（秒）：
+# Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
+const _ANIM_FALLBACK_DURATION := {
+	&"wake_up": 0.5,
+	&"dash_attack": 0.3,
+	&"dash_return": 0.3,
+	&"hurt": 0.2,
+	&"land": 0.3,
+	&"wake_from_stun": 0.5,
+	&"takeoff": 0.4,
+	&"sleep_down": 0.4,
+}
 
 # Spine 动画驱动（优先 SpineSprite → AnimDriverSpine；无 Spine 时 → AnimDriverMock）
 var _anim_driver: AnimDriverSpine = null
@@ -127,6 +141,11 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
+	# Spine 兜底：一次性动画到时自动完成，防止 ActionLeaf 卡死在 RUNNING。
+	if not _current_anim_finished and _current_anim_deadline_sec > 0.0 and now_sec() >= _current_anim_deadline_sec:
+		_current_anim_finished = true
+		_current_anim_deadline_sec = -1.0
+
 	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
 	# 不做玩家接近自动唤醒。
 
@@ -146,10 +165,19 @@ func _do_move(_dt: float) -> void:
 
 func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	## 播放指定动画。BT 叶节点只调这一个接口，不直接碰 Spine。
+	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
+	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
+		return
+
 	_current_anim = anim_name
 	_current_anim_finished = false
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
+	if loop:
+		_current_anim_deadline_sec = -1.0
+	else:
+		var duration: float = float(_ANIM_FALLBACK_DURATION.get(anim_name, 0.0))
+		_current_anim_deadline_sec = now_sec() + duration if duration > 0.0 else -1.0
 	if _anim_driver:
 		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
@@ -167,6 +195,7 @@ func anim_is_finished(anim_name: StringName) -> bool:
 func anim_stop_or_blendout() -> void:
 	_current_anim = &""
 	_current_anim_finished = true
+	_current_anim_deadline_sec = -1.0
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -176,6 +205,7 @@ func anim_stop_or_blendout() -> void:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
+		_current_anim_deadline_sec = -1.0
 
 
 # =============================================================================
