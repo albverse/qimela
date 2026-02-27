@@ -36,9 +36,6 @@ enum Mode {
 @export var reach_rest_px: float = 10.0
 ## 到达休息点判定阈值（px）。
 
-@export var wake_detect_radius: float = 300.0
-## 唤醒检测半径（px）。玩家进入此范围触发唤醒。
-
 @export var hurt_duration: float = 0.2
 ## 受击持续时间（秒）。
 
@@ -86,8 +83,9 @@ var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
 
-# Spine 动画驱动
+# Spine 动画驱动（优先 SpineSprite → AnimDriverSpine；无 Spine 时 → AnimDriverMock）
 var _anim_driver: AnimDriverSpine = null
+var _anim_mock: AnimDriverMock = null
 @onready var _spine_sprite: Node = null
 
 # ===== 生命周期 =====
@@ -103,13 +101,19 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("flying_monster")
 
-	# 初始化 Spine 动画驱动（SpineSprite 暂用占位，稍后替换实际资源）
+	# 初始化动画驱动：有 SpineSprite 用 AnimDriverSpine，否则用 AnimDriverMock
 	_spine_sprite = get_node_or_null("SpineSprite")
-	if _spine_sprite:
+	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
 		_anim_driver.anim_completed.connect(_on_anim_completed)
+	else:
+		# 无 Spine 资源时使用 Mock 驱动，保证 BT 动画完成回调正常触发
+		_anim_mock = AnimDriverMock.new()
+		_setup_mock_durations()
+		add_child(_anim_mock)
+		_anim_mock.anim_completed.connect(_on_anim_completed)
 
 
 func _physics_process(dt: float) -> void:
@@ -119,11 +123,12 @@ func _physics_process(dt: float) -> void:
 		light_counter = max(light_counter, 0.0)
 	_thunder_processed_this_frame = false
 
-	# --- 玩家接近检测：RESTING 时自动切换到 WAKING ---
-	if mode == Mode.RESTING:
-		var player := _get_player()
-		if player and global_position.distance_to(player.global_position) < wake_detect_radius:
-			mode = Mode.WAKING
+	# Mock 驱动需要手动 tick 来推进动画倒计时
+	if _anim_mock:
+		_anim_mock.tick(dt)
+
+	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
+	# 不做玩家接近自动唤醒。
 
 	# 不调用 super._physics_process()：
 	# MonsterBase 的 weak/stunned_t 系统由我们自己的 mode 系统替代。
@@ -147,6 +152,8 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	_current_interruptible = interruptible
 	if _anim_driver:
 		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+	elif _anim_mock:
+		_anim_mock.play(0, anim_name, loop)
 
 
 func anim_is_playing(anim_name: StringName) -> bool:
@@ -162,6 +169,8 @@ func anim_stop_or_blendout() -> void:
 	_current_anim_finished = true
 	if _anim_driver:
 		_anim_driver.stop_all()
+	elif _anim_mock:
+		_anim_mock.stop(0)
 
 
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
@@ -179,17 +188,19 @@ func apply_hit(hit: HitData) -> bool:
 	if not has_hp or hp <= 0:
 		return false
 
-	# --- RESTING / WAKING：锁链和鬼拳无效，直接消失 ---
-	if mode == Mode.RESTING or mode == Mode.WAKING:
-		if hit.weapon_id == &"chain" or hit.weapon_id == &"ghost_fist":
-			return false
-		# 其他伤害源（如雷花）允许扣血但不切换 mode
-		hp = max(hp - hit.damage, 0)
-		_flash_once()
-		if hp <= 1:
-			hp = 1
-			mode = Mode.STUNNED
-		return true
+	# --- RESTING：只有 ghost_fist 能唤醒，其他武器全部无效 ---
+	if mode == Mode.RESTING:
+		if hit.weapon_id == &"ghost_fist":
+			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+			mode = Mode.WAKING
+			_flash_once()
+			return true
+		# chain、雷花、其他武器对休息中的石面鸟无效
+		return false
+
+	# --- WAKING：唤醒动画不可打断，所有伤害无效 ---
+	if mode == Mode.WAKING:
+		return false
 
 	# --- STUNNED / WAKE_FROM_STUN：允许扣血与闪白，但不切换 mode ---
 	if mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
@@ -259,6 +270,28 @@ func apply_healing_burst_stun() -> void:
 	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT:
 		hp = max(hp, 1)
 		mode = Mode.STUNNED
+
+
+# =============================================================================
+# Mock 驱动初始化（无 Spine 时用于测试）
+# =============================================================================
+
+func _setup_mock_durations() -> void:
+	## 为 AnimDriverMock 写入各动画的模拟时长，
+	## 使 anim_completed 信号在正确的时间触发。
+	_anim_mock._durations[&"rest_loop"] = 1.0        # loop，不会触发 completed
+	_anim_mock._durations[&"wake_up"] = 0.5          # 唤醒动画 0.5s
+	_anim_mock._durations[&"fly_idle"] = 0.8         # loop
+	_anim_mock._durations[&"dash_attack"] = 0.3
+	_anim_mock._durations[&"dash_return"] = 0.3
+	_anim_mock._durations[&"fly_move"] = 0.6         # loop
+	_anim_mock._durations[&"hurt"] = 0.2
+	_anim_mock._durations[&"fall_loop"] = 0.5        # loop
+	_anim_mock._durations[&"land"] = 0.3
+	_anim_mock._durations[&"stun_loop"] = 1.0        # loop
+	_anim_mock._durations[&"wake_from_stun"] = 0.5
+	_anim_mock._durations[&"takeoff"] = 0.4
+	_anim_mock._durations[&"sleep_down"] = 0.4
 
 
 # =============================================================================
