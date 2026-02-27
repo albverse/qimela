@@ -1,0 +1,114 @@
+[gd_scene load_steps=18 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_mode_is.gd" id="cond_mode_is"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_has_rest_area.gd" id="cond_has_rest_area"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_stunned_fall.gd" id="act_stunned_fall"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_wake_fly_return.gd" id="act_wake_fly_return"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_hurt_knockback.gd" id="act_hurt_knockback"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_wake_up.gd" id="act_wake_up"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_return_to_rest.gd" id="act_return_to_rest"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_attack_loop_dash.gd" id="act_attack_loop_dash"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_resting_loop.gd" id="act_resting_loop"]
+
+; =============================================================================
+; BeehaveTree 根节点
+; actor 自动取父节点（StoneMaskBird CharacterBody2D）
+; process_thread = PHYSICS（默认）
+; =============================================================================
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级从上到下：Stunned > WakeFromStun > Hurt > Waking > ReturnToRest > FlyingAttack > Resting
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 1. Seq_Stunned（优先级最高）---
+[node name="Seq_Stunned" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeStunned" type="Node" parent="RootSelector/Seq_Stunned"]
+script = ExtResource("cond_mode_is")
+target_mode = 4
+
+[node name="Act_StunnedFallLoop" type="Node" parent="RootSelector/Seq_Stunned"]
+script = ExtResource("act_stunned_fall")
+
+; --- 2. Seq_WakeFromStunReturn ---
+[node name="Seq_WakeFromStunReturn" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeWakeFromStun" type="Node" parent="RootSelector/Seq_WakeFromStunReturn"]
+script = ExtResource("cond_mode_is")
+target_mode = 5
+
+[node name="Act_WakeFlyReturnRest" type="Node" parent="RootSelector/Seq_WakeFromStunReturn"]
+script = ExtResource("act_wake_fly_return")
+
+; --- 3. Seq_Hurt ---
+[node name="Seq_Hurt" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeHurt" type="Node" parent="RootSelector/Seq_Hurt"]
+script = ExtResource("cond_mode_is")
+target_mode = 6
+
+[node name="Act_HurtKnockbackFlicker" type="Node" parent="RootSelector/Seq_Hurt"]
+script = ExtResource("act_hurt_knockback")
+
+; --- 4. Seq_Waking ---
+[node name="Seq_Waking" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeWaking" type="Node" parent="RootSelector/Seq_Waking"]
+script = ExtResource("cond_mode_is")
+target_mode = 1
+
+[node name="Act_WakeUpUninterruptible" type="Node" parent="RootSelector/Seq_Waking"]
+script = ExtResource("act_wake_up")
+
+; --- 5. Seq_ReturnToRest ---
+[node name="Seq_ReturnToRest" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeReturnToRest" type="Node" parent="RootSelector/Seq_ReturnToRest"]
+script = ExtResource("cond_mode_is")
+target_mode = 3
+
+[node name="Cond_HasRestArea" type="Node" parent="RootSelector/Seq_ReturnToRest"]
+script = ExtResource("cond_has_rest_area")
+
+[node name="Act_ReturnToRest" type="Node" parent="RootSelector/Seq_ReturnToRest"]
+script = ExtResource("act_return_to_rest")
+
+; --- 6. Seq_FlyingAttack ---
+[node name="Seq_FlyingAttack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeFlyingAttack" type="Node" parent="RootSelector/Seq_FlyingAttack"]
+script = ExtResource("cond_mode_is")
+target_mode = 2
+
+[node name="Act_AttackLoopDash" type="Node" parent="RootSelector/Seq_FlyingAttack"]
+script = ExtResource("act_attack_loop_dash")
+
+; --- 7. Seq_Resting（优先级最低）---
+[node name="Seq_Resting" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeResting" type="Node" parent="RootSelector/Seq_Resting"]
+script = ExtResource("cond_mode_is")
+target_mode = 0
+
+[node name="Act_RestingLoop" type="Node" parent="RootSelector/Seq_Resting"]
+script = ExtResource("act_resting_loop")

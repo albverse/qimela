@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.gd" id="1_script"]
+[ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="Script" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/stone_mask_bird/bt_stone_mask_bird.tscn" id="4_bt"]
+
+[sub_resource type="CircleShape2D" id="body_shape"]
+radius = 24.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 20.0
+
+; =============================================================================
+; StoneMaskBird 主场景
+; CharacterBody2D + SpineSprite(占位) + Hurtbox + LightReceiver + BeehaveTree
+; =============================================================================
+[node name="StoneMaskBird" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_script")
+
+; --- 占位 Sprite（SpineSprite 准备好后替换此节点）---
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.6, 0.5, 0.7, 1)
+scale = Vector2(0.5, 0.5)
+
+; --- 刚体碰撞 ---
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+; --- 受击盒 ---
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("hurtbox_shape")
+debug_color = Color(0.94, 0.0, 0.62, 0.42)
+
+; --- 光照接收 ---
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("body_shape")
+
+; --- 行为树（自动取父节点 StoneMaskBird 作为 actor）---
+[node name="BeehaveTree" parent="." instance=ExtResource("4_bt")]
