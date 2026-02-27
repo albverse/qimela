@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=24 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
+[ext_resource type="Script" path="res://scene/main_test_hurt_node.gd" id="14_hurtnode"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -197,3 +198,14 @@ position = Vector2(372, 467)
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
+
+[node name="HurtNode" type="Button" parent="HUD"]
+custom_minimum_size = Vector2(140, 40)
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 160.0
+offset_bottom = 60.0
+text = "HURT TEST"
+script = ExtResource("14_hurtnode")
+player_path = NodePath("../../World/Player")
+hurt_damage = 1
