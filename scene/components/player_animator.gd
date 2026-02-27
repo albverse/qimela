@@ -66,9 +66,6 @@ const ACTION_END_MAP: Dictionary = {
 	&"ghost_fist_/attack_2": &"anim_end_attack",
 	&"ghost_fist_/attack_3": &"anim_end_attack",
 	&"ghost_fist_/attack_4": &"anim_end_attack",
-	&"ghost_fist_/cooldown": &"anim_end_attack",
-	&"ghost_fist_/enter": &"anim_end_attack",
-	&"ghost_fist_/exit": &"anim_end_attack",
 	&"ghost_fist_/hurt": &"anim_end_hurt",
 	&"ghost_fist_/die": &"anim_end_hurt",
 	# Sword 动画
@@ -195,24 +192,25 @@ func _connect_gf_signals() -> void:
 					if spine_event != null:
 						_on_gf_spine_event(target_node, spine_event)
 			)
-		if node.has_signal("animation_completed"):
+		if node.has_signal("animation_ended"):
+			node.animation_ended.connect(
+				func(a1, a2 = null, a3 = null, a4 = null) -> void:
+					var track_entry = _find_track_entry(a1, a2, a3, a4)
+					_on_gf_anim_complete(target_node, track_entry)
+			)
+		elif node.has_signal("animation_completed"):
 			node.animation_completed.connect(
 				func(a1, a2 = null, a3 = null, a4 = null) -> void:
-					var track_entry = null
-					for a in [a1, a2, a3, a4]:
-						if a is Object and a != null and a.has_method("get_track_index"):
-							track_entry = a
-							break
-					_on_gf_anim_complete(target_node, track_entry if track_entry else a1)
+					var track_entry = _find_track_entry(a1, a2, a3, a4)
+					_on_gf_anim_complete(target_node, track_entry)
 			)
-	print("[PA_TEST] _connect_gf_signals complete, L=%s R=%s" % [_gf_L != null, _gf_R != null])
 
 
 
 ## 从可变信号参数中找到 SpineTrackEntry（has get_track_index）
 func _find_track_entry(a1, a2, a3, a4):
 	for a in [a1, a2, a3, a4]:
-		if a is Object and a.has_method("get_track_index"):
+		if a is Object and (a.has_method("get_track_index") or a.has_method("getTrackIndex")):
 			return a
 	return a1  # fallback: 第一个参数
 
@@ -226,8 +224,6 @@ func _find_spine_event(a1, a2, a3, a4):
 
 
 func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
-	print("[PA_TEST] _on_gf_spine_event CALLED! ss=%s event=%s" % [ss.name if ss else "null", event != null])
-	
 	if _ghost_fist == null:
 		return
 	

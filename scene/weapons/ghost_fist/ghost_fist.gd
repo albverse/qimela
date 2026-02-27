@@ -313,6 +313,10 @@ func on_animation_complete(_anim_name: StringName) -> void:
 				_gf_log("[GF] Attack completion ignored (combo_check already handled)")
 				return
 			var stage: int = state - GFState.GF_ATTACK_1 + 1
+			if stage < 3:
+				_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback IDLE" % stage)
+				state = GFState.GF_IDLE
+				return
 			_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
 			_enter_cooldown()
 
@@ -345,10 +349,18 @@ func _on_combo_check() -> void:
 		_gf_log("[GF] │ → Combo continues to stage %d ✓" % (stage + 1))
 		_gf_log("[GF] └──────────────────────────────────────")
 		_start_attack(stage + 1)
-	else:
-		_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), entering cooldown ✗" % [stage, hit_confirmed, queued_next])
+		return
+
+	# 遵循文档：stage < 3 直接回 IDLE（轻断连，不播 cooldown）
+	if stage < 3:
+		_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), back to IDLE ✗" % [stage, hit_confirmed, queued_next])
 		_gf_log("[GF] └──────────────────────────────────────")
-		_enter_cooldown()
+		state = GFState.GF_IDLE
+		return
+
+	_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), entering cooldown ✗" % [stage, hit_confirmed, queued_next])
+	_gf_log("[GF] └──────────────────────────────────────")
+	_enter_cooldown()
 
 
 ## Cooldown 状态说明：
@@ -464,6 +476,15 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		flower.on_chain_hit(player, 0)
 		return
 
+	var breakable: Node = _resolve_breakable(area)
+	if breakable != null and breakable.has_method("apply_hit"):
+		var hit_breakable: HitData = HitData.create(damage_per_hit, player, &"ghost_fist", HitData.Flags.STAGGER)
+		if bool(breakable.call("apply_hit", hit_breakable)):
+			_hit_this_swing[rid] = true
+			hit_confirmed = true
+			_combo_hit_count += 1
+		return
+
 
 # ════════════════════════════════════════
 # z_index 切换
@@ -559,6 +580,24 @@ func _resolve_monster(area_or_body: Node) -> Node:
 		cur = cur.get_parent()
 	return null
 
+
+
+
+func _resolve_breakable(area_or_body: Node) -> Node:
+	var cur: Node = area_or_body
+	if cur != null and cur.has_method("get_host"):
+		var host: Node = cur.call("get_host") as Node
+		if host != null:
+			cur = host
+	for _i: int in range(6):
+		if cur == null:
+			return null
+		if cur is MonsterBase or cur is LightningFlower:
+			return null
+		if cur.has_method("apply_hit"):
+			return cur
+		cur = cur.get_parent()
+	return null
 
 func _resolve_lightning_flower(area_or_body: Node) -> LightningFlower:
 	var cur: Node = area_or_body

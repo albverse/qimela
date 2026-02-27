@@ -54,8 +54,6 @@ enum Mode {
 @export var dash_cooldown: float = 0.5
 ## 冲刺攻击间隔（秒）。
 
-@export var debug_bt_log: bool = false
-## 行为树/动画排障日志开关。
 
 # ===== 内部状态（BT 叶节点直接读写）=====
 
@@ -78,6 +76,7 @@ var dash_origin: Vector2 = Vector2.ZERO
 
 ## 选中的 rest_area（Marker2D）
 var target_rest: Node2D = null
+var current_rest_area: Node = null
 
 # ===== 动画状态追踪 =====
 
@@ -133,6 +132,9 @@ func _ready() -> void:
 		_anim_mock.anim_completed.connect(_on_anim_completed)
 
 
+func _exit_tree() -> void:
+	release_rest_area()
+
 func _physics_process(dt: float) -> void:
 	# --- 光照系统更新（保留 MonsterBase 的光照逻辑）---
 	if light_counter > 0.0:
@@ -148,8 +150,6 @@ func _physics_process(dt: float) -> void:
 	if weak and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
-			if debug_bt_log:
-				print("[StoneMaskBird] weak_stun_t finished -> restore + WAKE_FROM_STUN")
 			_restore_from_weak()
 			mode = Mode.WAKE_FROM_STUN
 
@@ -180,8 +180,6 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
-	if debug_bt_log:
-		print("[StoneMaskBird] anim_play:", anim_name, " loop=", loop, " mode=", mode)
 
 	_current_anim = anim_name
 	_current_anim_finished = false
@@ -217,8 +215,6 @@ func anim_stop_or_blendout() -> void:
 
 
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
-	if debug_bt_log:
-		print("[StoneMaskBird] anim_completed:", anim_name, " current=", _current_anim)
 	if anim_name == _current_anim:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
@@ -232,8 +228,7 @@ func _enter_weak_stunned() -> void:
 	reset_vanish_count()
 	weak_stun_t = weak_stun_time
 	mode = Mode.STUNNED
-	if debug_bt_log:
-		print("[StoneMaskBird] enter weak+stunned, hp=", hp, " weak_stun_t=", weak_stun_t)
+	release_rest_area()
 
 
 func _enter_light_stunned() -> void:
@@ -241,8 +236,7 @@ func _enter_light_stunned() -> void:
 	if mode == Mode.STUNNED:
 		return
 	mode = Mode.STUNNED
-	if debug_bt_log:
-		print("[StoneMaskBird] enter light stunned, hp=", hp, " weak=", weak)
+	release_rest_area()
 
 
 func on_light_exposure(remaining_time: float) -> void:
@@ -253,6 +247,53 @@ func on_light_exposure(remaining_time: float) -> void:
 	# STUNNED 中忽略重复触发；RESTING/WAKING/飞行态均可进入。
 	if mode != Mode.STUNNED:
 		_enter_light_stunned()
+
+
+
+func _is_rest_area_available(area: Node, reserve_for_self: bool = false) -> bool:
+	if area == null or not is_instance_valid(area):
+		return false
+	if area.has_method("can_accept_bird"):
+		var ok := bool(area.call("can_accept_bird", self))
+		if ok and reserve_for_self and area.has_method("reserve_for_bird"):
+			return bool(area.call("reserve_for_bird", self))
+		return ok
+	return true
+
+
+func has_available_rest_area() -> bool:
+	var rest_areas := get_tree().get_nodes_in_group("rest_area")
+	for area in rest_areas:
+		if _is_rest_area_available(area, false):
+			return true
+	return false
+
+
+func pick_available_rest_area() -> Node2D:
+	var rest_areas := get_tree().get_nodes_in_group("rest_area")
+	if rest_areas.is_empty():
+		return null
+	for area in rest_areas:
+		if _is_rest_area_available(area, true):
+			return area as Node2D
+	return null
+
+
+func occupy_rest_area(area: Node) -> void:
+	if area == null or not is_instance_valid(area):
+		return
+	if area.has_method("occupy_by_bird") and not bool(area.call("occupy_by_bird", self)):
+		return
+	current_rest_area = area
+
+
+func release_rest_area(area: Node = null) -> void:
+	var target := area if area != null else current_rest_area
+	if target != null and is_instance_valid(target) and target.has_method("release_by_bird"):
+		target.call("release_by_bird", self)
+	if area == null or target == current_rest_area:
+		current_rest_area = null
+
 
 
 # =============================================================================
@@ -274,6 +315,7 @@ func apply_hit(hit: HitData) -> bool:
 	if mode == Mode.RESTING:
 		if hit.weapon_id == &"ghost_fist":
 			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+			release_rest_area()
 			mode = Mode.WAKING
 			_flash_once()
 			return true
