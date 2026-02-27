@@ -462,4 +462,7 @@ func get_bone_world_position(bone_name: String) -> Vector2:
 	elif bone.has_method("getWorldY"):
 		world_y = bone.getWorldY()
 
-	return Vector2(world_x, -world_y)
+	# Fallback 与 Ghost Fist 路径保持一致：
+	# bone.get_world_x/y() 作为 SpineSprite 局部坐标，再通过 to_global 转到 Godot 全局坐标。
+	# 不做手动 Y 取反，避免不同运行时下出现双重翻转。
+	return _spine_sprite.to_global(Vector2(world_x, world_y))

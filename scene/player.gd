@@ -93,8 +93,6 @@ var ghost_fist: GhostFist = null
 @export var healing_burst_area_path: NodePath = NodePath("HealingBurstArea")
 var _healing_slots: Array = [null, null, null]
 var _healing_burst_area: Area2D = null
-var _death_healing_cleanup_done: bool = false
-var _death_chain_cleanup_done: bool = false
 
 
 func _ready() -> void:
@@ -161,15 +159,6 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
-	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_chain_cleanup_done:
-		if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
-			chain_sys.call("hard_clear_all_chains", "die_tick_guard")
-		_death_chain_cleanup_done = true
-
-	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE and not _death_healing_cleanup_done:
-		_consume_all_healing_sprites_on_death()
-		_death_healing_cleanup_done = true
-
 	# === 1) Movement: 水平/重力/消费 jump ===
 	movement.tick(dt)
 
@@ -219,8 +208,7 @@ func _commit_pending_chain_fire() -> void:
 		_pending_chain_fire_side = ""
 		return
 	if _is_chain_fire_blocked():
-		if has_method("log_msg"):
-			log_msg("INPUT", "M_pressed: Chain request dropped (blocked state)")
+		log_msg("INPUT", "M_pressed: Chain request dropped (blocked state)")
 		_pending_chain_fire_side = ""
 		return
 	if not chain_sys.has_method("pick_fire_slot"):
@@ -230,14 +218,12 @@ func _commit_pending_chain_fire() -> void:
 	var expected_slot: int = 0 if _pending_chain_fire_side == "R" else 1
 	var current_slot: int = chain_sys.pick_fire_slot()
 	if current_slot != expected_slot:
-		if has_method("log_msg"):
-			log_msg("INPUT", "M_pressed: Chain request dropped (slot no longer available)")
+		log_msg("INPUT", "M_pressed: Chain request dropped (slot no longer available)")
 		_pending_chain_fire_side = ""
 		return
 
 	chain_sys.fire(_pending_chain_fire_side)
-	if has_method("log_msg"):
-		log_msg("INPUT", "M_pressed: Chain slot=%d fired (bypass ActionFSM, deferred)" % expected_slot)
+	log_msg("INPUT", "M_pressed: Chain slot=%d fired (bypass ActionFSM, deferred)" % expected_slot)
 	_pending_chain_fire_side = ""
 
 
@@ -318,8 +304,7 @@ func _unhandled_input(event: InputEvent) -> void:
 						var chimera: Node = active_chain.linked_target
 						if chimera != null and is_instance_valid(chimera) and chimera.has_method("on_player_interact"):
 							chimera.call("on_player_interact", self)
-							if has_method("log_msg"):
-								log_msg("INPUT", "M_pressed: chimera interact on active slot=%d" % slot)
+							log_msg("INPUT", "M_pressed: chimera interact on active slot=%d" % slot)
 							return
 
 			# === Chain 专用路径：不经过 ActionFSM ===
@@ -335,13 +320,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					var side: String = "R" if slot == 0 else "L"
 					_pending_chain_fire_side = side
 					
-					if has_method("log_msg"):
-						log_msg("INPUT", "M_pressed: Chain slot=%d queued (bypass ActionFSM)" % slot)
+					log_msg("INPUT", "M_pressed: Chain slot=%d queued (bypass ActionFSM)" % slot)
 					return
 			
 			# 没有可用 slot，忽略
-			if has_method("log_msg"):
-				log_msg("INPUT", "M_pressed: Chain no available slot")
+			log_msg("INPUT", "M_pressed: Chain no available slot")
 			return
 		else:
 			# === 非 Chain 武器：走 ActionFSM 标准流程 ===
@@ -376,8 +359,7 @@ func _unhandled_input(event: InputEvent) -> void:
 						chain_sys.force_dissolve_all_chains()
 				)
 				
-				if has_method("log_msg"):
-					log_msg("INPUT", "X_pressed: Chain cancel with animation")
+				log_msg("INPUT", "X_pressed: Chain cancel with animation")
 			return
 		else:
 			# 非Chain武器：走ActionFSM标准流程
@@ -402,14 +384,6 @@ func _deactivate_ghost_fist() -> void:
 	ghost_fist.deactivate()
 	if animator != null:
 		animator.play_ghost_fist_exit()
-		# GF exit 动画播放后由 on_animation_complete 切 gf_mode = false
-		# 这里延迟关闭 gf_mode 以让 exit 动画播放完
-		var tw: Tween = create_tween()
-		tw.tween_interval(0.5)
-		tw.tween_callback(func() -> void:
-			if animator != null:
-				animator.set_gf_mode(false)
-		)
 	log_msg("WEAPON", "GhostFist DEACTIVATED → GF_EXIT")
 
 
@@ -420,14 +394,24 @@ func _on_ghost_fist_attack_input() -> void:
 		return
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.HURT:
 		return
+	if ghost_fist.state == GhostFist.GFState.GF_COOLDOWN:
+		return
+	if ghost_fist.state == GhostFist.GFState.GF_ENTER or ghost_fist.state == GhostFist.GFState.GF_EXIT:
+		return
 	# 由 GhostFist.state_changed 信号统一驱动 Animator 播放
 	ghost_fist.on_attack_input()
 
 
-func _on_ghost_fist_state_changed(new_state: int, _context: StringName) -> void:
+func _on_ghost_fist_state_changed(new_state: int, context: StringName) -> void:
 	## 由 GhostFist.state_changed 信号触发
 	## 处理 combo_check → 续段攻击 或 cooldown 的动画播放
 	if animator == null:
+		return
+	if context == &"idle_anima":
+		animator.play_ghost_fist_idle_anima()
+		return
+	if context == &"exit_done":
+		animator.set_gf_mode(false)
 		return
 	match new_state:
 		GhostFist.GFState.GF_ATTACK_1, GhostFist.GFState.GF_ATTACK_2, \
@@ -485,6 +469,9 @@ func is_horizontal_input_locked() -> bool:
 		return true
 	if health != null and health.is_knockback_active():
 		return true
+	if ghost_fist != null and weapon_controller != null and weapon_controller.is_ghost_fist():
+		if ghost_fist.state != GhostFist.GFState.GF_IDLE:
+			return true
 	return false
 
 func is_player_locked() -> bool:
@@ -516,8 +503,7 @@ func apply_stun(seconds: float) -> void:
 	# 通过 ActionFSM 进入 Hurt 状态来实现僵直（不扣血）
 	if action_fsm != null:
 		action_fsm.on_stunned(seconds)
-	if has_method("log_msg"):
-		log_msg("STUN", "apply_stun %.2fs" % seconds)
+	log_msg("STUN", "apply_stun %.2fs" % seconds)
 
 
 # ── HealingSprite 接口（供 healing_sprite.gd 调用）──
@@ -542,8 +528,7 @@ func try_collect_healing_sprite(sprite: Node, preferred_slot: int = -1) -> int:
 		return -1
 
 	_healing_slots[picked] = sprite
-	if has_method("log_msg"):
-		log_msg("HEAL", "collect sprite slot=%d count=%d" % [picked, _healing_count()])
+	log_msg("HEAL", "collect sprite slot=%d count=%d" % [picked, _healing_count()])
 	return picked
 
 
@@ -575,8 +560,7 @@ func use_healing_sprite() -> bool:
 			if sp.has_method("consume"):
 				sp.call("consume")
 			heal(healing_per_sprite)
-			if has_method("log_msg"):
-				log_msg("HEAL", "use sprite slot=%d heal=%d remain=%d" % [i, healing_per_sprite, _healing_count()])
+			log_msg("HEAL", "use sprite slot=%d heal=%d remain=%d" % [i, healing_per_sprite, _healing_count()])
 			return true
 	return false
 
@@ -586,8 +570,7 @@ func use_healing_burst() -> bool:
 		return false
 	var current_count: int = _healing_count()
 	if current_count < max_healing_sprites:
-		if has_method("log_msg"):
-			log_msg("HEAL", "治愈精灵不足，无法触发大爆炸（当前：%d/%d）" % [current_count, max_healing_sprites])
+		log_msg("HEAL", "治愈精灵不足，无法触发大爆炸（当前：%d/%d）" % [current_count, max_healing_sprites])
 		return false
 
 	if _healing_burst_area == null:
@@ -603,13 +586,11 @@ func use_healing_burst() -> bool:
 		if sp.has_method("consume"):
 			sp.call("consume")
 
-	if has_method("log_msg"):
-		log_msg("HEAL", "治愈精灵大爆炸！")
+	log_msg("HEAL", "治愈精灵大爆炸！")
 
 	if health != null and health.has_method("grant_invincible"):
 		health.grant_invincible(healing_burst_invincible_time)
-		if has_method("log_msg"):
-			log_msg("HEAL", "healing_burst grant invincible=%.2fs" % healing_burst_invincible_time)
+		log_msg("HEAL", "healing_burst grant invincible=%.2fs" % healing_burst_invincible_time)
 
 	if _healing_burst_area != null:
 		var bodies: Array[Node2D] = _healing_burst_area.get_overlapping_bodies()
@@ -617,12 +598,10 @@ func use_healing_burst() -> bool:
 			var monster: MonsterBase = body as MonsterBase
 			if monster != null and monster.has_method("apply_healing_burst_stun"):
 				monster.apply_healing_burst_stun()
-				if has_method("log_msg"):
-					log_msg("HEAL", "healing_burst stun hit=%s" % monster.name)
+				log_msg("HEAL", "healing_burst stun hit=%s" % monster.name)
 	if EventBus != null and EventBus.has_method("emit_healing_burst"):
 		EventBus.emit_healing_burst(healing_burst_light_energy)
-	if has_method("log_msg"):
-		log_msg("HEAL", "释放全场光照能量：%.2f" % healing_burst_light_energy)
+	log_msg("HEAL", "释放全场光照能量：%.2f" % healing_burst_light_energy)
 	return true
 
 
@@ -632,6 +611,11 @@ func _healing_count() -> int:
 		if _healing_slots[i] != null and is_instance_valid(_healing_slots[i]):
 			n += 1
 	return n
+
+
+
+func get_healing_sprite_count() -> int:
+	return _healing_count()
 
 
 func _consume_all_healing_sprites_on_death() -> void:
@@ -645,8 +629,7 @@ func _consume_all_healing_sprites_on_death() -> void:
 			sp.call("consume_on_death")
 		elif sp.has_method("consume"):
 			sp.call("consume")
-	if has_method("log_msg"):
-		log_msg("HEAL", "clear all healing sprites on die")
+	log_msg("HEAL", "clear all healing sprites on die")
 
 
 func on_die_entered() -> void:
@@ -654,6 +637,7 @@ func on_die_entered() -> void:
 	_block_chain_fire_this_frame = true
 	if chain_sys != null and chain_sys.has_method("hard_clear_all_chains"):
 		chain_sys.call("hard_clear_all_chains", "die_enter")
+	_consume_all_healing_sprites_on_death()
 
 
 # ── 统一日志 ──

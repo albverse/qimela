@@ -101,13 +101,22 @@ func on_light_exposure(remaining_time: float) -> void:
 	light_counter += remaining_time
 	light_counter = min(light_counter, light_counter_max)
 
+func _get_current_light_remaining(light_data: Dictionary) -> float:
+	var total_duration: float = light_data.get("total_duration", 0.0)
+	if total_duration <= 0.0:
+		return 0.0
+	var start_ms: int = int(light_data.get("start_time_ms", 0))
+	var elapsed: float = maxf((Time.get_ticks_msec() - start_ms) / 1000.0, 0.0)
+	return maxf(total_duration - elapsed, 0.0)
+
 func _on_light_started(source_id: int, remaining_time: float, source_light_area: Area2D) -> void:
 	if _light_receiver == null or source_light_area == null:
 		return
 	if not source_light_area.overlaps_area(_light_receiver):
 		_active_light_sources[source_id] = {
 			"area": source_light_area,
-			"remaining_time": remaining_time
+			"total_duration": remaining_time,
+			"start_time_ms": Time.get_ticks_msec()
 		}
 		return
 	if _processed_light_sources.has(source_id):
@@ -128,7 +137,7 @@ func _on_light_area_entered(area: Area2D) -> void:
 		if light_data["area"] == area:
 			if _processed_light_sources.has(source_id):
 				return
-			var remaining: float = light_data["remaining_time"]
+			var remaining: float = _get_current_light_remaining(light_data)
 			_processed_light_sources[source_id] = true
 			light_counter += remaining
 			light_counter = min(light_counter, light_counter_max)

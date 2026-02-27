@@ -1,7 +1,6 @@
-[gd_scene load_steps=19 format=3 uid="uid://m7ts2uye3c05"]
+[gd_scene load_steps=18 format=3 uid="uid://m7ts2uye3c05"]
 
 [ext_resource type="Script" uid="uid://btlkrf7tvnl0s" path="res://scene/player.gd" id="1_player"]
-[ext_resource type="Texture2D" uid="uid://bal53d1ex2ekj" path="res://character.png" id="2_char"]
 [ext_resource type="Texture2D" uid="uid://cxpwuegv2sp8t" path="res://scene/chain.png" id="3_chain"]
 [ext_resource type="Shader" uid="uid://djjbe2mxwgpqf" path="res://shaders/chain_sand_dissolve.gdshader" id="4_shader0"]
 [ext_resource type="Shader" uid="uid://p2ts4661n405" path="res://shaders/burn_dissolve.gdshader" id="5_shader1"]
@@ -87,14 +86,6 @@ preview_skin = "Default"
 preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
-
-[node name="Sprite2D" type="Sprite2D" parent="Visual"]
-visible = false
-z_index = 1
-position = Vector2(1, -17)
-scale = Vector2(0.30287048, 0.30601948)
-texture = ExtResource("2_char")
-flip_h = true
 
 [node name="center1" type="Marker2D" parent="Visual"]
 position = Vector2(-1, -17)

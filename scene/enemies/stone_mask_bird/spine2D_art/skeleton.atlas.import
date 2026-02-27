@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://r7yd8yeb51na"
+path="res://.godot/imported/skeleton.atlas-8da6752022d3421c1c24e776e75154ef.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/stone_mask_bird/spine2D_art/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-8da6752022d3421c1c24e776e75154ef.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

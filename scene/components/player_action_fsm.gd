@@ -329,6 +329,10 @@ func on_anim_end_hurt() -> void:
 			_sync_loco(&"Idle", "GREEN")
 			return
 		_use_fuse_hurt_anim = false
+		if _player != null and _player.weapon_controller != null and _player.weapon_controller.is_ghost_fist() and _player.is_on_floor():
+			_do_transition(State.NONE, "anim_end_hurt->gf_force_idle", 90)
+			_sync_loco(&"Idle", "gf_hurt_recover")
+			return
 		_resolve_and_transition("anim_end_hurt")
 
 
@@ -417,14 +421,7 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 
 	# === CRITICAL FIX: 进入Die时的全局锁定与清理 ===
 	if to == State.DIE and _player != null:
-		# 1. 死亡：立即清空所有链条（不走溶解，不依赖 tick/tween）
-		if _player.chain_sys != null:
-			if _player.chain_sys.has_method("hard_clear_all_chains"):
-				_player.chain_sys.hard_clear_all_chains("die")
-			else:
-				_player.chain_sys.force_dissolve_all_chains()
-
-		# 2. 冻结movement（虽然movement自己也会检查Die，但这里主动冻结更保险）
+		# 1. 冻结movement（虽然movement自己也会检查Die，但这里主动冻结更保险）
 		if _player.movement != null:
 			_player.movement.move_intent = 0  # MoveIntent.NONE
 			_player.movement.input_dir = 0.0
@@ -432,11 +429,11 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 			if _player.velocity.y < 0.0:
 				_player.velocity.y = 0.0
 
-		# 3. 停止受击/击退等健康侧效果，确保死亡后完全静止可控
+		# 2. 停止受击/击退等健康侧效果，确保死亡后完全静止可控
 		if _player.health != null and _player.health.has_method("on_player_die"):
 			_player.health.on_player_die()
 
-		# 4. 通知Player执行死亡入口级别清理（兜底清链、清pending输入）
+		# 3. 通知Player执行死亡入口级别清理（清链、清pending输入、清治愈精灵）
 		if _player.has_method("on_die_entered"):
 			_player.on_die_entered()
 

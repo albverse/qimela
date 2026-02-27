@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://0u1toesroae1"
+path="res://.godot/imported/skeleton.skel-96a1a660f573e273e31a550185354280.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/stone_mask_bird/spine2D_art/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-96a1a660f573e273e31a550185354280.spskel"]
+
+[params]
+
