@@ -2,6 +2,7 @@ extends EntityBase
 class_name RestArea
 
 @export var max_durability: int = 3
+@export var rest_enter_radius: float = 36.0
 
 var _occupying_bird: Node = null
 var _reserved_bird: Node = null
@@ -73,3 +74,9 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		return 0
 	take_damage(1)
 	return 0
+
+
+func is_bird_arrived(bird: Node2D) -> bool:
+	if bird == null or not is_instance_valid(bird):
+		return false
+	return global_position.distance_to(bird.global_position) <= rest_enter_radius

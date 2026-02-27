@@ -66,6 +66,9 @@ const ACTION_END_MAP: Dictionary = {
 	&"ghost_fist_/attack_2": &"anim_end_attack",
 	&"ghost_fist_/attack_3": &"anim_end_attack",
 	&"ghost_fist_/attack_4": &"anim_end_attack",
+	&"ghost_fist_/cooldown": &"anim_end_attack",
+	&"ghost_fist_/enter": &"anim_end_attack",
+	&"ghost_fist_/exit": &"anim_end_attack",
 	&"ghost_fist_/hurt": &"anim_end_hurt",
 	&"ghost_fist_/die": &"anim_end_hurt",
 	# Sword 动画
@@ -637,11 +640,6 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			if anim_name == &"chain_/die" or anim_name == &"ghost_fist_/die":
 				return
 
-			# 根因修复：GF 的 enter/cooldown/exit 不能只依赖手部 completion，
-			# 当手部信号未到达时会卡在最后一帧且状态停在 GF_ENTER/GF_COOLDOWN/GF_EXIT。
-			# 这里使用 player 主轨 fullbody 完成作为可靠源推进 GF 状态。
-			if _ghost_fist != null and anim_name in [&"ghost_fist_/enter", &"ghost_fist_/cooldown", &"ghost_fist_/exit"]:
-				_ghost_fist.on_animation_complete(anim_name)
 
 			if anim_name == &"ghost_fist_/hurt" and _ghost_fist != null and _ghost_fist.has_method("on_hurt_animation_finished"):
 				_ghost_fist.on_hurt_animation_finished()
