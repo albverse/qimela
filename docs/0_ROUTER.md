@@ -15,6 +15,8 @@
 | C_ENTITY_DIRECTORY.md | 实体目录（唯一真相） | species_id, attribute, ui_icon |
 | D_FUSION_RULES.md | 融合规则（唯一真相） | 融合, fusion, check_fusion |
 | HOWTO_ADD_ENTITY.md | 添加新实体教程 | 新怪物, 新奇美拉 |
+| E_BEEHAVE_ENEMY_DESIGN_GUIDE.md | Beehave敌人行为设计指南（AI构建行为树专用） | beehave, 行为树, boss, monster AI |
+| BEEHAVE_REFERENCE.md | Beehave 2.9.x 完整API参考（源码校对） | beehave节点, 装饰器, 组合节点, 陷阱 |
 | **detail/*.md** | **各模块详细实现文档** | 具体实现细节 |
 
 ---
