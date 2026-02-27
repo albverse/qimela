@@ -76,17 +76,15 @@ func _tick_takeoff(bird: StoneMaskBird) -> int:
 
 
 func _start_fly_to_rest(bird: StoneMaskBird) -> void:
-	# 选择 rest_area 目标
-	var rest_areas := bird.get_tree().get_nodes_in_group("rest_area")
-	if rest_areas.is_empty():
+	bird._release_target_rest()
+	var rest_area := _pick_available_rest_area(bird)
+	if rest_area == null:
 		# 无 rest_area -> 回到飞行攻击（避免卡死）
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		var now := StoneMaskBird.now_sec()
 		bird.attack_until_sec = now + bird.attack_duration_sec
 		bird.next_attack_sec = now
 		return
-	# 随机选一个 rest_area
-	bird.target_rest = rest_areas[randi() % rest_areas.size()] as Node2D
 	_enter_phase(Phase.FLYING_TO_REST)
 	bird.anim_play(&"fly_move", true, true)
 
@@ -96,6 +94,7 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 	_ensure_anim_state(bird, &"fly_move", true)
 	if bird.target_rest == null or not is_instance_valid(bird.target_rest):
 		# 目标丢失 -> 回到飞行攻击
+		bird._release_target_rest()
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
 
@@ -128,7 +127,6 @@ func _tick_sleeping_down(bird: StoneMaskBird) -> int:
 func _finish_rest(bird: StoneMaskBird) -> void:
 	bird.mode = StoneMaskBird.Mode.RESTING
 	bird.hp = bird.max_hp
-	bird.target_rest = null
 	bird.velocity = Vector2.ZERO
 
 
@@ -137,6 +135,8 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if bird:
 		bird.velocity = Vector2.ZERO
 		bird.anim_stop_or_blendout()
+		if _phase == Phase.FLYING_TO_REST:
+			bird._release_target_rest()
 	_phase = Phase.WAKING
 	_phase_enter_sec = 0.0
 	_phase_warned_timeout = false
@@ -175,3 +175,23 @@ func _ensure_anim_state(bird: StoneMaskBird, expected_anim: StringName, loop: bo
 	if bird.anim_is_playing(expected_anim) or bird.anim_is_finished(expected_anim):
 		return
 	bird.anim_play(expected_anim, loop, true)
+
+
+func _pick_available_rest_area(bird: StoneMaskBird) -> Node2D:
+	var rest_areas := bird.get_tree().get_nodes_in_group("rest_area")
+	if rest_areas.is_empty():
+		return null
+	var candidates: Array[Node2D] = []
+	for n in rest_areas:
+		var area := n as Node2D
+		if area == null:
+			continue
+		if bird.reserve_rest_area(area):
+			candidates.append(area)
+			bird.release_rest_area(area)
+	if candidates.is_empty():
+		return null
+	var chosen: Node2D = candidates[randi() % candidates.size()]
+	if not bird.reserve_rest_area(chosen):
+		return null
+	return chosen

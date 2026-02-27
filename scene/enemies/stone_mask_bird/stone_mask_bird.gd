@@ -257,6 +257,7 @@ func apply_hit(hit: HitData) -> bool:
 	if mode == Mode.RESTING:
 		if hit.weapon_id == &"ghost_fist":
 			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+			_release_target_rest()
 			mode = Mode.WAKING
 			_flash_once()
 			return true
@@ -391,3 +392,27 @@ func _get_player() -> Node2D:
 ## 时间基准：秒
 static func now_sec() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+func reserve_rest_area(rest_area: Node2D) -> bool:
+	if rest_area == null or not is_instance_valid(rest_area):
+		return false
+	if not rest_area.has_method("reserve_for"):
+		return false
+	var ok: bool = bool(rest_area.call("reserve_for", self))
+	if ok:
+		target_rest = rest_area
+	return ok
+
+
+func release_rest_area(rest_area: Node2D) -> void:
+	if rest_area == null or not is_instance_valid(rest_area):
+		return
+	if rest_area.has_method("release_for"):
+		rest_area.call("release_for", self)
+
+
+func _release_target_rest() -> void:
+	if target_rest != null and is_instance_valid(target_rest):
+		release_rest_area(target_rest)
+	target_rest = null
