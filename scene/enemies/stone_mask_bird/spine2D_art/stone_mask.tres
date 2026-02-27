@@ -1,0 +1,8 @@
+[gd_resource type="SpineSkeletonDataResource" load_steps=3 format=3 uid="uid://b12e2q14dvwlh"]
+
+[ext_resource type="SpineAtlasResource" uid="uid://r7yd8yeb51na" path="res://scene/enemies/stone_mask_bird/spine2D_art/skeleton.atlas" id="1_ng4kj"]
+[ext_resource type="SpineSkeletonFileResource" uid="uid://0u1toesroae1" path="res://scene/enemies/stone_mask_bird/spine2D_art/skeleton.skel" id="2_ptoko"]
+
+[resource]
+atlas_res = ExtResource("1_ng4kj")
+skeleton_file_res = ExtResource("2_ptoko")

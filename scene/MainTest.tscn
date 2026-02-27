@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=24 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
+[ext_resource type="PackedScene" uid="uid://cndsohm8mmjw7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.tscn" id="16_gteh2"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -161,7 +162,7 @@ position = Vector2(763, 546)
 [node name="HealingSprite3" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
 position = Vector2(396, 362)
 
-[node name="Player" parent="World" instance=ExtResource("3_ngg7y")]
+[node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
 position = Vector2(238, 571)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
@@ -193,6 +194,12 @@ size_tier = 2
 
 [node name="MonsterHand" parent="World" instance=ExtResource("13_g5v7j")]
 position = Vector2(372, 467)
+
+[node name="rest_area" type="Marker2D" parent="World"]
+position = Vector2(127, 419)
+
+[node name="StoneMaskBird" parent="World" instance=ExtResource("16_gteh2")]
+position = Vector2(26, 542)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 

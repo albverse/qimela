@@ -1,0 +1,50 @@
+[gd_scene load_steps=8 format=3 uid="uid://cndsohm8mmjw7"]
+
+[ext_resource type="Script" uid="uid://v1u2bdy6hwq7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://b12e2q14dvwlh" path="res://scene/enemies/stone_mask_bird/spine2D_art/stone_mask.tres" id="2_lm0gq"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/stone_mask_bird/bt_stone_mask_bird.tscn" id="4_bt"]
+
+[sub_resource type="CircleShape2D" id="body_shape"]
+radius = 24.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 20.0
+
+[node name="StoneMaskBird" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_script")
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(-6, 33.999996)
+scale = Vector2(0.6544599, 0.68303895)
+skeleton_data_res = ExtResource("2_lm0gq")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("hurtbox_shape")
+debug_color = Color(0.94, 0, 0.62, 0.42)
+
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("body_shape")
+
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+blackboard = NodePath("@Node@21024")
+actor = NodePath("..")
