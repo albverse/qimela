@@ -11,13 +11,23 @@ class_name ActAttackLoopDash
 
 enum Phase { HOVERING, DASHING, RETURNING }
 
+const DASH_HIT_RADIUS: float = 40.0
+const DASH_REACH_DIST: float = 15.0
+const DASH_TIMEOUT_SEC: float = 0.7
+const RETURN_TIMEOUT_SEC: float = 0.9
+
 var _phase: int = Phase.HOVERING
 var _dash_target: Vector2 = Vector2.ZERO
 var _has_dealt_damage: bool = false
+var _dash_started_sec: float = -1.0
+var _return_started_sec: float = -1.0
+
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_phase = Phase.HOVERING
 	_has_dealt_damage = false
+	_dash_started_sec = -1.0
+	_return_started_sec = -1.0
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -36,22 +46,21 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 			bird.velocity = Vector2.ZERO
 			return SUCCESS
-		else:
-			# 无 rest_area -> 永远攻击，重置计时
-			bird.attack_until_sec = now + bird.attack_duration_sec
+		# 无 rest_area -> 永远攻击，重置计时
+		bird.attack_until_sec = now + bird.attack_duration_sec
 
 	match _phase:
 		Phase.HOVERING:
 			_tick_hovering(bird, dt, now, player)
 		Phase.DASHING:
-			_tick_dashing(bird, dt, player)
+			_tick_dashing(bird, now, player)
 		Phase.RETURNING:
-			_tick_returning(bird, dt, now)
+			_tick_returning(bird, now)
 
 	return RUNNING
 
 
-func _tick_hovering(bird: StoneMaskBird, dt: float, now: float, player: Node2D) -> void:
+func _tick_hovering(bird: StoneMaskBird, _dt: float, now: float, player: Node2D) -> void:
 	# 移动到 hover_point（玩家上方 attack_offset_y）
 	if player:
 		var hover_point := player.global_position + Vector2(0, -bird.attack_offset_y)
@@ -64,7 +73,6 @@ func _tick_hovering(bird: StoneMaskBird, dt: float, now: float, player: Node2D) 
 	else:
 		bird.velocity = Vector2.ZERO
 
-	# 确保播放 fly_idle
 	if not bird.anim_is_playing(&"fly_idle"):
 		bird.anim_play(&"fly_idle", true, true)
 
@@ -76,48 +84,58 @@ func _tick_hovering(bird: StoneMaskBird, dt: float, now: float, player: Node2D) 
 		bird.dash_origin = bird.global_position
 		_dash_target = player.global_position
 		_has_dealt_damage = false
+		_dash_started_sec = now
 		bird.anim_play(&"dash_attack", false, true)
 
 
-func _tick_dashing(bird: StoneMaskBird, dt: float, player: Node2D) -> void:
-	# 向玩家位置冲刺
+func _tick_dashing(bird: StoneMaskBird, now: float, player: Node2D) -> void:
 	var to_target := _dash_target - bird.global_position
 	var dist := to_target.length()
 
-	if dist > 15.0:
+	if dist > DASH_REACH_DIST:
 		bird.velocity = to_target.normalized() * bird.dash_speed
 		bird.move_and_slide()
-		# 命中检测：距离玩家足够近时判定一次伤害
-		if not _has_dealt_damage and player:
-			var dist_to_player := bird.global_position.distance_to(player.global_position)
-			if dist_to_player < 40.0:
-				_has_dealt_damage = true
-				_deal_dash_damage(bird, player)
-	else:
-		# 到达冲刺目标 -> 回撤
-		_phase = Phase.RETURNING
-		bird.anim_play(&"dash_return", false, true)
+
+	# 命中检测：命中后立刻转回撤（符合规格）
+	if not _has_dealt_damage and player:
+		if bird.global_position.distance_to(player.global_position) <= DASH_HIT_RADIUS:
+			_has_dealt_damage = true
+			_deal_dash_damage(player)
+			_start_returning(bird, now)
+			return
+
+	# 到达目标、动画结束、或超时都进入回撤，避免卡死在 dash_attack
+	if dist <= DASH_REACH_DIST or bird.anim_is_finished(&"dash_attack") or (_dash_started_sec > 0.0 and now - _dash_started_sec >= DASH_TIMEOUT_SEC):
+		_start_returning(bird, now)
 
 
-func _tick_returning(bird: StoneMaskBird, dt: float, now: float) -> void:
-	# 冲回 dash_origin
+func _start_returning(bird: StoneMaskBird, now: float) -> void:
+	_phase = Phase.RETURNING
+	_return_started_sec = now
+	bird.anim_play(&"dash_return", false, true)
+
+
+func _tick_returning(bird: StoneMaskBird, now: float) -> void:
 	var to_origin := bird.dash_origin - bird.global_position
 	var dist := to_origin.length()
 
-	if dist > 15.0:
+	if dist > DASH_REACH_DIST:
 		bird.velocity = to_origin.normalized() * bird.dash_speed * 0.8
 		bird.move_and_slide()
-	else:
-		# 回到原点 -> 写下一次攻击时间，回到悬停
+
+	# 回到原点、动画结束、或超时都收敛到悬停
+	if dist <= DASH_REACH_DIST or bird.anim_is_finished(&"dash_return") or (_return_started_sec > 0.0 and now - _return_started_sec >= RETURN_TIMEOUT_SEC):
 		bird.global_position = bird.dash_origin
 		bird.velocity = Vector2.ZERO
 		bird.next_attack_sec = now + bird.dash_cooldown
 		_phase = Phase.HOVERING
+		_dash_started_sec = -1.0
+		_return_started_sec = -1.0
 		bird.anim_play(&"fly_idle", true, true)
 
 
-func _deal_dash_damage(bird: StoneMaskBird, player: Node2D) -> void:
-	# 冲刺命中：对玩家造成伤害（如果玩家有 take_damage / apply_hit 接口）
+func _deal_dash_damage(player: Node2D) -> void:
+	# 冲刺命中：对玩家造成伤害（如果玩家有 take_damage 接口）
 	if player.has_method("take_damage"):
 		player.take_damage(1)
 
@@ -128,4 +146,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 		bird.velocity = Vector2.ZERO
 	_phase = Phase.HOVERING
 	_has_dealt_damage = false
+	_dash_started_sec = -1.0
+	_return_started_sec = -1.0
 	super(actor, blackboard)
