@@ -57,9 +57,7 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 		return SUCCESS
 
 	var to_rest := bird.target_rest.global_position - bird.global_position
-	var dist := to_rest.length()
-
-	if dist > bird.reach_rest_px:
+	if not _has_arrived_to_rest(bird):
 		bird.velocity = to_rest.normalized() * bird.return_speed
 		bird.move_and_slide()
 		return RUNNING
@@ -70,6 +68,14 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 	_phase = Phase.SLEEPING_DOWN
 	bird.anim_play(&"sleep_down", false, true)
 	return RUNNING
+
+
+func _has_arrived_to_rest(bird: StoneMaskBird) -> bool:
+	if bird.target_rest == null:
+		return false
+	if bird.target_rest.has_method("is_arrived"):
+		return bool(bird.target_rest.call("is_arrived", bird))
+	return bird.global_position.distance_to(bird.target_rest.global_position) <= bird.reach_rest_px
 
 
 func _tick_sleeping_down(bird: StoneMaskBird) -> int:

@@ -11,11 +11,13 @@ var hp: int = 3
 
 var _occupying_bird_ref: WeakRef = null
 @onready var _sprite: Sprite2D = get_node_or_null("Sprite2D") as Sprite2D
+@onready var _hurt_shape: CollisionShape2D = get_node_or_null("Hurtbox/CollisionShape2D") as CollisionShape2D
 
 
 func _ready() -> void:
 	hp = max_hp
 	add_to_group("rest_area")
+	_update_visual_state()
 
 
 func apply_hit(hit: HitData) -> bool:
@@ -23,11 +25,39 @@ func apply_hit(hit: HitData) -> bool:
 		return false
 	if hp <= 0:
 		return false
-	hp = max(hp - hit.damage, 0)
+	var real_damage := max(hit.damage, 1)
+	hp = max(hp - real_damage, 0)
 	_flash_once()
+	_update_visual_state()
 	if hp <= 0:
+		_set_inactive()
 		queue_free()
 	return true
+
+
+func is_arrived(bird: Node2D) -> bool:
+	if bird == null or not is_instance_valid(bird):
+		return false
+	if _hurt_shape == null or _hurt_shape.shape == null:
+		return false
+
+	var local := _hurt_shape.to_local(bird.global_position)
+	var shape := _hurt_shape.shape
+	if shape is CircleShape2D:
+		return local.length_squared() <= pow((shape as CircleShape2D).radius, 2)
+	if shape is RectangleShape2D:
+		var ext := (shape as RectangleShape2D).size * 0.5
+		return absf(local.x) <= ext.x and absf(local.y) <= ext.y
+	if shape is CapsuleShape2D:
+		var cap := shape as CapsuleShape2D
+		var half_h := cap.height * 0.5
+		var r := cap.radius
+		if absf(local.x) <= r and absf(local.y) <= half_h:
+			return true
+		var top_center := Vector2(0.0, -half_h)
+		var bot_center := Vector2(0.0, half_h)
+		return local.distance_squared_to(top_center) <= r * r or local.distance_squared_to(bot_center) <= r * r
+	return false
 
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
@@ -74,3 +104,19 @@ func _flash_once() -> void:
 	var tw := create_tween()
 	_sprite.modulate = Color(1.2, 1.2, 1.2, 1.0)
 	tw.tween_property(_sprite, "modulate", Color.WHITE, 0.1)
+
+
+func _set_inactive() -> void:
+	if _sprite:
+		_sprite.visible = false
+	var hurtbox := get_node_or_null("Hurtbox") as Area2D
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+
+
+func _update_visual_state() -> void:
+	if _sprite == null or max_hp <= 0:
+		return
+	var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
+	_sprite.self_modulate = Color(1.0, ratio, ratio, 1.0)

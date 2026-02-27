@@ -271,11 +271,24 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- STUNNED / WAKE_FROM_STUN：允许扣血与闪白，但不切换 mode ---
-	if mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
+	# --- STUNNED：允许扣血与闪白，但不切换 mode ---
+	if mode == Mode.STUNNED:
 		hp = max(hp - hit.damage, 0)
 		hp = max(hp, 1)  # clamp 到 1，不会真死
 		_flash_once()
+		return true
+
+	# --- WAKE_FROM_STUN：回巢飞行途中受击会再次陷入眩晕 ---
+	if mode == Mode.WAKE_FROM_STUN:
+		hp = max(hp - hit.damage, 0)
+		_flash_once()
+		if hp <= weak_hp:
+			_enter_weak_stunned()
+			return true
+		if _is_flying_back_to_rest():
+			_enter_weak_stunned()
+			return true
+		hp = max(hp, 1)
 		return true
 
 	# --- FLYING_ATTACK / HURT：正常受击处理 ---
@@ -296,6 +309,10 @@ func apply_hit(hit: HitData) -> bool:
 	if mode == Mode.FLYING_ATTACK:
 		mode = Mode.HURT
 	return true
+
+
+func _is_flying_back_to_rest() -> bool:
+	return _current_anim == &"fly_move" and target_rest != null and is_instance_valid(target_rest)
 
 
 # =============================================================================
