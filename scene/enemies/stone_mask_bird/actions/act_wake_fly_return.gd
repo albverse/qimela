@@ -5,7 +5,7 @@ class_name ActWakeFlyReturnRest
 ## 从 WAKE_FROM_STUN 状态恢复。
 ## 内部阶段：WAKING -> TAKEOFF -> FLYING_TO_REST -> SLEEPING_DOWN
 ## 完成后：mode=RESTING，HP=3。
-## 无 rest_area 时：直接 mode=FLYING_ATTACK（避免卡死）。
+## 无可用 rest_area 时：直接 mode=FLYING_ATTACK（避免卡死）。
 
 enum Phase { WAKING, TAKEOFF, FLYING_TO_REST, SLEEPING_DOWN }
 
@@ -55,17 +55,16 @@ func _tick_takeoff(bird: StoneMaskBird) -> int:
 
 
 func _start_fly_to_rest(bird: StoneMaskBird) -> void:
-	# 选择 rest_area 目标
-	var rest_areas := bird.get_tree().get_nodes_in_group("rest_area")
-	if rest_areas.is_empty():
-		# 无 rest_area -> 回到飞行攻击（避免卡死）
+	# 选择可用 rest_area 目标
+	var target := bird.pick_available_rest_area()
+	if target == null:
+		# 无可用 rest_area -> 回到飞行攻击
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		var now := StoneMaskBird.now_sec()
 		bird.attack_until_sec = now + bird.attack_duration_sec
 		bird.next_attack_sec = now
 		return
-	# 随机选一个 rest_area
-	bird.target_rest = rest_areas[randi() % rest_areas.size()] as Node2D
+	bird.target_rest = target
 	_phase = Phase.FLYING_TO_REST
 	bird.anim_play(&"fly_move", true, true)
 
@@ -73,13 +72,19 @@ func _start_fly_to_rest(bird: StoneMaskBird) -> void:
 func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 	if bird.target_rest == null or not is_instance_valid(bird.target_rest):
 		# 目标丢失 -> 回到飞行攻击
+		bird.release_rest_area(bird.target_rest)
+		bird.target_rest = null
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
 
 	var to_rest := bird.target_rest.global_position - bird.global_position
 	var dist := to_rest.length()
+	var arrive_px := maxf(bird.reach_rest_px, bird.return_speed * dt * 1.25)
+	var arrived_by_area := false
+	if bird.target_rest.has_method("is_bird_arrived"):
+		arrived_by_area = bool(bird.target_rest.call("is_bird_arrived", bird))
 
-	if dist > bird.reach_rest_px:
+	if not arrived_by_area and dist > arrive_px:
 		bird.velocity = to_rest.normalized() * bird.return_speed
 		bird.move_and_slide()
 		return RUNNING
@@ -103,6 +108,7 @@ func _tick_sleeping_down(bird: StoneMaskBird) -> int:
 func _finish_rest(bird: StoneMaskBird) -> void:
 	bird.mode = StoneMaskBird.Mode.RESTING
 	bird.hp = bird.max_hp
+	bird.occupy_rest_area(bird.target_rest)
 	bird.target_rest = null
 	bird.velocity = Vector2.ZERO
 
@@ -112,5 +118,7 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if bird:
 		bird.velocity = Vector2.ZERO
 		bird.anim_stop_or_blendout()
+		bird.release_rest_area(bird.target_rest)
+		bird.target_rest = null
 	_phase = Phase.WAKING
 	super(actor, blackboard)

@@ -41,12 +41,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	# --- 攻击时间到期检查 ---
 	if now >= bird.attack_until_sec:
-		var rest_areas := bird.get_tree().get_nodes_in_group("rest_area")
-		if not rest_areas.is_empty():
+		if bird.has_available_rest_area():
 			bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 			bird.velocity = Vector2.ZERO
 			return SUCCESS
-		# 无 rest_area -> 永远攻击，重置计时
+		# 无可用 rest_area -> 永远攻击，重置计时
 		bird.attack_until_sec = now + bird.attack_duration_sec
 
 	match _phase:

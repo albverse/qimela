@@ -205,14 +205,13 @@ func _connect_gf_signals() -> void:
 							break
 					_on_gf_anim_complete(target_node, track_entry if track_entry else a1)
 			)
-	print("[PA_TEST] _connect_gf_signals complete, L=%s R=%s" % [_gf_L != null, _gf_R != null])
 
 
 
 ## 从可变信号参数中找到 SpineTrackEntry（has get_track_index）
 func _find_track_entry(a1, a2, a3, a4):
 	for a in [a1, a2, a3, a4]:
-		if a is Object and a.has_method("get_track_index"):
+		if a is Object and (a.has_method("get_track_index") or a.has_method("getTrackIndex")):
 			return a
 	return a1  # fallback: 第一个参数
 
@@ -226,8 +225,6 @@ func _find_spine_event(a1, a2, a3, a4):
 
 
 func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
-	print("[PA_TEST] _on_gf_spine_event CALLED! ss=%s event=%s" % [ss.name if ss else "null", event != null])
-	
 	if _ghost_fist == null:
 		return
 	
@@ -642,6 +639,8 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 			# die 是终态：不清空、不恢复、不发事件
 			if anim_name == &"chain_/die" or anim_name == &"ghost_fist_/die":
 				return
+
+
 			if anim_name == &"ghost_fist_/hurt" and _ghost_fist != null and _ghost_fist.has_method("on_hurt_animation_finished"):
 				_ghost_fist.on_hurt_animation_finished()
 			var action_event: StringName = ACTION_END_MAP.get(anim_name, &"")
