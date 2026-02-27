@@ -25,8 +25,8 @@ func apply_hit(hit: HitData) -> bool:
 		return false
 	if hp <= 0:
 		return false
-	var real_damage := max(hit.damage, 1)
-	hp = max(hp - real_damage, 0)
+	var real_damage: int = maxi(int(hit.damage), 1)
+	hp = maxi(hp - real_damage, 0)
 	_flash_once()
 	_update_visual_state()
 	if hp <= 0:
