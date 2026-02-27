@@ -228,9 +228,12 @@ func apply_hit(hit: HitData) -> bool:
 		# chain、雷花、其他武器对休息中的石面鸟无效
 		return false
 
-	# --- WAKING：唤醒动画不可打断，所有伤害无效 ---
+	# --- WAKING：允许扣血与闪白，但不切换 mode（不可打断） ---
 	if mode == Mode.WAKING:
-		return false
+		hp = max(hp - hit.damage, 0)
+		hp = max(hp, 1)  # clamp 到 1，不会真死
+		_flash_once()
+		return true
 
 	# --- STUNNED / WAKE_FROM_STUN：允许扣血与闪白，但不切换 mode ---
 	if mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
