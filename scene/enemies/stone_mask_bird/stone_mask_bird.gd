@@ -33,7 +33,7 @@ enum Mode {
 @export var return_speed: float = 450.0
 ## 回巢速度（px/s）。
 
-@export var reach_rest_px: float = 10.0
+@export var reach_rest_px: float = 30.0
 ## 到达休息点判定阈值（px）。
 
 @export var hurt_duration: float = 0.2
@@ -83,6 +83,7 @@ var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
 var _current_anim_deadline_sec: float = -1.0
+var _current_anim_started_sec: float = -1.0
 
 # 单次动画的兜底时长（秒）：
 # Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
@@ -180,6 +181,7 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	_current_anim_finished = false
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
+	_current_anim_started_sec = now_sec()
 	if loop:
 		_current_anim_deadline_sec = -1.0
 	else:
@@ -203,6 +205,7 @@ func anim_stop_or_blendout() -> void:
 	_current_anim = &""
 	_current_anim_finished = true
 	_current_anim_deadline_sec = -1.0
+	_current_anim_started_sec = -1.0
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -213,6 +216,16 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+
+
+func anim_debug_state() -> Dictionary:
+	return {
+		"name": _current_anim,
+		"finished": _current_anim_finished,
+		"loop": _current_anim_loop,
+		"started_sec": _current_anim_started_sec,
+		"deadline_sec": _current_anim_deadline_sec,
+	}
 
 
 func _enter_weak_stunned() -> void:
@@ -244,6 +257,7 @@ func apply_hit(hit: HitData) -> bool:
 	if mode == Mode.RESTING:
 		if hit.weapon_id == &"ghost_fist":
 			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+			_release_target_rest()
 			mode = Mode.WAKING
 			_flash_once()
 			return true
@@ -274,7 +288,7 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 雷花 / 治愈精灵爆炸：强制进入 weak + STUNNED
-	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"healing_burst":
+	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower" or hit.weapon_id == &"healing_burst":
 		_enter_weak_stunned()
 		return true
 
@@ -332,6 +346,16 @@ func apply_healing_burst_stun() -> void:
 		_enter_weak_stunned()
 
 
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time <= 0.0:
+		return
+	if weak or mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
+		return
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST:
+		_enter_weak_stunned()
+
+
 # =============================================================================
 # Mock 驱动初始化（无 Spine 时用于测试）
 # =============================================================================
@@ -368,3 +392,27 @@ func _get_player() -> Node2D:
 ## 时间基准：秒
 static func now_sec() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+func reserve_rest_area(rest_area: Node2D) -> bool:
+	if rest_area == null or not is_instance_valid(rest_area):
+		return false
+	if not rest_area.has_method("reserve_for"):
+		return false
+	var ok: bool = bool(rest_area.call("reserve_for", self))
+	if ok:
+		target_rest = rest_area
+	return ok
+
+
+func release_rest_area(rest_area: Node2D) -> void:
+	if rest_area == null or not is_instance_valid(rest_area):
+		return
+	if rest_area.has_method("release_for"):
+		rest_area.call("release_for", self)
+
+
+func _release_target_rest() -> void:
+	if target_rest != null and is_instance_valid(target_rest):
+		release_rest_area(target_rest)
+	target_rest = null
