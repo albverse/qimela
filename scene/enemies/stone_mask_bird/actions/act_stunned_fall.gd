@@ -21,7 +21,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_phase = Phase.FALLING
 	bird.anim_play(&"fall_loop", true, true)
 	var now := StoneMaskBird.now_sec()
-	bird.stun_until_sec = now + bird.stun_duration_sec
+	bird.stun_until_sec = now + (bird.weak_stun_t if bird.weak and bird.weak_stun_t > 0.0 else bird.stun_duration_sec)
 	# 清除水平速度，保留/设置垂直下落
 	bird.velocity.x = 0.0
 

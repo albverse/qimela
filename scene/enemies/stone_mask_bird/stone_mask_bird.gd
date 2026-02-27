@@ -109,7 +109,7 @@ func _ready() -> void:
 	attribute_type = AttributeType.DARK
 	size_tier = SizeTier.MEDIUM
 	max_hp = 3
-	weak_hp = 0   # 不使用标准 weak 系统；HP<=1 由 apply_hit 自行处理进入 STUNNED
+	weak_hp = 1   # 与其他怪物一致：HP<=1 进入 weak（锁血），并走 STUNNED 演出
 	vanish_fusion_required = 1
 
 	super._ready()
@@ -140,6 +140,13 @@ func _physics_process(dt: float) -> void:
 	# Mock 驱动需要手动 tick 来推进动画倒计时
 	if _anim_mock:
 		_anim_mock.tick(dt)
+
+	# weak 倒计时（与 MonsterBase 语义保持一致：恢复后转入 WAKE_FROM_STUN 定制流程）
+	if weak and weak_stun_t > 0.0:
+		weak_stun_t = max(weak_stun_t - dt, 0.0)
+		if weak_stun_t <= 0.0:
+			_restore_from_weak()
+			mode = Mode.WAKE_FROM_STUN
 
 	# Spine 兜底：一次性动画到时自动完成，防止 ActionLeaf 卡死在 RUNNING。
 	if not _current_anim_finished and _current_anim_deadline_sec > 0.0 and now_sec() >= _current_anim_deadline_sec:
@@ -208,6 +215,16 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_deadline_sec = -1.0
 
 
+func _enter_weak_stunned() -> void:
+	# 与其它怪一致：进入 weak 后锁血，不会继续被打到死亡；并切 STUNNED 演出。
+	hp = max(hp, 1)
+	weak = true
+	hp_locked = true
+	reset_vanish_count()
+	weak_stun_t = weak_stun_time
+	mode = Mode.STUNNED
+
+
 # =============================================================================
 # 受击规则（核心：按 mode 判定，规格第 8 节）
 # =============================================================================
@@ -217,6 +234,11 @@ func apply_hit(hit: HitData) -> bool:
 		return false
 	if not has_hp or hp <= 0:
 		return false
+
+	# weak 锁血期间：命中生效但不再扣血（与 MonsterBase 一致）
+	if hp_locked:
+		_flash_once()
+		return true
 
 	# --- RESTING：只有 ghost_fist 能唤醒，其他武器全部无效 ---
 	if mode == Mode.RESTING:
@@ -246,16 +268,14 @@ func apply_hit(hit: HitData) -> bool:
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
 
-	# HP<=1 触发眩晕
-	if hp <= 1:
-		hp = 1
-		mode = Mode.STUNNED
+	# HP<=1：进入 weak + STUNNED（包含 hp<=0 的情况，防止直接死亡消失）
+	if hp <= weak_hp:
+		_enter_weak_stunned()
 		return true
 
-	# 雷花 / 治愈精灵爆炸 → 强制眩晕
+	# 雷花 / 治愈精灵爆炸：强制进入 weak + STUNNED
 	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"healing_burst":
-		hp = max(hp, 1)
-		mode = Mode.STUNNED
+		_enter_weak_stunned()
 		return true
 
 	# 普通飞行受击 → HURT（0.2s 击退 + 闪白）
@@ -276,8 +296,16 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	# RESTING / WAKING / WAKE_FROM_STUN：链无效
 	if mode == Mode.RESTING or mode == Mode.WAKING or mode == Mode.WAKE_FROM_STUN:
 		return 0
-	# 飞行状态：造成 1 点伤害
-	take_damage(1)
+	# 飞行状态：造成 1 点伤害（走本怪自定义规则，避免 EntityBase 直杀）
+	if hp_locked:
+		_flash_once()
+		return 0
+	hp = max(hp - 1, 0)
+	_flash_once()
+	if hp <= weak_hp:
+		_enter_weak_stunned()
+	elif mode == Mode.FLYING_ATTACK:
+		mode = Mode.HURT
 	return 0
 
 
@@ -300,9 +328,8 @@ func on_chain_attached(slot: int) -> void:
 # =============================================================================
 
 func apply_healing_burst_stun() -> void:
-	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT:
-		hp = max(hp, 1)
-		mode = Mode.STUNNED
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING:
+		_enter_weak_stunned()
 
 
 # =============================================================================
