@@ -116,7 +116,9 @@ func _has_arrived_to_rest(bird: StoneMaskBird) -> bool:
 	if bird.target_rest == null:
 		return false
 	if bird.target_rest.has_method("is_arrived"):
-		return bool(bird.target_rest.call("is_arrived", bird))
+		var by_area: bool = bool(bird.target_rest.call("is_arrived", bird))
+		if by_area:
+			return true
 	return bird.global_position.distance_to(bird.target_rest.global_position) <= bird.reach_rest_px
 
 
