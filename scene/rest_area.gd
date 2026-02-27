@@ -1,4 +1,4 @@
-extends MonsterBase
+extends Node2D
 class_name RestArea
 
 ## StoneMaskBird 回巢点：
@@ -6,34 +6,27 @@ class_name RestArea
 ## - 生命值=3，可被玩家武器摧毁
 ## - 同一时刻仅允许一只 StoneMaskBird 占用
 
+@export var max_hp: int = 3
+var hp: int = 3
+
 var _occupying_bird_ref: WeakRef = null
+@onready var _sprite: Sprite2D = get_node_or_null("Sprite2D") as Sprite2D
 
 
 func _ready() -> void:
-	species_id = &"rest_area"
-	attribute_type = AttributeType.NORMAL
-	size_tier = SizeTier.SMALL
-	max_hp = 3
-	weak_hp = 0
-	vanish_fusion_required = 1
-	super._ready()
-	remove_from_group("monster")
+	hp = max_hp
 	add_to_group("rest_area")
-
-
-func _do_move(_dt: float) -> void:
-	pass
 
 
 func apply_hit(hit: HitData) -> bool:
 	if hit == null:
 		return false
-	if not has_hp or hp <= 0:
+	if hp <= 0:
 		return false
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
 	if hp <= 0:
-		_on_death()
+		queue_free()
 	return true
 
 
@@ -73,3 +66,11 @@ func _get_occupying_bird() -> Node2D:
 		_occupying_bird_ref = null
 		return null
 	return obj as Node2D
+
+
+func _flash_once() -> void:
+	if _sprite == null:
+		return
+	var tw := create_tween()
+	_sprite.modulate = Color(1.2, 1.2, 1.2, 1.0)
+	tw.tween_property(_sprite, "modulate", Color.WHITE, 0.1)

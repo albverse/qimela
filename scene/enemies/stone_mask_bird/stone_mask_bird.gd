@@ -33,7 +33,7 @@ enum Mode {
 @export var return_speed: float = 450.0
 ## 回巢速度（px/s）。
 
-@export var reach_rest_px: float = 10.0
+@export var reach_rest_px: float = 30.0
 ## 到达休息点判定阈值（px）。
 
 @export var hurt_duration: float = 0.2
