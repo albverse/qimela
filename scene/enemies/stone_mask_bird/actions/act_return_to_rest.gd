@@ -60,8 +60,11 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 
 	var to_rest := bird.target_rest.global_position - bird.global_position
 	var dist := to_rest.length()
+	# 根因修复：仅用固定 reach_rest_px 容易在高速度下反复擦边，长期 RUNNING。
+	# 使用“配置阈值 + 动态刹车阈值”判定到达，避免抖动卡住。
+	var arrive_px := maxf(bird.reach_rest_px, bird.return_speed * dt * 1.25)
 
-	if dist > bird.reach_rest_px:
+	if dist > arrive_px:
 		bird.velocity = to_rest.normalized() * bird.return_speed
 		bird.move_and_slide()
 		return RUNNING
