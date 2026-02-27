@@ -9,7 +9,7 @@ class_name AnimDriverSpine
 ##
 ## 关键修正：
 ## 1. 按 TYPE 探测签名（不依赖参数名）
-## 2. 使用 animation_completed 作为主信号（ended/interrupted 仅用于观测）
+## 2. 使用 animation_ended 作为主信号（completed/interrupted 仅用于观测）
 ## 3. 轮询不持有 TE，只记录 instance_id 去重
 ## 4. 骨骼坐标优先用 get_global_bone_transform
 
@@ -100,19 +100,19 @@ func _detect_api_signature(anim_state: Object) -> void:
 
 
 func _connect_signals() -> void:
-	## 主信号：animation_completed（自然完成）
-	## 观测信号：animation_ended / animation_interrupted（日志与排障）
-	if _spine_sprite.has_signal("animation_completed"):
-		_spine_sprite.animation_completed.connect(_on_animation_completed)
-		if debug_log: print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
-	elif _spine_sprite.has_signal("animation_ended"):
+	## 主信号：animation_ended（官方语义更接近“真正结束”）
+	## 观测信号：animation_completed / animation_interrupted（日志与排障）
+	if _spine_sprite.has_signal("animation_ended"):
 		_spine_sprite.animation_ended.connect(_on_animation_completed)
-		if debug_log: print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
+		if debug_log: print("[AnimDriverSpine] Connected animation_ended signal (preferred)")
+	elif _spine_sprite.has_signal("animation_completed"):
+		_spine_sprite.animation_completed.connect(_on_animation_completed)
+		if debug_log: print("[AnimDriverSpine] Connected animation_completed signal (fallback)")
 	else:
 		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
-	if _spine_sprite.has_signal("animation_ended"):
-		_spine_sprite.animation_ended.connect(_on_animation_ended_observe)
+	if _spine_sprite.has_signal("animation_completed"):
+		_spine_sprite.animation_completed.connect(_on_animation_completed_observe)
 	if _spine_sprite.has_signal("animation_interrupted"):
 		_spine_sprite.animation_interrupted.connect(_on_animation_interrupted_observe)
 
@@ -212,10 +212,10 @@ func _extract_track_entry(sig_a, sig_b = null, sig_c = null):
 
 
 func _on_animation_completed(track_entry, _arg2 = null, _arg3 = null) -> void:
-	## 动画完成信号回调（可变参数以兼容不同版本）
+	## 动画结束信号回调（可变参数以兼容不同版本）
 	var entry = _extract_track_entry(track_entry, _arg2, _arg3)
 	if entry == null:
-		if debug_log: print("[AnimDriverSpine] animation_completed ignored: no track_entry in args")
+		if debug_log: print("[AnimDriverSpine] animation_end signal ignored: no track_entry in args")
 		return
 
 	var track_id: int = -1
@@ -235,11 +235,11 @@ func _on_animation_completed(track_entry, _arg2 = null, _arg3 = null) -> void:
 			if debug_log: print("[AnimDriverSpine] signal IGNORED: track=%d got=%s expected=%s (stale/replaced)" % [track_id, signal_anim, expected_anim])
 			return
 
-	if debug_log: print("[AnimDriverSpine] signal completed: track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal end: track=%d" % track_id)
 	_on_track_completed(track_id, entry)
 
 
-func _on_animation_ended_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
+func _on_animation_completed_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
 	var entry = _extract_track_entry(track_entry, _arg2, _arg3)
 	if entry == null:
 		return
@@ -248,7 +248,7 @@ func _on_animation_ended_observe(track_entry, _arg2 = null, _arg3 = null) -> voi
 		track_id = entry.get_track_index()
 	elif entry.has_method("getTrackIndex"):
 		track_id = entry.getTrackIndex()
-	if debug_log: print("[AnimDriverSpine] signal observed: animation_ended track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal observed: animation_completed track=%d" % track_id)
 
 
 func _on_animation_interrupted_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
