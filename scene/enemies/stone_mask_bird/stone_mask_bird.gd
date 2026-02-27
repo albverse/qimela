@@ -54,6 +54,9 @@ enum Mode {
 @export var dash_cooldown: float = 0.5
 ## 冲刺攻击间隔（秒）。
 
+@export var debug_bt_log: bool = false
+## 行为树/动画排障日志开关。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -145,6 +148,8 @@ func _physics_process(dt: float) -> void:
 	if weak and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
+			if debug_bt_log:
+				print("[StoneMaskBird] weak_stun_t finished -> restore + WAKE_FROM_STUN")
 			_restore_from_weak()
 			mode = Mode.WAKE_FROM_STUN
 
@@ -175,6 +180,8 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
+	if debug_bt_log:
+		print("[StoneMaskBird] anim_play:", anim_name, " loop=", loop, " mode=", mode)
 
 	_current_anim = anim_name
 	_current_anim_finished = false
@@ -210,6 +217,8 @@ func anim_stop_or_blendout() -> void:
 
 
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
+	if debug_bt_log:
+		print("[StoneMaskBird] anim_completed:", anim_name, " current=", _current_anim)
 	if anim_name == _current_anim:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
@@ -223,6 +232,27 @@ func _enter_weak_stunned() -> void:
 	reset_vanish_count()
 	weak_stun_t = weak_stun_time
 	mode = Mode.STUNNED
+	if debug_bt_log:
+		print("[StoneMaskBird] enter weak+stunned, hp=", hp, " weak_stun_t=", weak_stun_t)
+
+
+func _enter_light_stunned() -> void:
+	# 雷花光照触发普通眩晕（不强制改成 weak），由 Act_StunnedFallLoop 走 stun_duration_sec。
+	if mode == Mode.STUNNED:
+		return
+	mode = Mode.STUNNED
+	if debug_bt_log:
+		print("[StoneMaskBird] enter light stunned, hp=", hp, " weak=", weak)
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time <= 0.0:
+		return
+	# 石面鸟需要能被 lightflower 的光照释放打入 STUNNED。
+	# STUNNED 中忽略重复触发；RESTING/WAKING/飞行态均可进入。
+	if mode != Mode.STUNNED:
+		_enter_light_stunned()
 
 
 # =============================================================================

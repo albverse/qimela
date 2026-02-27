@@ -10,12 +10,21 @@ class_name ActWakeFlyReturnRest
 enum Phase { WAKING, TAKEOFF, FLYING_TO_REST, SLEEPING_DOWN }
 
 var _phase: int = Phase.WAKING
+var _phase_deadline_sec: float = -1.0
+var _last_dist_to_rest: float = -1.0
+
+const WAKE_TIMEOUT_SEC: float = 0.7
+const TAKEOFF_TIMEOUT_SEC: float = 0.6
+const FLY_TO_REST_TIMEOUT_SEC: float = 4.0
+const SLEEP_DOWN_TIMEOUT_SEC: float = 0.8
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird == null:
 		return
 	_phase = Phase.WAKING
+	_phase_deadline_sec = StoneMaskBird.now_sec() + WAKE_TIMEOUT_SEC
+	_last_dist_to_rest = -1.0
 	# 播放苏醒动画（不可打断）
 	bird.anim_play(&"wake_from_stun", false, false)
 
@@ -40,16 +49,29 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_waking(bird: StoneMaskBird) -> int:
+	var now := StoneMaskBird.now_sec()
 	# 等待苏醒动画完成（复用 wake_up 如果 wake_from_stun 不存在）
 	if bird.anim_is_finished(&"wake_from_stun") or bird.anim_is_finished(&"wake_up"):
 		_phase = Phase.TAKEOFF
+		_phase_deadline_sec = now + TAKEOFF_TIMEOUT_SEC
+		bird.anim_play(&"takeoff", false, true)
+	elif _phase_deadline_sec > 0.0 and now >= _phase_deadline_sec:
+		if bird.debug_bt_log:
+			print("[ActWakeFlyReturnRest] WAKING timeout, force TAKEOFF")
+		_phase = Phase.TAKEOFF
+		_phase_deadline_sec = now + TAKEOFF_TIMEOUT_SEC
 		bird.anim_play(&"takeoff", false, true)
 	return RUNNING
 
 
 func _tick_takeoff(bird: StoneMaskBird) -> int:
+	var now := StoneMaskBird.now_sec()
 	# 等待升空动画完成（如果没有 takeoff 动画则跳过）
 	if bird.anim_is_finished(&"takeoff"):
+		_start_fly_to_rest(bird)
+	elif _phase_deadline_sec > 0.0 and now >= _phase_deadline_sec:
+		if bird.debug_bt_log:
+			print("[ActWakeFlyReturnRest] TAKEOFF timeout, force fly_to_rest")
 		_start_fly_to_rest(bird)
 	return RUNNING
 
@@ -67,6 +89,8 @@ func _start_fly_to_rest(bird: StoneMaskBird) -> void:
 	# 随机选一个 rest_area
 	bird.target_rest = rest_areas[randi() % rest_areas.size()] as Node2D
 	_phase = Phase.FLYING_TO_REST
+	_phase_deadline_sec = StoneMaskBird.now_sec() + FLY_TO_REST_TIMEOUT_SEC
+	_last_dist_to_rest = -1.0
 	bird.anim_play(&"fly_move", true, true)
 
 
@@ -78,6 +102,19 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 
 	var to_rest := bird.target_rest.global_position - bird.global_position
 	var dist := to_rest.length()
+	if bird.debug_bt_log and _last_dist_to_rest >= 0.0 and dist > _last_dist_to_rest + 8.0:
+		print("[ActWakeFlyReturnRest] moving away from rest, dist=", dist, " last=", _last_dist_to_rest)
+	_last_dist_to_rest = dist
+
+	if _phase_deadline_sec > 0.0 and StoneMaskBird.now_sec() >= _phase_deadline_sec:
+		if bird.debug_bt_log:
+			print("[ActWakeFlyReturnRest] FLYING_TO_REST timeout, snap to rest")
+		bird.global_position = bird.target_rest.global_position
+		bird.velocity = Vector2.ZERO
+		_phase = Phase.SLEEPING_DOWN
+		_phase_deadline_sec = StoneMaskBird.now_sec() + SLEEP_DOWN_TIMEOUT_SEC
+		bird.anim_play(&"sleep_down", false, true)
+		return RUNNING
 
 	if dist > bird.reach_rest_px:
 		bird.velocity = to_rest.normalized() * bird.return_speed
@@ -88,6 +125,7 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 	bird.global_position = bird.target_rest.global_position
 	bird.velocity = Vector2.ZERO
 	_phase = Phase.SLEEPING_DOWN
+	_phase_deadline_sec = StoneMaskBird.now_sec() + SLEEP_DOWN_TIMEOUT_SEC
 	bird.anim_play(&"sleep_down", false, true)
 	return RUNNING
 
@@ -95,6 +133,11 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 func _tick_sleeping_down(bird: StoneMaskBird) -> int:
 	# 等待倒下动画完成（如果没有 sleep_down 动画则立即完成）
 	if bird.anim_is_finished(&"sleep_down"):
+		_finish_rest(bird)
+		return SUCCESS
+	if _phase_deadline_sec > 0.0 and StoneMaskBird.now_sec() >= _phase_deadline_sec:
+		if bird.debug_bt_log:
+			print("[ActWakeFlyReturnRest] SLEEPING_DOWN timeout, force finish")
 		_finish_rest(bird)
 		return SUCCESS
 	return RUNNING
@@ -113,4 +156,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 		bird.velocity = Vector2.ZERO
 		bird.anim_stop_or_blendout()
 	_phase = Phase.WAKING
+	_phase_deadline_sec = -1.0
+	_last_dist_to_rest = -1.0
 	super(actor, blackboard)
