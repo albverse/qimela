@@ -83,6 +83,7 @@ var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
 var _current_anim_deadline_sec: float = -1.0
+var _current_anim_started_sec: float = -1.0
 
 # 单次动画的兜底时长（秒）：
 # Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
@@ -180,6 +181,7 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	_current_anim_finished = false
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
+	_current_anim_started_sec = now_sec()
 	if loop:
 		_current_anim_deadline_sec = -1.0
 	else:
@@ -203,6 +205,7 @@ func anim_stop_or_blendout() -> void:
 	_current_anim = &""
 	_current_anim_finished = true
 	_current_anim_deadline_sec = -1.0
+	_current_anim_started_sec = -1.0
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -213,6 +216,16 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+
+
+func anim_debug_state() -> Dictionary:
+	return {
+		"name": _current_anim,
+		"finished": _current_anim_finished,
+		"loop": _current_anim_loop,
+		"started_sec": _current_anim_started_sec,
+		"deadline_sec": _current_anim_deadline_sec,
+	}
 
 
 func _enter_weak_stunned() -> void:
@@ -274,7 +287,7 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 雷花 / 治愈精灵爆炸：强制进入 weak + STUNNED
-	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"healing_burst":
+	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower" or hit.weapon_id == &"healing_burst":
 		_enter_weak_stunned()
 		return true
 
@@ -329,6 +342,16 @@ func on_chain_attached(slot: int) -> void:
 
 func apply_healing_burst_stun() -> void:
 	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING:
+		_enter_weak_stunned()
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time <= 0.0:
+		return
+	if weak or mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
+		return
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST:
 		_enter_weak_stunned()
 
 
