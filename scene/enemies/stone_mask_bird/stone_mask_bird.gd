@@ -12,11 +12,12 @@ class_name StoneMaskBird
 enum Mode {
 	RESTING = 0,          ## 倒地休息
 	WAKING = 1,           ## 唤醒（0.5s，不可打断）
-	FLYING_ATTACK = 2,    ## 飞行攻击循环
+	FLYING_ATTACK = 2,    ## 飞行攻击循环（含追击子状态）
 	RETURN_TO_REST = 3,   ## 回巢倒地
 	STUNNED = 4,          ## 眩晕（坠落->触地->地面眩晕）
 	WAKE_FROM_STUN = 5,   ## 从眩晕苏醒
 	HURT = 6,             ## 飞行受击
+	REPAIRING = 7,        ## 正在修复 rest_area_break
 }
 
 # ===== StoneMaskBird 可调参数（策划可改）=====
@@ -54,6 +55,12 @@ enum Mode {
 @export var dash_cooldown: float = 0.5
 ## 冲刺攻击间隔（秒）。
 
+@export var attack_range_px: float = 150.0
+## 攻击范围（px）。AttackArea 半径与此值匹配。玩家在此范围内才执行 ActAttackLoopDash。
+
+@export var chase_range_px: float = 200.0
+## 追击感知范围（px）。玩家在此范围内时执行飞行追击（fly_move）。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -75,6 +82,9 @@ var dash_origin: Vector2 = Vector2.ZERO
 
 ## 选中的 rest_area（Marker2D）
 var target_rest: Node2D = null
+
+## 正在修复的 rest_area_break 节点（REPAIRING 模式下使用）
+var target_repair_area: Node2D = null
 
 # ===== 动画状态追踪 =====
 
@@ -102,6 +112,10 @@ const _ANIM_FALLBACK_DURATION := {
 var _anim_driver: AnimDriverSpine = null
 var _anim_mock: AnimDriverMock = null
 @onready var _spine_sprite: Node = null
+
+## 攻击范围 Area2D（石面鸟.tscn 中的 AttackArea 子节点）
+## collision_mask = 2（PlayerBody），用于判断玩家是否进入攻击射程
+@onready var _attack_area: Area2D = get_node_or_null("AttackArea")
 
 # ===== 生命周期 =====
 
@@ -306,7 +320,7 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 普通飞行受击 → HURT（0.2s 击退 + 闪白）
-	if mode == Mode.FLYING_ATTACK:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING:
 		mode = Mode.HURT
 	return true
 
@@ -335,7 +349,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	_flash_once()
 	if hp <= weak_hp:
 		_enter_weak_stunned()
-	elif mode == Mode.FLYING_ATTACK:
+	elif mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING:
 		mode = Mode.HURT
 	return 0
 
@@ -359,7 +373,7 @@ func on_chain_attached(slot: int) -> void:
 # =============================================================================
 
 func apply_healing_burst_stun() -> void:
-	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.REPAIRING:
 		_enter_weak_stunned()
 
 
@@ -369,7 +383,7 @@ func on_light_exposure(remaining_time: float) -> void:
 		return
 	if weak or mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
 		return
-	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST or mode == Mode.REPAIRING:
 		_enter_weak_stunned()
 
 
@@ -393,6 +407,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"wake_from_stun"] = 0.5
 	_anim_mock._durations[&"takeoff"] = 0.4
 	_anim_mock._durations[&"sleep_down"] = 0.4
+	_anim_mock._durations[&"fix_rest_area_loop"] = 1.0  # loop，修复 rest_area_break 动画
 
 
 # =============================================================================

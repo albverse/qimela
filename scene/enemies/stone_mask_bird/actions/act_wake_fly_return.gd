@@ -98,6 +98,12 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
 
+	# rest_area 在飞行途中被摧毁（已转为 rest_area_break）→ 放弃回巢
+	if not bird.target_rest.is_in_group("rest_area"):
+		bird._release_target_rest()
+		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
+		return SUCCESS
+
 	var to_rest := bird.target_rest.global_position - bird.global_position
 	if not _has_arrived_to_rest(bird):
 		bird.velocity = to_rest.normalized() * bird.return_speed
