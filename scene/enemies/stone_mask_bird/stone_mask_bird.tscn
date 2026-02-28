@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://cndsohm8mmjw7"]
+[gd_scene load_steps=9 format=3 uid="uid://cndsohm8mmjw7"]
 
 [ext_resource type="Script" uid="uid://v1u2bdy6hwq7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.gd" id="1_script"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
@@ -11,6 +11,9 @@ radius = 24.0
 
 [sub_resource type="CircleShape2D" id="hurtbox_shape"]
 radius = 20.0
+
+[sub_resource type="CircleShape2D" id="attack_range_shape"]
+radius = 96.0
 
 [node name="StoneMaskBird" type="CharacterBody2D"]
 collision_layer = 4
@@ -36,6 +39,16 @@ script = ExtResource("2_hurtbox")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("hurtbox_shape")
 debug_color = Color(0.94, 0, 0.62, 0.42)
+
+
+[node name="AttackRange" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackRange"]
+shape = SubResource("attack_range_shape")
 
 [node name="LightReceiver" type="Area2D" parent="."]
 collision_layer = 16

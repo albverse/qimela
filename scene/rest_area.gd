@@ -8,6 +8,7 @@ class_name RestArea
 
 @export var max_hp: int = 3
 var hp: int = 3
+var is_broken: bool = false
 
 var _occupying_bird_ref: WeakRef = null
 @onready var _sprite: Sprite2D = get_node_or_null("Sprite2D") as Sprite2D
@@ -23,6 +24,8 @@ func _ready() -> void:
 func apply_hit(hit: HitData) -> bool:
 	if hit == null:
 		return false
+	if is_broken:
+		return false
 	if hp <= 0:
 		return false
 	var real_damage: int = maxi(int(hit.damage), 1)
@@ -30,9 +33,25 @@ func apply_hit(hit: HitData) -> bool:
 	_flash_once()
 	_update_visual_state()
 	if hp <= 0:
-		_set_inactive()
-		queue_free()
+		_break_to_ruin()
 	return true
+
+
+func repair_tick(points: int = 1) -> bool:
+	if not is_broken:
+		return hp >= max_hp
+	if points <= 0:
+		return false
+	hp = mini(hp + points, max_hp)
+	_update_visual_state()
+	if hp >= max_hp:
+		_restore_from_ruin()
+		return true
+	return false
+
+
+func can_rest() -> bool:
+	return not is_broken and hp > 0
 
 
 func is_arrived(bird: Node2D) -> bool:
@@ -65,6 +84,8 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 
 
 func reserve_for(bird: Node2D) -> bool:
+	if not can_rest():
+		return false
 	if bird == null or not is_instance_valid(bird):
 		return false
 	var cur := _get_occupying_bird()
@@ -115,8 +136,38 @@ func _set_inactive() -> void:
 		hurtbox.monitorable = false
 
 
+func _break_to_ruin() -> void:
+	is_broken = true
+	hp = 0
+	remove_from_group("rest_area")
+	add_to_group("rest_area_break")
+	_occupying_bird_ref = null
+	_set_inactive()
+	if _sprite:
+		_sprite.visible = true
+		_sprite.self_modulate = Color(0.35, 0.35, 0.35, 1.0)
+
+
+func _restore_from_ruin() -> void:
+	is_broken = false
+	remove_from_group("rest_area_break")
+	add_to_group("rest_area")
+	var hurtbox := get_node_or_null("Hurtbox") as Area2D
+	if hurtbox:
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+	if _sprite:
+		_sprite.visible = true
+	_update_visual_state()
+
+
 func _update_visual_state() -> void:
 	if _sprite == null or max_hp <= 0:
+		return
+	if is_broken:
+		var broken_ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
+		var v := 0.25 + broken_ratio * 0.75
+		_sprite.self_modulate = Color(v, v, v, 1.0)
 		return
 	var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
 	_sprite.self_modulate = Color(1.0, ratio, ratio, 1.0)
