@@ -54,6 +54,9 @@ enum Mode {
 @export var dash_cooldown: float = 0.5
 ## 冲刺攻击间隔（秒）。
 
+@export var chase_range_px: float = 200.0
+## 追击范围（px）。player 在该范围内时优先 fly_move 追击。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -102,6 +105,7 @@ const _ANIM_FALLBACK_DURATION := {
 var _anim_driver: AnimDriverSpine = null
 var _anim_mock: AnimDriverMock = null
 @onready var _spine_sprite: Node = null
+@onready var _attack_range_area: Area2D = get_node_or_null("AttackRangeArea") as Area2D
 
 # ===== 生命周期 =====
 
@@ -386,6 +390,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"dash_attack"] = 0.3
 	_anim_mock._durations[&"dash_return"] = 0.3
 	_anim_mock._durations[&"fly_move"] = 0.6         # loop
+	_anim_mock._durations[&"fix_rest_area_loop"] = 1.0 # loop
 	_anim_mock._durations[&"hurt"] = 0.2
 	_anim_mock._durations[&"fall_loop"] = 0.5        # loop
 	_anim_mock._durations[&"land"] = 0.3
@@ -404,6 +409,29 @@ func _get_player() -> Node2D:
 	if players.is_empty():
 		return null
 	return players[0] as Node2D
+
+
+func is_player_in_chase_range(player: Node2D) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	return global_position.distance_to(player.global_position) <= chase_range_px
+
+
+func is_player_in_attack_area(player: Node2D) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	if _attack_range_area == null:
+		return false
+
+	for body in _attack_range_area.get_overlapping_bodies():
+		if body == player:
+			return true
+	for area in _attack_range_area.get_overlapping_areas():
+		if area == player:
+			return true
+		if area is Node and (area as Node).get_parent() == player:
+			return true
+	return false
 
 
 ## 时间基准：秒
