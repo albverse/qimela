@@ -13,6 +13,7 @@ var hp: int = 3
 
 var _occupying_bird_ref: WeakRef = null
 @onready var _sprite: Sprite2D = get_node_or_null("Sprite2D") as Sprite2D
+@onready var _fire_sprite: Sprite2D = get_node_or_null("FireSprite") as Sprite2D
 @onready var _hurt_shape: CollisionShape2D = get_node_or_null("Hurtbox/CollisionShape2D") as CollisionShape2D
 
 
@@ -71,6 +72,12 @@ func _convert_to_break() -> void:
 
 	_update_visual_state()
 
+	# 显示火焰精灵（破损视觉效果）
+	if _fire_sprite:
+		_fire_sprite.visible = true
+	if _sprite:
+		_sprite.visible = false
+
 	# 禁用 Hurtbox（break 状态不再响应武器命中）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
@@ -86,6 +93,12 @@ func _restore_from_break() -> void:
 	add_to_group("rest_area")
 
 	_update_visual_state()
+
+	# 恢复正常精灵，隐藏火焰
+	if _fire_sprite:
+		_fire_sprite.visible = false
+	if _sprite:
+		_sprite.visible = true
 
 	# 重新启用 Hurtbox monitorable（可被武器 Area2D 检测到）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
@@ -124,6 +137,16 @@ func is_arrived(bird: Node2D) -> bool:
 
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
+	## 锁链命中 rest_area 时造成 1 点伤害（与其他武器一致）。
+	## 注意：此方法由 player_chain_system 的 handle_block_hit 路径调用（非 EntityBase 分支）。
+	## 返回 0：链条在命中后正常溶解。
+	if not is_in_group("rest_area"):
+		return 0  # break 状态不再接受攻击
+	hp = maxi(hp - 1, 0)
+	_flash_once()
+	_update_visual_state()
+	if hp <= 0:
+		_convert_to_break()
 	return 0
 
 

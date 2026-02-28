@@ -56,11 +56,9 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
 
-	# rest_area 在飞行途中被摧毁（已转为 rest_area_break）→ 放弃回巢
-	if not bird.target_rest.is_in_group("rest_area"):
-		bird._release_target_rest()
-		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
-		return SUCCESS
+	# rest_area 在飞行途中被摧毁（已转为 rest_area_break）→ 继续飞过去：
+	# 规格约束：优先飞回原巢位置，到达后立刻切 REPAIRING 修复
+	var is_now_break: bool = not bird.target_rest.is_in_group("rest_area")
 
 	var to_rest := bird.target_rest.global_position - bird.global_position
 	if not _has_arrived_to_rest(bird):
@@ -68,9 +66,18 @@ func _tick_flying_to_rest(bird: StoneMaskBird, dt: float) -> int:
 		bird.move_and_slide()
 		return RUNNING
 
-	# 到达 rest_area
+	# 到达目标位置
 	bird.global_position = bird.target_rest.global_position
 	bird.velocity = Vector2.ZERO
+
+	if is_now_break:
+		# 目标已变成 rest_area_break → 就地切换 REPAIRING 修复
+		bird.target_repair_area = bird.target_rest
+		bird._release_target_rest()
+		bird.mode = StoneMaskBird.Mode.REPAIRING
+		return SUCCESS
+
+	# 正常到达 rest_area → 开始倒下
 	_phase = Phase.SLEEPING_DOWN
 	bird.anim_play(&"sleep_down", false, true)
 	return RUNNING
