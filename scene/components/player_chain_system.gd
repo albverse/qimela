@@ -124,6 +124,11 @@ class ChainAttachPolicy:
 					return
 				system._begin_burn_dissolve(slot)
 				return
+			# 非 EntityBase 但实现了 on_chain_hit（如 RestArea）→ 调用后溶解链条
+			if host_node.has_method("on_chain_hit"):
+				host_node.call("on_chain_hit", system.player, slot)
+				system._begin_burn_dissolve(slot)
+				return
 
 		if host_node != null and host_node.has_method("on_chain_attached"):
 			system._attach_link(slot, host_node as Node2D, c.end_pos)
