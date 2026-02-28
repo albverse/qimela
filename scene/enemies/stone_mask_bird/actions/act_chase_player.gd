@@ -49,6 +49,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# --- 玩家不在追击范围：停止移动 ---
 	bird.velocity = Vector2.ZERO
 
+	# --- has_face 模式：玩家不在发射范围时优先回巢 ---
+	if bird.has_face:
+		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+		return SUCCESS
+
 	# --- 优先级 2: 无面具 + 有 walk_monster → 切 HUNTING 狩猎 ---
 	if not bird.has_face:
 		var walk_monsters := bird.get_tree().get_nodes_in_group("monster")
