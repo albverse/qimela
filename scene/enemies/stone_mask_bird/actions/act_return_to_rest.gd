@@ -21,7 +21,12 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	bird._release_target_rest()
 	var rest_area := _pick_available_rest_area(bird)
 	if rest_area == null:
-		# 无 rest_area -> 回到飞行攻击
+		var break_area := _pick_nearest_break_area(bird)
+		if break_area != null:
+			bird.target_repair_area = break_area
+			bird.mode = StoneMaskBird.Mode.REPAIRING
+			return
+		# 无 rest_area / break_area -> 回到飞行攻击
 		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		var now := StoneMaskBird.now_sec()
 		bird.attack_until_sec = now + bird.attack_duration_sec
@@ -131,3 +136,19 @@ func _pick_available_rest_area(bird: StoneMaskBird) -> Node2D:
 	if not bird.reserve_rest_area(chosen):
 		return null
 	return chosen
+
+func _pick_nearest_break_area(bird: StoneMaskBird) -> Node2D:
+	var break_areas := bird.get_tree().get_nodes_in_group("rest_area_break")
+	if break_areas.is_empty():
+		return null
+	var nearest: Node2D = null
+	var best_dist: float = INF
+	for n in break_areas:
+		var area := n as Node2D
+		if area == null:
+			continue
+		var d := bird.global_position.distance_to(area.global_position)
+		if d < best_dist:
+			best_dist = d
+			nearest = area
+	return nearest

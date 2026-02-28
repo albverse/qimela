@@ -77,7 +77,7 @@ enum Mode {
 @export var face_hover_offset: Vector2 = Vector2(100.0, -100.0)
 ## has_face 发射前悬停偏移（相对玩家坐标）。
 
-@export var face_bullet_speed: float = 720.0
+@export var face_bullet_speed: float = 240.0
 ## 面具弹飞行速度（px/s）。
 
 # ===== 内部状态（BT 叶节点直接读写）=====

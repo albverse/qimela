@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=25 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -7,7 +7,6 @@
 
 ; === 自定义 Condition 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_mode_is.gd" id="cond_mode_is"]
-[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_has_rest_area.gd" id="cond_has_rest_area"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_player_in_attack_range.gd" id="cond_player_in_attack_range"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_has_face.gd" id="cond_has_face"]
 
@@ -93,9 +92,6 @@ script = ExtResource("sequence_reactive")
 [node name="Cond_ModeReturnToRest" type="Node" parent="RootSelector/Seq_ReturnToRest"]
 script = ExtResource("cond_mode_is")
 target_mode = 3
-
-[node name="Cond_HasRestArea" type="Node" parent="RootSelector/Seq_ReturnToRest"]
-script = ExtResource("cond_has_rest_area")
 
 [node name="Act_ReturnToRest" type="Node" parent="RootSelector/Seq_ReturnToRest"]
 script = ExtResource("act_return_to_rest")

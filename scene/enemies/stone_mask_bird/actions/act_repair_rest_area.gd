@@ -128,7 +128,7 @@ func _tick_repairing_loop(bird: StoneMaskBird, dt: float) -> int:
 			# 修复完成 → 保存引用、进入飞离阶段
 			_repaired_area = bird.target_repair_area
 			bird.target_repair_area = null
-			_hover_target = _repaired_area.global_position + Vector2(0.0, -HOVER_AWAY_DIST)
+			_hover_target = _pick_hover_target_around(bird, _repaired_area.global_position)
 			_enter_flying_away(bird)
 			return RUNNING
 
@@ -249,6 +249,27 @@ func _find_nearest_break(bird: StoneMaskBird) -> Node2D:
 			nearest_dist = d
 			nearest = area
 	return nearest
+
+
+func _pick_hover_target_around(bird: StoneMaskBird, center: Vector2) -> Vector2:
+	var dirs := [
+		Vector2.UP,
+		Vector2.RIGHT,
+		Vector2.DOWN,
+		Vector2.LEFT,
+		Vector2(1, -1).normalized(),
+		Vector2(1, 1).normalized(),
+		Vector2(-1, 1).normalized(),
+		Vector2(-1, -1).normalized(),
+	]
+	for dir in dirs:
+		var target := center + dir * HOVER_AWAY_DIST
+		var move := target - bird.global_position
+		if move.length() <= 1.0:
+			return target
+		if not bird.test_move(bird.global_transform, move):
+			return target
+	return center + Vector2.UP * HOVER_AWAY_DIST
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:

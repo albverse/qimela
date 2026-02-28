@@ -81,8 +81,8 @@ func _convert_to_break() -> void:
 	# 禁用 Hurtbox（break 状态不再响应武器命中）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
-		hurtbox.monitorable = false
-		hurtbox.monitoring = false
+		hurtbox.set_deferred("monitorable", false)
+		hurtbox.set_deferred("monitoring", false)
 
 
 func _restore_from_break() -> void:
@@ -103,8 +103,8 @@ func _restore_from_break() -> void:
 	# 重新启用 Hurtbox monitorable（可被武器 Area2D 检测到）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
-		hurtbox.monitorable = true
-		hurtbox.monitoring = false  # Hurtbox 无需主动监测，只需被检测到
+		hurtbox.set_deferred("monitorable", true)
+		hurtbox.set_deferred("monitoring", false)  # Hurtbox 无需主动监测，只需被检测到
 
 
 # ──────────────────────────────────────────────────────────
