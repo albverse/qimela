@@ -22,12 +22,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 			return SUCCESS
 
-	var target := bird.find_nearest_walk_monster_in_range(bird.rest_hunt_trigger_px)
-	if target != null:
-		bird.hunt_target = target
-		bird.rest_hunt_requested = false
-		bird.mode = StoneMaskBird.Mode.HUNTING
-		return SUCCESS
+	if bird.can_start_hunt():
+		var target := bird.find_nearest_walk_monster_in_range(bird.rest_hunt_trigger_px)
+		if target != null:
+			bird.hunt_target = target
+			bird.rest_hunt_requested = false
+			bird.mode = StoneMaskBird.Mode.HUNTING
+			return SUCCESS
 
 	# 永远 RUNNING，直到被更高优先级的 Seq 打断
 	return RUNNING

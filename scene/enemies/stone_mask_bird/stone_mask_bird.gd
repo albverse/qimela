@@ -71,6 +71,9 @@ enum Mode {
 @export var rest_hunt_trigger_px: float = 100.0
 ## RESTING 时发现 MonsterWalk 的触发范围（px）。
 
+@export var hunt_cooldown_sec: float = 5.0
+## 每次成功狩猎后的冷却时间（秒）。冷却中不能再次进入 HUNTING。
+
 @export var face_shoot_range_px: float = 200.0
 ## has_face 发射面具弹的触发范围（px）。
 
@@ -119,6 +122,9 @@ var rest_hunt_requested: bool = false
 
 ## HUNTING 中被控制暂停的目标（用于中断时恢复）
 var hunt_paused_target: Node2D = null
+
+## 下一次允许进入 HUNTING 的时间戳（秒）
+var next_hunt_allowed_sec: float = 0.0
 
 @onready var _shoot_point: Marker2D = get_node_or_null("ShootPoint") as Marker2D
 
@@ -654,6 +660,18 @@ func _get_player() -> Node2D:
 ## 时间基准：秒
 static func now_sec() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+func can_start_hunt(now: float = -1.0) -> bool:
+	if now < 0.0:
+		now = now_sec()
+	return now >= next_hunt_allowed_sec
+
+
+func trigger_hunt_cooldown(now: float = -1.0) -> void:
+	if now < 0.0:
+		now = now_sec()
+	next_hunt_allowed_sec = now + hunt_cooldown_sec
 
 
 func reserve_rest_area(rest_area: Node2D) -> bool:

@@ -60,7 +60,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return SUCCESS
 
 	# --- 优先级 2: 无面具 + 有 walk_monster → 切 HUNTING 狩猎 ---
-	if not bird.has_face:
+	if not bird.has_face and bird.can_start_hunt():
 		var walk_monsters := bird.get_tree().get_nodes_in_group("monster")
 		for m in walk_monsters:
 			if not is_instance_valid(m):
