@@ -18,6 +18,7 @@ enum Mode {
 	WAKE_FROM_STUN = 5,   ## 从眩晕苏醒
 	HURT = 6,             ## 飞行受击
 	REPAIRING = 7,        ## 正在修复 rest_area_break
+	HUNTING = 8,          ## 狩猎 walk_monster 以获取面具
 }
 
 # ===== StoneMaskBird 可调参数（策划可改）=====
@@ -61,6 +62,12 @@ enum Mode {
 @export var chase_range_px: float = 200.0
 ## 追击感知范围（px）。玩家在此范围内时执行飞行追击（fly_move）。
 
+@export var hunt_speed: float = 250.0
+## 狩猎飞行速度（px/s）。飞向 walk_monster 时使用。
+
+@export var hunt_range_px: float = 400.0
+## 狩猎感知范围（px）。walk_monster 在此范围内时才会飞过去狩猎。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -86,6 +93,15 @@ var target_rest: Node2D = null
 ## 正在修复的 rest_area_break 节点（REPAIRING 模式下使用）
 var target_repair_area: Node2D = null
 
+## 面具状态：true=有面具（可发射），false=无面具（项目原始状态）
+var has_face: bool = false
+
+## 狩猎目标（HUNTING 模式下使用）
+var hunt_target: Node2D = null
+
+## shoot_face 动画中 shoot 事件是否已触发（由 Spine 事件回调写入）
+var face_shoot_event_fired: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -106,6 +122,9 @@ const _ANIM_FALLBACK_DURATION := {
 	&"wake_from_stun": 0.5,
 	&"takeoff": 0.4,
 	&"sleep_down": 0.4,
+	&"shoot_face": 0.6,
+	&"hunt": 0.5,
+	&"no_face_to_has_face": 0.5,
 }
 
 # Spine 动画驱动（优先 SpineSprite → AnimDriverSpine；无 Spine 时 → AnimDriverMock）
@@ -137,6 +156,9 @@ func _ready() -> void:
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
 		_anim_driver.anim_completed.connect(_on_anim_completed)
+		# 连接 Spine 事件信号（用于 shoot_face 动画的 shoot 事件）
+		if _spine_sprite.has_signal("animation_event"):
+			_spine_sprite.animation_event.connect(_on_spine_animation_event)
 	else:
 		# 无 Spine 资源时使用 Mock 驱动，保证 BT 动画完成回调正常触发
 		_anim_mock = AnimDriverMock.new()
@@ -232,6 +254,27 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_deadline_sec = -1.0
 
 
+func _on_spine_animation_event(a1, a2, a3, a4) -> void:
+	## Spine animation_event 信号回调。参数数量/顺序因版本而异，
+	## 按 SPINE_GODOT_LATEST_INTEGRATED_STANDARD 要求：遍历找到含 get_data() 的对象。
+	var spine_event: Object = null
+	for a in [a1, a2, a3, a4]:
+		if a is Object and a.has_method("get_data"):
+			spine_event = a
+			break
+	if spine_event == null:
+		return
+	var event_name: StringName = &""
+	var data = spine_event.get_data()
+	if data != null and data.has_method("get_event_name"):
+		event_name = StringName(data.get_event_name())
+	if event_name == &"":
+		return
+	# shoot_face 动画中的 shoot 事件：面具脱落
+	if event_name == &"shoot" and _current_anim == &"shoot_face":
+		face_shoot_event_fired = true
+
+
 func anim_debug_state() -> Dictionary:
 	return {
 		"name": _current_anim,
@@ -320,7 +363,7 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 普通飞行受击 → HURT（0.2s 击退 + 闪白）
-	if mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING or mode == Mode.HUNTING:
 		mode = Mode.HURT
 	return true
 
@@ -349,7 +392,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	_flash_once()
 	if hp <= weak_hp:
 		_enter_weak_stunned()
-	elif mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING:
+	elif mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING or mode == Mode.HUNTING:
 		mode = Mode.HURT
 	return 0
 
@@ -373,7 +416,7 @@ func on_chain_attached(slot: int) -> void:
 # =============================================================================
 
 func apply_healing_burst_stun() -> void:
-	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.REPAIRING:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.REPAIRING or mode == Mode.HUNTING:
 		_enter_weak_stunned()
 
 
@@ -383,7 +426,7 @@ func on_light_exposure(remaining_time: float) -> void:
 		return
 	if weak or mode == Mode.STUNNED or mode == Mode.WAKE_FROM_STUN:
 		return
-	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST or mode == Mode.REPAIRING:
+	if mode == Mode.FLYING_ATTACK or mode == Mode.HURT or mode == Mode.WAKING or mode == Mode.RETURN_TO_REST or mode == Mode.REPAIRING or mode == Mode.HUNTING:
 		_enter_weak_stunned()
 
 
@@ -408,6 +451,9 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"takeoff"] = 0.4
 	_anim_mock._durations[&"sleep_down"] = 0.4
 	_anim_mock._durations[&"fix_rest_area_loop"] = 1.0  # loop，修复 rest_area_break 动画
+	_anim_mock._durations[&"shoot_face"] = 0.6
+	_anim_mock._durations[&"hunt"] = 0.5
+	_anim_mock._durations[&"no_face_to_has_face"] = 0.5
 
 
 # =============================================================================
