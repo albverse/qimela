@@ -7,10 +7,11 @@ class_name ActChasePlayer
 ## 行为优先级（从高到低）：
 ##   1. 玩家在追击范围（chase_range_px=200px）内 → fly_move 飞向玩家，RUNNING
 ##      （一旦玩家进入追击范围则重置悬停计时器）
-##   2. 玩家不在范围，但有可用 rest_area → fly_idle 悬停等待 5s，RUNNING
+##   2. 玩家不在范围，无面具，有 walk_monster → 切 HUNTING 狩猎，SUCCESS
+##   3. 玩家不在范围，但有可用 rest_area → fly_idle 悬停等待 5s，RUNNING
 ##      5s 内如果依然不在范围则切 RETURN_TO_REST 回巢，SUCCESS
-##   3. 玩家不在范围，无 rest_area，有 rest_area_break → 切 REPAIRING，SUCCESS
-##   4. 玩家不在范围，无 rest_area，无 rest_area_break → fly_idle 悬停，RUNNING
+##   4. 玩家不在范围，无 rest_area，有 rest_area_break → 切 REPAIRING，SUCCESS
+##   5. 玩家不在范围，无 rest_area，无 rest_area_break → fly_idle 悬停，RUNNING
 ##
 ## 被高优先级序列打断（HURT/STUNNED）由 BT 的 SelectorReactive 自动处理，
 ## interrupt() 仅做本地状态清理。
@@ -48,7 +49,22 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# --- 玩家不在追击范围：停止移动 ---
 	bird.velocity = Vector2.ZERO
 
-	# --- 优先级 2: 有可用 rest_area → fly_idle 悬停，最多 5s 后回巢 ---
+	# --- 优先级 2: 无面具 + 有 walk_monster → 切 HUNTING 狩猎 ---
+	if not bird.has_face:
+		var walk_monsters := bird.get_tree().get_nodes_in_group("monster")
+		for m in walk_monsters:
+			if not is_instance_valid(m):
+				continue
+			if not ("species_id" in m):
+				continue
+			var sid = m.get("species_id")
+			if sid == &"walk_dark" or sid == &"walk_dark_b":
+				var dist_m := bird.global_position.distance_to(m.global_position)
+				if dist_m <= bird.hunt_range_px:
+					bird.mode = StoneMaskBird.Mode.HUNTING
+					return SUCCESS
+
+	# --- 优先级 3: 有可用 rest_area → fly_idle 悬停，最多 5s 后回巢 ---
 	var rest_areas := bird.get_tree().get_nodes_in_group("rest_area")
 	if not rest_areas.is_empty():
 		_ensure_idle_anim(bird)
@@ -58,13 +74,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return SUCCESS
 		return RUNNING
 
-	# --- 优先级 3: 无 rest_area，有 rest_area_break → 切换修复模式 ---
+	# --- 优先级 4: 无 rest_area，有 rest_area_break → 切换修复模式 ---
 	var break_areas := bird.get_tree().get_nodes_in_group("rest_area_break")
 	if not break_areas.is_empty():
 		bird.mode = StoneMaskBird.Mode.REPAIRING
 		return SUCCESS
 
-	# --- 优先级 4: 无任何巢穴 → fly_idle 永久悬停 ---
+	# --- 优先级 5: 无任何巢穴 → fly_idle 永久悬停 ---
 	_ensure_idle_anim(bird)
 	return RUNNING
 
