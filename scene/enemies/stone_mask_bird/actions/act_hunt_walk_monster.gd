@@ -133,8 +133,8 @@ func _find_nearest_walk_monster(bird: StoneMaskBird) -> Node2D:
 		var m := n as Node2D
 		if m == null or not is_instance_valid(m):
 			continue
-		# 只猎杀步行怪（通过 species_id 匹配）
-		if not m.has_method("get") or not ("species_id" in m):
+		# 只猎杀步行怪（class_name: MonsterWalk / MonsterWalkB）
+		if not (m is MonsterWalk or m is MonsterWalkB):
 			continue
 		var sid = m.get("species_id")
 		if sid != &"walk_dark" and sid != &"walk_dark_b":

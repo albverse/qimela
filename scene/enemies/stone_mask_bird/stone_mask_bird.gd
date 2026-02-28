@@ -105,6 +105,7 @@ var face_shoot_event_fired: bool = false
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
+var _current_anim_resolved: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
@@ -125,6 +126,41 @@ const _ANIM_FALLBACK_DURATION := {
 	&"shoot_face": 0.6,
 	&"hunt": 0.5,
 	&"no_face_to_has_face": 0.5,
+}
+
+const _HAS_FACE_ANIMS: Dictionary = {
+	&"fall_loop": true,
+	&"fix_rest_area_loop": true,
+	&"fly_idle": true,
+	&"fly_move": true,
+	&"hurt": true,
+	&"land": true,
+	&"rest_loop": true,
+	&"shoot_face": true,
+	&"sleep_down": true,
+	&"stun_loop": true,
+	&"takeoff": true,
+	&"wake_from_stun": true,
+	&"wake_up": true,
+}
+
+const _NO_FACE_ANIMS: Dictionary = {
+	&"dash_attack": true,
+	&"dash_return": true,
+	&"fall_loop": true,
+	&"fix_rest_area_loop": true,
+	&"fly_idle": true,
+	&"fly_move": true,
+	&"hunting": true,
+	&"hurt": true,
+	&"land": true,
+	&"no_face_to_has_face": true,
+	&"rest_loop": true,
+	&"sleep_down": true,
+	&"stun_loop": true,
+	&"takeoff": true,
+	&"wake_from_stun": true,
+	&"wake_up": true,
 }
 
 # Spine 动画驱动（优先 SpineSprite → AnimDriverSpine；无 Spine 时 → AnimDriverMock）
@@ -209,11 +245,13 @@ func _do_move(_dt: float) -> void:
 
 func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	## 播放指定动画。BT 叶节点只调这一个接口，不直接碰 Spine。
+	var resolved_anim: StringName = _resolve_anim_name(anim_name)
 	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
-	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
+	if _current_anim == anim_name and _current_anim_resolved == resolved_anim and not _current_anim_finished and _current_anim_loop == loop:
 		return
 
 	_current_anim = anim_name
+	_current_anim_resolved = resolved_anim
 	_current_anim_finished = false
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
@@ -224,9 +262,9 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 		var duration: float = float(_ANIM_FALLBACK_DURATION.get(anim_name, 0.0))
 		_current_anim_deadline_sec = now_sec() + duration if duration > 0.0 else -1.0
 	if _anim_driver:
-		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+		_anim_driver.play(0, resolved_anim, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
-		_anim_mock.play(0, anim_name, loop)
+		_anim_mock.play(0, resolved_anim, loop)
 
 
 func anim_is_playing(anim_name: StringName) -> bool:
@@ -239,6 +277,7 @@ func anim_is_finished(anim_name: StringName) -> bool:
 
 func anim_stop_or_blendout() -> void:
 	_current_anim = &""
+	_current_anim_resolved = &""
 	_current_anim_finished = true
 	_current_anim_deadline_sec = -1.0
 	_current_anim_started_sec = -1.0
@@ -249,9 +288,32 @@ func anim_stop_or_blendout() -> void:
 
 
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
-	if anim_name == _current_anim:
+	if anim_name == _current_anim_resolved:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+
+
+func _resolve_anim_name(anim_name: StringName) -> StringName:
+	var anim_str := String(anim_name)
+	if anim_str.contains("/"):
+		return anim_name
+
+	var logical_name: StringName = anim_name
+	if logical_name == &"hunt":
+		logical_name = &"hunting"
+
+	if logical_name == &"no_face_to_has_face":
+		return StringName("no_face/%s" % String(logical_name))
+
+	if has_face and _HAS_FACE_ANIMS.has(logical_name):
+		return StringName("has_face/%s" % String(logical_name))
+	if not has_face and _NO_FACE_ANIMS.has(logical_name):
+		return StringName("no_face/%s" % String(logical_name))
+	if _HAS_FACE_ANIMS.has(logical_name):
+		return StringName("has_face/%s" % String(logical_name))
+	if _NO_FACE_ANIMS.has(logical_name):
+		return StringName("no_face/%s" % String(logical_name))
+	return anim_name
 
 
 func _on_spine_animation_event(a1, a2, a3, a4) -> void:

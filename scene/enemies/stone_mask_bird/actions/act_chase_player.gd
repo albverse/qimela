@@ -55,7 +55,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		for m in walk_monsters:
 			if not is_instance_valid(m):
 				continue
-			if not ("species_id" in m):
+			if not (m is MonsterWalk or m is MonsterWalkB):
 				continue
 			var sid = m.get("species_id")
 			if sid == &"walk_dark" or sid == &"walk_dark_b":
