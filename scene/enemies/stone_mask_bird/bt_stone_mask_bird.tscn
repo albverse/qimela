@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_hurt_knockback.gd" id="act_hurt_knockback"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_wake_up.gd" id="act_wake_up"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_return_to_rest.gd" id="act_return_to_rest"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_chase_or_fix.gd" id="act_chase_or_fix"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_attack_loop_dash.gd" id="act_attack_loop_dash"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_resting_loop.gd" id="act_resting_loop"]
 
@@ -98,6 +99,9 @@ script = ExtResource("sequence_reactive")
 [node name="Cond_ModeFlyingAttack" type="Node" parent="RootSelector/Seq_FlyingAttack"]
 script = ExtResource("cond_mode_is")
 target_mode = 2
+
+[node name="Act_ChaseOrFix" type="Node" parent="RootSelector/Seq_FlyingAttack"]
+script = ExtResource("act_chase_or_fix")
 
 [node name="Act_AttackLoopDash" type="Node" parent="RootSelector/Seq_FlyingAttack"]
 script = ExtResource("act_attack_loop_dash")

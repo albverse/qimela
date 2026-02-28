@@ -8,6 +8,7 @@ class_name RestArea
 
 @export var max_hp: int = 3
 var hp: int = 3
+var is_broken: bool = false
 
 var _occupying_bird_ref: WeakRef = null
 @onready var _sprite: Sprite2D = get_node_or_null("Sprite2D") as Sprite2D
@@ -17,6 +18,7 @@ var _occupying_bird_ref: WeakRef = null
 func _ready() -> void:
 	hp = max_hp
 	add_to_group("rest_area")
+	remove_from_group("rest_area_break")
 	_update_visual_state()
 
 
@@ -30,8 +32,7 @@ func apply_hit(hit: HitData) -> bool:
 	_flash_once()
 	_update_visual_state()
 	if hp <= 0:
-		_set_inactive()
-		queue_free()
+		_break_to_ruin()
 	return true
 
 
@@ -67,6 +68,8 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 func reserve_for(bird: Node2D) -> bool:
 	if bird == null or not is_instance_valid(bird):
 		return false
+	if is_broken:
+		return false
 	var cur := _get_occupying_bird()
 	if cur != null and cur != bird:
 		return false
@@ -85,7 +88,20 @@ func release_for(bird: Node2D) -> void:
 
 func is_available_for(bird: Node2D) -> bool:
 	var cur := _get_occupying_bird()
+	if is_broken:
+		return false
 	return cur == null or cur == bird
+
+
+func repair_one_point() -> bool:
+	if not is_broken:
+		return false
+	hp = mini(hp + 1, max_hp)
+	_update_visual_state()
+	if hp >= max_hp:
+		_restore_from_break()
+		return true
+	return false
 
 
 func _get_occupying_bird() -> Node2D:
@@ -106,17 +122,48 @@ func _flash_once() -> void:
 	tw.tween_property(_sprite, "modulate", Color.WHITE, 0.1)
 
 
+func _break_to_ruin() -> void:
+	is_broken = true
+	hp = 0
+	remove_from_group("rest_area")
+	add_to_group("rest_area_break")
+	_occupying_bird_ref = null
+	_set_inactive()
+
+
+func _restore_from_break() -> void:
+	is_broken = false
+	hp = max_hp
+	remove_from_group("rest_area_break")
+	add_to_group("rest_area")
+	_set_active()
+
+
 func _set_inactive() -> void:
 	if _sprite:
-		_sprite.visible = false
+		_sprite.visible = true
+		_sprite.self_modulate = Color(0.35, 0.35, 0.35, 1.0)
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 
 
+func _set_active() -> void:
+	if _sprite:
+		_sprite.visible = true
+	var hurtbox := get_node_or_null("Hurtbox") as Area2D
+	if hurtbox:
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+	_update_visual_state()
+
+
 func _update_visual_state() -> void:
 	if _sprite == null or max_hp <= 0:
+		return
+	if is_broken:
+		_sprite.self_modulate = Color(0.35, 0.35, 0.35, 1.0)
 		return
 	var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
 	_sprite.self_modulate = Color(1.0, ratio, ratio, 1.0)
