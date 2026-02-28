@@ -136,7 +136,7 @@ func _tick_putting_on_face(bird: StoneMaskBird, now: float) -> int:
 
 func _decide_post_hunt_mode(bird: StoneMaskBird) -> int:
 	var player := bird._get_player()
-	if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_range_px:
+	if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_engage_range_px():
 		return StoneMaskBird.Mode.FLYING_ATTACK
 	return StoneMaskBird.Mode.RETURN_TO_REST
 

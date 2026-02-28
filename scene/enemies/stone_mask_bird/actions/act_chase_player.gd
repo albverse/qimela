@@ -52,7 +52,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	# --- has_face 模式：仅当玩家不在发射范围时回巢；在范围内应由 ShootFace 分支接管 ---
 	if bird.has_face:
-		if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_range_px:
+		if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_engage_range_px():
 			if not bird.anim_is_playing(&"fly_idle"):
 				bird.anim_play(&"fly_idle", true, true)
 			return RUNNING

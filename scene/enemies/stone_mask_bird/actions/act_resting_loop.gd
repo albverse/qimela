@@ -18,7 +18,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var player := bird._get_player()
 	if bird.has_face and player != null:
 		var dist_to_player := bird.global_position.distance_to(player.global_position)
-		if dist_to_player <= bird.face_shoot_range_px:
+		if dist_to_player <= bird.face_shoot_engage_range_px():
 			bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 			return SUCCESS
 

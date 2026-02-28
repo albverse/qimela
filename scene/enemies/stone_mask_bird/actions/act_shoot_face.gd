@@ -53,7 +53,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	match _phase:
 		Phase.HOVERING:
 			var dist_to_player := bird.global_position.distance_to(player.global_position)
-			if dist_to_player > bird.face_shoot_range_px:
+			if dist_to_player > bird.face_shoot_engage_range_px():
 				bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 				return SUCCESS
 			return _tick_hovering(bird, now, player)

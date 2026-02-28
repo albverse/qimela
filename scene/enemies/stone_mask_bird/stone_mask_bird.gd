@@ -674,6 +674,12 @@ func trigger_hunt_cooldown(now: float = -1.0) -> void:
 	next_hunt_allowed_sec = now + hunt_cooldown_sec
 
 
+func face_shoot_engage_range_px() -> float:
+	# 当悬停偏移距离大于 face_shoot_range_px 时，
+	# 允许在“可到达悬停点”的距离内继续 ShootFace，避免 SelectorReactive 来回打断。
+	return max(face_shoot_range_px, face_hover_offset.length())
+
+
 func reserve_rest_area(rest_area: Node2D) -> bool:
 	if rest_area == null or not is_instance_valid(rest_area):
 		return false
