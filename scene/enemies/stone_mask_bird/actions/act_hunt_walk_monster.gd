@@ -125,6 +125,7 @@ func _tick_hunting_anim(bird: StoneMaskBird, now: float) -> int:
 func _tick_putting_on_face(bird: StoneMaskBird, now: float) -> int:
 	if bird.anim_is_finished(&"no_face_to_has_face") or (_anim_started_sec > 0.0 and now - _anim_started_sec >= PUTFACE_TIMEOUT_SEC):
 		bird.has_face = true
+		bird.trigger_hunt_cooldown(now)
 		bird.hunt_target = null
 		bird.unfreeze_hunt_target()
 		bird.mode = _decide_post_hunt_mode(bird)
@@ -135,7 +136,7 @@ func _tick_putting_on_face(bird: StoneMaskBird, now: float) -> int:
 
 func _decide_post_hunt_mode(bird: StoneMaskBird) -> int:
 	var player := bird._get_player()
-	if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_range_px:
+	if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_engage_range_px():
 		return StoneMaskBird.Mode.FLYING_ATTACK
 	return StoneMaskBird.Mode.RETURN_TO_REST
 

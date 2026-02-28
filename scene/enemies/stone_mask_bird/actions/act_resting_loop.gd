@@ -18,16 +18,17 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var player := bird._get_player()
 	if bird.has_face and player != null:
 		var dist_to_player := bird.global_position.distance_to(player.global_position)
-		if dist_to_player <= bird.face_shoot_range_px:
+		if dist_to_player <= bird.face_shoot_engage_range_px():
 			bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 			return SUCCESS
 
-	var target := bird.find_nearest_walk_monster_in_range(bird.rest_hunt_trigger_px)
-	if target != null:
-		bird.hunt_target = target
-		bird.rest_hunt_requested = false
-		bird.mode = StoneMaskBird.Mode.HUNTING
-		return SUCCESS
+	if bird.can_start_hunt():
+		var target := bird.find_nearest_walk_monster_in_range(bird.rest_hunt_trigger_px)
+		if target != null:
+			bird.hunt_target = target
+			bird.rest_hunt_requested = false
+			bird.mode = StoneMaskBird.Mode.HUNTING
+			return SUCCESS
 
 	# 永远 RUNNING，直到被更高优先级的 Seq 打断
 	return RUNNING
