@@ -492,6 +492,20 @@ func apply_hit(hit: HitData) -> bool:
 		hp = max(hp, 1)
 		return true
 
+
+	# --- Act_ShootFace 进行中：允许被普通受击打断(HURT)；weak/雷花可打断进 STUNNED，并保留 has_face ---
+	if mode == Mode.FLYING_ATTACK and _current_anim == &"shoot_face":
+		hp = max(hp - hit.damage, 0)
+		_flash_once()
+		if hp <= weak_hp:
+			_enter_weak_stunned()
+			return true
+		if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower" or hit.weapon_id == &"healing_burst":
+			_enter_weak_stunned()
+			return true
+		mode = Mode.HURT
+		return true
+
 	# --- HUNTING：仅 weak/stun 才打断，普通受击只闪烁/扣血 ---
 	if mode == Mode.HUNTING:
 		hp = max(hp - hit.damage, 0)

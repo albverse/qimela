@@ -100,7 +100,7 @@ script = ExtResource("act_return_to_rest")
 ; --- 6. Seq_FlyingAttack ---
 ; 进入 FLYING_ATTACK 模式后，按优先级选择攻击方式：
 ; has_face + 玩家在 face_shoot_range_px 内 → ShootFace；
-; 玩家在范围 → AttackLoopDash；
+; no_face + 玩家在 attack_range_px 范围 → AttackLoopDash；
 ; 否则 → ChasePlayer（追击或切 HUNTING/REPAIRING）。
 [node name="Seq_FlyingAttack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
@@ -126,7 +126,7 @@ script = ExtResource("cond_player_in_face_shoot_range")
 [node name="Act_ShootFace" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_ShootFace"]
 script = ExtResource("act_shoot_face")
 
-; 6.2 次优先：玩家在攻击范围内 → 冲刺攻击循环
+; 6.2 次优先：no_face 且玩家在攻击范围内 → 冲刺攻击循环（与 Shoot 半径隔离）
 [node name="Seq_AttackIfInRange" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase"]
 script = ExtResource("sequence_reactive")
 

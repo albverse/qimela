@@ -7,11 +7,12 @@ class_name ActChasePlayer
 ## 行为优先级（从高到低）：
 ##   1. 玩家在追击范围（chase_range_px=200px）内 → fly_move 飞向玩家，RUNNING
 ##      （一旦玩家进入追击范围则重置悬停计时器）
-##   2. 玩家不在范围，无面具，有 walk_monster → 切 HUNTING 狩猎，SUCCESS
-##   3. 玩家不在范围，但有可用 rest_area → fly_idle 悬停等待 5s，RUNNING
+##   2. has_face 且玩家在发射范围内 → 保持 RUNNING（交回上层 ShootFace 分支）
+##   3. 玩家不在范围，无面具，有 walk_monster → 切 HUNTING 狩猎，SUCCESS
+##   4. 玩家不在范围，但有可用 rest_area → fly_idle 悬停等待 5s，RUNNING
 ##      5s 内如果依然不在范围则切 RETURN_TO_REST 回巢，SUCCESS
-##   4. 玩家不在范围，无 rest_area，有 rest_area_break → 切 REPAIRING，SUCCESS
-##   5. 玩家不在范围，无 rest_area，无 rest_area_break → fly_idle 悬停，RUNNING
+##   5. 玩家不在范围，无 rest_area，有 rest_area_break → 切 REPAIRING，SUCCESS
+##   6. 玩家不在范围，无 rest_area，无 rest_area_break → fly_idle 悬停，RUNNING
 ##
 ## 被高优先级序列打断（HURT/STUNNED）由 BT 的 SelectorReactive 自动处理，
 ## interrupt() 仅做本地状态清理。
@@ -49,8 +50,12 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# --- 玩家不在追击范围：停止移动 ---
 	bird.velocity = Vector2.ZERO
 
-	# --- has_face 模式：玩家不在发射范围时优先回巢 ---
+	# --- has_face 模式：仅当玩家不在发射范围时回巢；在范围内应由 ShootFace 分支接管 ---
 	if bird.has_face:
+		if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_range_px:
+			if not bird.anim_is_playing(&"fly_idle"):
+				bird.anim_play(&"fly_idle", true, true)
+			return RUNNING
 		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 		return SUCCESS
 

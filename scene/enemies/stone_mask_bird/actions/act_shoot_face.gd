@@ -3,7 +3,7 @@ class_name ActShootFace
 
 ## Act_ShootFace（发射面具攻击）
 ## 在 FLYING_ATTACK 模式下，has_face=true 时执行。
-## 玩家在 200px 内时，飞到玩家斜上方偏移点，播放 shoot_face。
+## 玩家在 face_shoot_range_px 内时，飞到玩家斜上方偏移点，播放 shoot_face。
 ## 读到 Spine 事件 shoot 的瞬间，从 StoneMaskBird/ShootPoint 发射子弹并切换为 no_face。
 ## 发射后优先进入 RETURN_TO_REST。
 
@@ -49,15 +49,16 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return SUCCESS
 
 	var now := StoneMaskBird.now_sec()
-	var dist_to_player := bird.global_position.distance_to(player.global_position)
-	if dist_to_player > bird.face_shoot_range_px:
-		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
-		return SUCCESS
 
 	match _phase:
 		Phase.HOVERING:
+			var dist_to_player := bird.global_position.distance_to(player.global_position)
+			if dist_to_player > bird.face_shoot_range_px:
+				bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+				return SUCCESS
 			return _tick_hovering(bird, now, player)
 		Phase.SHOOTING:
+			# 进入 SHOOTING 后不再做距离退出检查，保证起手后动作完整执行。
 			return _tick_shooting(bird, now, player)
 
 	return RUNNING
