@@ -11,7 +11,7 @@ class_name ActHuntWalkMonster
 ##   HUNTING_ANIM  → 播放 hunting 动画（2s），目标立即暂停移动
 ##   PUTTING_ON_FACE → 播放 no_face_to_has_face 动画，戴上面具
 ##
-## 完成后：has_face=true，mode=RETURN_TO_REST。
+## 完成后：has_face=true；若玩家在 face_shoot_range_px 内则直接切 FLYING_ATTACK 发射，否则 RETURN_TO_REST。
 ## 若狩猎被打断（进入 STUNNED）：目标恢复移动，不销毁。
 
 enum Phase { SEARCHING, FLYING_TO_TARGET, HUNTING_ANIM, PUTTING_ON_FACE }
@@ -44,9 +44,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		bird.unfreeze_hunt_target()
 		return SUCCESS
 
-	# 已有面具时直接完成
+	# 已有面具时直接完成（根据玩家位置决定是立即发射还是先回巢）
 	if bird.has_face:
-		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+		bird.mode = _decide_post_hunt_mode(bird)
 		bird.unfreeze_hunt_target()
 		return SUCCESS
 
@@ -127,10 +127,17 @@ func _tick_putting_on_face(bird: StoneMaskBird, now: float) -> int:
 		bird.has_face = true
 		bird.hunt_target = null
 		bird.unfreeze_hunt_target()
-		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+		bird.mode = _decide_post_hunt_mode(bird)
 		return SUCCESS
 
 	return RUNNING
+
+
+func _decide_post_hunt_mode(bird: StoneMaskBird) -> int:
+	var player := bird._get_player()
+	if player != null and bird.global_position.distance_to(player.global_position) <= bird.face_shoot_range_px:
+		return StoneMaskBird.Mode.FLYING_ATTACK
+	return StoneMaskBird.Mode.RETURN_TO_REST
 
 
 func _find_nearest_walk_monster(bird: StoneMaskBird) -> Node2D:
