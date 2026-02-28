@@ -252,7 +252,7 @@ func _find_nearest_break(bird: StoneMaskBird) -> Node2D:
 
 
 func _pick_hover_target_around(bird: StoneMaskBird, center: Vector2) -> Vector2:
-	var dirs := [
+	var dirs: Array[Vector2] = [
 		Vector2.UP,
 		Vector2.RIGHT,
 		Vector2.DOWN,
@@ -262,9 +262,9 @@ func _pick_hover_target_around(bird: StoneMaskBird, center: Vector2) -> Vector2:
 		Vector2(-1, 1).normalized(),
 		Vector2(-1, -1).normalized(),
 	]
-	for dir in dirs:
-		var target := center + dir * HOVER_AWAY_DIST
-		var move := target - bird.global_position
+	for dir: Vector2 in dirs:
+		var target: Vector2 = center + dir * HOVER_AWAY_DIST
+		var move: Vector2 = target - bird.global_position
 		if move.length() <= 1.0:
 			return target
 		if not bird.test_move(bird.global_transform, move):
