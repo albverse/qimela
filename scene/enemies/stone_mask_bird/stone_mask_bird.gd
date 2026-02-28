@@ -56,7 +56,7 @@ enum Mode {
 @export var dash_cooldown: float = 0.5
 ## 冲刺攻击间隔（秒）。
 
-@export var attack_range_px: float = 150.0
+@export var attack_range_px: float = 200.0
 ## 攻击范围（px）。AttackArea 半径与此值匹配。玩家在此范围内才执行 ActAttackLoopDash。
 
 @export var chase_range_px: float = 200.0
@@ -67,6 +67,18 @@ enum Mode {
 
 @export var hunt_range_px: float = 400.0
 ## 狩猎感知范围（px）。walk_monster 在此范围内时才会飞过去狩猎。
+
+@export var rest_hunt_trigger_px: float = 100.0
+## RESTING 时发现 MonsterWalk 的触发范围（px）。
+
+@export var face_shoot_range_px: float = 200.0
+## has_face 发射面具弹的触发范围（px）。
+
+@export var face_hover_offset: Vector2 = Vector2(100.0, -100.0)
+## has_face 发射前悬停偏移（相对玩家坐标）。
+
+@export var face_bullet_speed: float = 240.0
+## 面具弹飞行速度（px/s）。
 
 # ===== 内部状态（BT 叶节点直接读写）=====
 
@@ -102,9 +114,18 @@ var hunt_target: Node2D = null
 ## shoot_face 动画中 shoot 事件是否已触发（由 Spine 事件回调写入）
 var face_shoot_event_fired: bool = false
 
+## 休息态触发的狩猎请求：wake_up 结束后直接进入 HUNTING
+var rest_hunt_requested: bool = false
+
+## HUNTING 中被控制暂停的目标（用于中断时恢复）
+var hunt_paused_target: Node2D = null
+
+@onready var _shoot_point: Marker2D = get_node_or_null("ShootPoint") as Marker2D
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
+var _current_anim_resolved: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
@@ -125,6 +146,41 @@ const _ANIM_FALLBACK_DURATION := {
 	&"shoot_face": 0.6,
 	&"hunt": 0.5,
 	&"no_face_to_has_face": 0.5,
+}
+
+const _HAS_FACE_ANIMS: Dictionary = {
+	&"fall_loop": true,
+	&"fix_rest_area_loop": true,
+	&"fly_idle": true,
+	&"fly_move": true,
+	&"hurt": true,
+	&"land": true,
+	&"rest_loop": true,
+	&"shoot_face": true,
+	&"sleep_down": true,
+	&"stun_loop": true,
+	&"takeoff": true,
+	&"wake_from_stun": true,
+	&"wake_up": true,
+}
+
+const _NO_FACE_ANIMS: Dictionary = {
+	&"dash_attack": true,
+	&"dash_return": true,
+	&"fall_loop": true,
+	&"fix_rest_area_loop": true,
+	&"fly_idle": true,
+	&"fly_move": true,
+	&"hunting": true,
+	&"hurt": true,
+	&"land": true,
+	&"no_face_to_has_face": true,
+	&"rest_loop": true,
+	&"sleep_down": true,
+	&"stun_loop": true,
+	&"takeoff": true,
+	&"wake_from_stun": true,
+	&"wake_up": true,
 }
 
 # Spine 动画驱动（优先 SpineSprite → AnimDriverSpine；无 Spine 时 → AnimDriverMock）
@@ -209,11 +265,13 @@ func _do_move(_dt: float) -> void:
 
 func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	## 播放指定动画。BT 叶节点只调这一个接口，不直接碰 Spine。
+	var resolved_anim: StringName = _resolve_anim_name(anim_name)
 	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
-	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
+	if _current_anim == anim_name and _current_anim_resolved == resolved_anim and not _current_anim_finished and _current_anim_loop == loop:
 		return
 
 	_current_anim = anim_name
+	_current_anim_resolved = resolved_anim
 	_current_anim_finished = false
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
@@ -224,9 +282,9 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 		var duration: float = float(_ANIM_FALLBACK_DURATION.get(anim_name, 0.0))
 		_current_anim_deadline_sec = now_sec() + duration if duration > 0.0 else -1.0
 	if _anim_driver:
-		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+		_anim_driver.play(0, resolved_anim, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
-		_anim_mock.play(0, anim_name, loop)
+		_anim_mock.play(0, resolved_anim, loop)
 
 
 func anim_is_playing(anim_name: StringName) -> bool:
@@ -239,6 +297,7 @@ func anim_is_finished(anim_name: StringName) -> bool:
 
 func anim_stop_or_blendout() -> void:
 	_current_anim = &""
+	_current_anim_resolved = &""
 	_current_anim_finished = true
 	_current_anim_deadline_sec = -1.0
 	_current_anim_started_sec = -1.0
@@ -249,9 +308,93 @@ func anim_stop_or_blendout() -> void:
 
 
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
-	if anim_name == _current_anim:
+	if anim_name == _current_anim_resolved:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+
+
+func _resolve_anim_name(anim_name: StringName) -> StringName:
+	var anim_str := String(anim_name)
+	if anim_str.contains("/"):
+		return anim_name
+
+	var logical_name: StringName = anim_name
+	if logical_name == &"hunt":
+		logical_name = &"hunting"
+
+	if logical_name == &"no_face_to_has_face":
+		return StringName("no_face/%s" % String(logical_name))
+
+	if has_face and _HAS_FACE_ANIMS.has(logical_name):
+		return StringName("has_face/%s" % String(logical_name))
+	if not has_face and _NO_FACE_ANIMS.has(logical_name):
+		return StringName("no_face/%s" % String(logical_name))
+	if _HAS_FACE_ANIMS.has(logical_name):
+		return StringName("has_face/%s" % String(logical_name))
+	if _NO_FACE_ANIMS.has(logical_name):
+		return StringName("no_face/%s" % String(logical_name))
+	return anim_name
+
+
+func find_nearest_walk_monster_in_range(radius_px: float) -> Node2D:
+	var monsters := get_tree().get_nodes_in_group("monster")
+	for n in monsters:
+		if not is_instance_valid(n):
+			continue
+		if not (n is MonsterWalk or n is MonsterWalkB):
+			continue
+		var m := n as Node2D
+		if m == null:
+			continue
+		if global_position.distance_to(m.global_position) <= radius_px:
+			return m
+	return null
+
+
+func freeze_hunt_target(target: Node2D) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	hunt_paused_target = target
+	target.set_physics_process(false)
+	target.set_process(false)
+	if "velocity" in target:
+		target.set("velocity", Vector2.ZERO)
+
+
+func unfreeze_hunt_target() -> void:
+	if hunt_paused_target != null and is_instance_valid(hunt_paused_target):
+		hunt_paused_target.set_physics_process(true)
+		hunt_paused_target.set_process(true)
+	hunt_paused_target = null
+
+
+func spawn_face_bullet(player: Node2D) -> void:
+	if player == null:
+		return
+	var bullet := StoneMaskBirdFaceBullet.new()
+	bullet.name = "FaceBullet"
+	bullet.collision_layer = 0
+	bullet.collision_mask = 2
+
+	var sprite := Sprite2D.new()
+	sprite.texture = load("res://icon.svg") as Texture2D
+	sprite.scale = Vector2(0.2, 0.2)
+	bullet.add_child(sprite)
+
+	var collision := CollisionShape2D.new()
+	var shape := CircleShape2D.new()
+	shape.radius = 8.0
+	collision.shape = shape
+	bullet.add_child(collision)
+
+	var start_pos := global_position
+	if _shoot_point != null:
+		start_pos = _shoot_point.global_position
+	bullet.global_position = start_pos
+
+	var dir := (player.global_position - start_pos).normalized()
+	bullet.setup(dir, face_bullet_speed)
+	get_parent().add_child(bullet)
 
 
 func _on_spine_animation_event(a1, a2, a3, a4) -> void:
@@ -292,6 +435,7 @@ func _enter_weak_stunned() -> void:
 	hp_locked = true
 	reset_vanish_count()
 	weak_stun_t = weak_stun_time
+	unfreeze_hunt_target()
 	mode = Mode.STUNNED
 
 
@@ -348,6 +492,20 @@ func apply_hit(hit: HitData) -> bool:
 		hp = max(hp, 1)
 		return true
 
+	# --- HUNTING：仅 weak/stun 才打断，普通受击只闪烁/扣血 ---
+	if mode == Mode.HUNTING:
+		hp = max(hp - hit.damage, 0)
+		_flash_once()
+		if hp <= weak_hp:
+			unfreeze_hunt_target()
+			_enter_weak_stunned()
+			return true
+		if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower" or hit.weapon_id == &"healing_burst":
+			unfreeze_hunt_target()
+			_enter_weak_stunned()
+			return true
+		return true
+
 	# --- FLYING_ATTACK / HURT：正常受击处理 ---
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
@@ -384,6 +542,18 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	# RESTING / WAKING / WAKE_FROM_STUN：链无效
 	if mode == Mode.RESTING or mode == Mode.WAKING or mode == Mode.WAKE_FROM_STUN:
 		return 0
+	# HUNTING：链命中只造成闪烁，不打断（除非进入 weak）
+	if mode == Mode.HUNTING:
+		if hp_locked:
+			_flash_once()
+			return 0
+		hp = max(hp - 1, 0)
+		_flash_once()
+		if hp <= weak_hp:
+			unfreeze_hunt_target()
+			_enter_weak_stunned()
+		return 0
+
 	# 飞行状态：造成 1 点伤害（走本怪自定义规则，避免 EntityBase 直杀）
 	if hp_locked:
 		_flash_once()

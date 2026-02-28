@@ -23,6 +23,20 @@ func _ready() -> void:
 	_update_visual_state()
 
 
+func _is_protected_by_resting_bird() -> bool:
+	var bird := _get_occupying_bird()
+	if bird == null or not is_instance_valid(bird):
+		return false
+	if not (bird is StoneMaskBird):
+		return false
+	var sb := bird as StoneMaskBird
+	if sb == null:
+		return false
+	if sb.mode != StoneMaskBird.Mode.RESTING:
+		return false
+	return is_arrived(sb)
+
+
 func apply_hit(hit: HitData) -> bool:
 	if hit == null:
 		return false
@@ -30,6 +44,9 @@ func apply_hit(hit: HitData) -> bool:
 		return false
 	# break 状态不再接受攻击
 	if not is_in_group("rest_area"):
+		return false
+	# 有 StoneMaskBird 正在该巢穴 resting 时，巢穴不可被任何武器攻击
+	if _is_protected_by_resting_bird():
 		return false
 	var real_damage: int = maxi(int(hit.damage), 1)
 	hp = maxi(hp - real_damage, 0)
@@ -81,8 +98,8 @@ func _convert_to_break() -> void:
 	# 禁用 Hurtbox（break 状态不再响应武器命中）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
-		hurtbox.monitorable = false
-		hurtbox.monitoring = false
+		hurtbox.set_deferred("monitorable", false)
+		hurtbox.set_deferred("monitoring", false)
 
 
 func _restore_from_break() -> void:
@@ -103,8 +120,8 @@ func _restore_from_break() -> void:
 	# 重新启用 Hurtbox monitorable（可被武器 Area2D 检测到）
 	var hurtbox := get_node_or_null("Hurtbox") as Area2D
 	if hurtbox:
-		hurtbox.monitorable = true
-		hurtbox.monitoring = false  # Hurtbox 无需主动监测，只需被检测到
+		hurtbox.set_deferred("monitorable", true)
+		hurtbox.set_deferred("monitoring", false)  # Hurtbox 无需主动监测，只需被检测到
 
 
 # ──────────────────────────────────────────────────────────
@@ -142,6 +159,8 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	## 返回 0：链条在命中后正常溶解。
 	if not is_in_group("rest_area"):
 		return 0  # break 状态不再接受攻击
+	if _is_protected_by_resting_bird():
+		return 0
 	hp = maxi(hp - 1, 0)
 	_flash_once()
 	_update_visual_state()
