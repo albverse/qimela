@@ -276,7 +276,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.velocity = Vector2.ZERO
-		bird.anim_stop_or_blendout()
 		# target_repair_area 保留：下次重入 REPAIRING 时继续找同一目标
 	_phase = Phase.FLYING_TO_BREAK
 	_repair_elapsed = 0.0

@@ -43,5 +43,4 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.velocity = Vector2.ZERO
-		bird.anim_stop_or_blendout()
 	super(actor, blackboard)
