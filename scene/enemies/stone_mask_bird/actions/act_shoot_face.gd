@@ -20,7 +20,6 @@ enum Phase { HOVERING, SHOOTING }
 const HOVER_CLOSE_DIST: float = 20.0
 const HOVER_TIMEOUT_SEC: float = 2.5
 const HOVER_STALL_TIMEOUT_SEC: float = 0.8
-const MIN_SHOOT_DISTANCE_FROM_PLAYER: float = 200.0
 
 var _phase: int = Phase.HOVERING
 var _shoot_started_sec: float = -1.0
@@ -73,20 +72,13 @@ func _clear_committed(bird: StoneMaskBird) -> void:
 		bird.shoot_face_committed = false
 
 
-func _ensure_min_shoot_distance(bird: StoneMaskBird, player: Node2D) -> void:
-	var to_bird := bird.global_position - player.global_position
-	if to_bird.length() >= MIN_SHOOT_DISTANCE_FROM_PLAYER:
-		return
-
-	var fallback := Vector2(bird.face_hover_offset.x, bird.face_hover_offset.y)
-	if fallback == Vector2.ZERO:
-		fallback = Vector2.UP
-	var away_dir := to_bird.normalized() if to_bird != Vector2.ZERO else fallback.normalized()
-	if away_dir == Vector2.ZERO:
-		away_dir = Vector2.UP
-
-	bird.global_position = player.global_position + away_dir * MIN_SHOOT_DISTANCE_FROM_PLAYER
-	bird.velocity = Vector2.ZERO
+func _compute_hover_point(bird: StoneMaskBird, player: Node2D) -> Vector2:
+	# 悬停点：沿 player→bird 轴线方向，距玩家 face_shoot_hover_dist px 处。
+	# 若鸟与玩家重叠（极端情况），退化为正上方。
+	var dir := (bird.global_position - player.global_position).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2.UP
+	return player.global_position + dir * bird.face_shoot_hover_dist
 
 
 func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
@@ -94,9 +86,9 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 		_hover_started_sec = now
 		_last_hover_dist = INF
 		_hover_stall_sec = 0.0
-		_ensure_min_shoot_distance(bird, player)
 
-	var hover_point: Vector2 = player.global_position + bird.face_hover_offset
+	# 每帧重新根据玩家当前位置计算悬停点，追踪移动中的玩家
+	var hover_point: Vector2 = _compute_hover_point(bird, player)
 	var to_hover: Vector2 = hover_point - bird.global_position
 	var dist: float = to_hover.length()
 	var dt := bird.get_physics_process_delta_time()
@@ -116,11 +108,11 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 		return RUNNING
 
 	if dist > HOVER_CLOSE_DIST and ((now - _hover_started_sec) >= HOVER_TIMEOUT_SEC or _hover_stall_sec >= HOVER_STALL_TIMEOUT_SEC):
-		print("[StoneMaskBird][ShootFace][WARN] hover fallback: dist=%.2f elapsed=%.2f stall=%.2f offset=%s" % [
+		print("[StoneMaskBird][ShootFace][WARN] hover fallback: dist=%.2f elapsed=%.2f stall=%.2f hover_dist=%.1f" % [
 			dist,
 			now - _hover_started_sec,
 			_hover_stall_sec,
-			str(bird.face_hover_offset),
+			bird.face_shoot_hover_dist,
 		])
 
 	# 到达悬停点（或超时兜底）→ 进入 SHOOTING
