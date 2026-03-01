@@ -83,6 +83,15 @@ enum Mode {
 @export var face_bullet_speed: float = 240.0
 ## 面具弹飞行速度（px/s）。
 
+@export var face_bullet_texture: Texture2D = preload("res://icon.svg")
+## 面具弹贴图资源，可在 Inspector 中替换。
+
+@export var face_bullet_sprite_scale: Vector2 = Vector2(0.2, 0.2)
+## 面具弹贴图缩放。
+
+@export var face_bullet_spin_deg_per_sec: float = 360.0
+## 面具弹旋转速度（度/秒）。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -383,8 +392,8 @@ func spawn_face_bullet(player: Node2D) -> void:
 	bullet.collision_mask = 2
 
 	var sprite := Sprite2D.new()
-	sprite.texture = load("res://icon.svg") as Texture2D
-	sprite.scale = Vector2(0.2, 0.2)
+	sprite.texture = face_bullet_texture
+	sprite.scale = face_bullet_sprite_scale
 	bullet.add_child(sprite)
 
 	var collision := CollisionShape2D.new()
@@ -399,7 +408,7 @@ func spawn_face_bullet(player: Node2D) -> void:
 	bullet.global_position = start_pos
 
 	var dir := (player.global_position - start_pos).normalized()
-	bullet.setup(dir, face_bullet_speed)
+	bullet.setup(dir, face_bullet_speed, face_bullet_spin_deg_per_sec)
 	get_parent().add_child(bullet)
 
 
