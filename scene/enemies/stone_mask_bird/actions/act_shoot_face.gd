@@ -98,6 +98,7 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 		])
 
 	bird.velocity = Vector2.ZERO
+	bird.ensure_face_shoot_min_distance(player)
 	bird.face_shoot_event_fired = false
 	_phase = Phase.SHOOTING
 	_shoot_started_sec = now

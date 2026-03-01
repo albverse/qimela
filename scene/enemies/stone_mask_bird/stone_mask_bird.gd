@@ -89,8 +89,11 @@ enum Mode {
 @export var face_bullet_sprite_scale: Vector2 = Vector2(0.2, 0.2)
 ## 面具弹贴图缩放。
 
-@export var face_bullet_spin_deg_per_sec: float = 360.0
-## 面具弹旋转速度（度/秒）。
+@export var face_bullet_homing_duration_sec: float = 2.0
+## 面具弹自动追踪持续时长（秒）。超过后回归直线自然运动。
+
+@export var face_shoot_min_distance_px: float = 200.0
+## 计划发射面具时与玩家保持的最小距离（px）。
 
 # ===== 内部状态（BT 叶节点直接读写）=====
 
@@ -383,6 +386,17 @@ func unfreeze_hunt_target() -> void:
 	hunt_paused_target = null
 
 
+func ensure_face_shoot_min_distance(player: Node2D) -> void:
+	if player == null:
+		return
+	var to_bird := global_position - player.global_position
+	if to_bird == Vector2.ZERO:
+		to_bird = Vector2.RIGHT
+	var dist := to_bird.length()
+	if dist < face_shoot_min_distance_px:
+		global_position = player.global_position + to_bird.normalized() * face_shoot_min_distance_px
+
+
 func spawn_face_bullet(player: Node2D) -> void:
 	if player == null:
 		return
@@ -408,7 +422,7 @@ func spawn_face_bullet(player: Node2D) -> void:
 	bullet.global_position = start_pos
 
 	var dir := (player.global_position - start_pos).normalized()
-	bullet.setup(dir, face_bullet_speed, face_bullet_spin_deg_per_sec)
+	bullet.setup(dir, face_bullet_speed, player, face_bullet_homing_duration_sec)
 	get_parent().add_child(bullet)
 
 
