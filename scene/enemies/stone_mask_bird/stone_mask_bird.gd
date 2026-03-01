@@ -95,6 +95,9 @@ enum Mode {
 @export var face_shoot_min_distance_px: float = 250.0
 ## 计划发射面具时与玩家保持的最小距离（px）。
 
+@export var face_shoot_reposition_speed: float = 900.0
+## 发射前拉开距离的移动速度（px/s）。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -493,25 +496,37 @@ func unfreeze_hunt_target() -> void:
 	hunt_paused_target = null
 
 
-func ensure_face_shoot_min_distance(player: Node2D) -> void:
+func ensure_face_shoot_min_distance(player: Node2D, dt: float) -> bool:
 	if player == null:
-		return
+		return true
 	var to_bird := global_position - player.global_position
 	if to_bird == Vector2.ZERO:
 		to_bird = Vector2.RIGHT
 	var dir := to_bird.normalized()
-	var dist := to_bird.length()
+	var dist: float = to_bird.length()
 	var min_dist: float = maxf(1.0, face_shoot_min_distance_px)
 	var max_dist: float = maxf(min_dist, face_shoot_engage_range_px() - 1.0)
+	if dist >= min_dist and dist <= max_dist:
+		velocity = Vector2.ZERO
+		return true
+
 	var desired_dist: float = clampf(dist, min_dist, max_dist)
-	global_position = player.global_position + dir * desired_dist
+	var target_pos: Vector2 = player.global_position + dir * desired_dist
+	var to_target: Vector2 = target_pos - global_position
+	var step: float = maxf(1.0, face_shoot_reposition_speed) * maxf(dt, 0.0)
+	if to_target.length() <= step:
+		global_position = target_pos
+	else:
+		global_position += to_target.normalized() * step
 	if anim_debug_log_enabled:
-		print("[StoneMaskBird][Shoot] adjust-fire-distance old=%.2f new=%.2f min=%.2f max=%.2f" % [
+		print("[StoneMaskBird][Shoot] repositioning old=%.2f target=%.2f min=%.2f max=%.2f step=%.2f" % [
 			dist,
 			desired_dist,
 			min_dist,
 			max_dist,
+			step,
 		])
+	return false
 
 
 func spawn_face_bullet(player: Node2D) -> void:
@@ -817,7 +832,7 @@ func trigger_hunt_cooldown(now: float = -1.0) -> void:
 func face_shoot_engage_range_px() -> float:
 	# 当悬停偏移距离大于 face_shoot_range_px 时，
 	# 允许在“可到达悬停点”的距离内继续 ShootFace，避免 SelectorReactive 来回打断。
-	return max(face_shoot_range_px, face_hover_offset.length())
+	return maxf(maxf(face_shoot_range_px, face_hover_offset.length()), face_shoot_min_distance_px + 8.0)
 
 
 func reserve_rest_area(rest_area: Node2D) -> bool:
