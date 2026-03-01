@@ -68,7 +68,7 @@ enum Mode {
 @export var hunt_range_px: float = 400.0
 ## 狩猎感知范围（px）。walk_monster 在此范围内时才会飞过去狩猎。
 
-@export var rest_hunt_trigger_px: float = 100.0
+@export var rest_hunt_trigger_px: float = 200.0
 ## RESTING 时发现 MonsterWalk 的触发范围（px）。
 
 @export var hunt_cooldown_sec: float = 5.0
@@ -77,8 +77,8 @@ enum Mode {
 @export var face_shoot_range_px: float = 200.0
 ## has_face 发射面具弹的触发范围（px）。
 
-@export var face_hover_offset: Vector2 = Vector2(100.0, -100.0)
-## has_face 发射前悬停偏移（相对玩家坐标）。
+@export var face_shoot_hover_dist: float = 500.0
+## shoot_face 悬停距离（px）：飞到距玩家此距离、沿 player→bird 轴线方向的位置后开始发射。
 
 @export var face_bullet_speed: float = 240.0
 ## 面具弹飞行速度（px/s）。
@@ -120,6 +120,11 @@ var hunt_target: Node2D = null
 ## shoot_face 动画中 shoot 事件是否已触发（由 Spine 事件回调写入）
 var face_shoot_event_fired: bool = false
 
+## act_shoot_face 已锁定发射意图：BT 条件节点在此期间始终返回 SUCCESS，
+## 防止玩家离开检测范围或 has_face 变 false 导致动画被中途打断。
+## 由 ActShootFace.before_run() 置 true，interrupt()/完成后置 false。
+var shoot_face_committed: bool = false
+
 ## 休息态触发的狩猎请求：wake_up 结束后直接进入 HUNTING
 var rest_hunt_requested: bool = false
 
@@ -138,24 +143,7 @@ var _current_anim_resolved: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 var _current_interruptible: bool = true
-var _current_anim_deadline_sec: float = -1.0
 var _current_anim_started_sec: float = -1.0
-
-# 单次动画的兜底时长（秒）：
-# Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
-const _ANIM_FALLBACK_DURATION := {
-	&"wake_up": 0.5,
-	&"dash_attack": 0.3,
-	&"dash_return": 0.3,
-	&"hurt": 0.2,
-	&"land": 0.3,
-	&"wake_from_stun": 0.5,
-	&"takeoff": 0.4,
-	&"sleep_down": 0.4,
-	&"shoot_face": 0.6,
-	&"hunt": 0.5,
-	&"no_face_to_has_face": 0.5,
-}
 
 const _HAS_FACE_ANIMS: Dictionary = {
 	&"fall_loop": true,
@@ -250,11 +238,6 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			mode = Mode.WAKE_FROM_STUN
 
-	# Spine 兜底：一次性动画到时自动完成，防止 ActionLeaf 卡死在 RUNNING。
-	if not _current_anim_finished and _current_anim_deadline_sec > 0.0 and now_sec() >= _current_anim_deadline_sec:
-		_current_anim_finished = true
-		_current_anim_deadline_sec = -1.0
-
 	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
 	# 不做玩家接近自动唤醒。
 
@@ -285,11 +268,6 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	_current_anim_loop = loop
 	_current_interruptible = interruptible
 	_current_anim_started_sec = now_sec()
-	if loop:
-		_current_anim_deadline_sec = -1.0
-	else:
-		var duration: float = float(_ANIM_FALLBACK_DURATION.get(anim_name, 0.0))
-		_current_anim_deadline_sec = now_sec() + duration if duration > 0.0 else -1.0
 	if _anim_driver:
 		_anim_driver.play(0, resolved_anim, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
@@ -308,7 +286,6 @@ func anim_stop_or_blendout() -> void:
 	_current_anim = &""
 	_current_anim_resolved = &""
 	_current_anim_finished = true
-	_current_anim_deadline_sec = -1.0
 	_current_anim_started_sec = -1.0
 	if _anim_driver:
 		_anim_driver.stop_all()
@@ -319,7 +296,6 @@ func anim_stop_or_blendout() -> void:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim_resolved:
 		_current_anim_finished = true
-		_current_anim_deadline_sec = -1.0
 
 
 func _resolve_anim_name(anim_name: StringName) -> StringName:
@@ -433,7 +409,6 @@ func anim_debug_state() -> Dictionary:
 		"finished": _current_anim_finished,
 		"loop": _current_anim_loop,
 		"started_sec": _current_anim_started_sec,
-		"deadline_sec": _current_anim_deadline_sec,
 	}
 
 
@@ -678,9 +653,7 @@ func trigger_hunt_cooldown(now: float = -1.0) -> void:
 
 
 func face_shoot_engage_range_px() -> float:
-	# 当悬停偏移距离大于 face_shoot_range_px 时，
-	# 允许在“可到达悬停点”的距离内继续 ShootFace，避免 SelectorReactive 来回打断。
-	return max(face_shoot_range_px, face_hover_offset.length())
+	return face_shoot_range_px
 
 
 func reserve_rest_area(rest_area: Node2D) -> bool:

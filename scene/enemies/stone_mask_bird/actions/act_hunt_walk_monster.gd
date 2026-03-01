@@ -17,8 +17,6 @@ class_name ActHuntWalkMonster
 enum Phase { SEARCHING, FLYING_TO_TARGET, HUNTING_ANIM, PUTTING_ON_FACE }
 
 const CATCH_DIST: float = 30.0
-const HUNT_TIMEOUT_SEC: float = 2.0
-const PUTFACE_TIMEOUT_SEC: float = 1.0
 
 var _phase: int = Phase.SEARCHING
 var _anim_started_sec: float = -1.0
@@ -110,7 +108,7 @@ func _tick_flying_to_target(bird: StoneMaskBird, now: float) -> int:
 func _tick_hunting_anim(bird: StoneMaskBird, now: float) -> int:
 	var target_valid := bird.hunt_target != null and is_instance_valid(bird.hunt_target)
 
-	if bird.anim_is_finished(&"hunt") or (_anim_started_sec > 0.0 and now - _anim_started_sec >= HUNT_TIMEOUT_SEC):
+	if bird.anim_is_finished(&"hunt"):
 		if target_valid:
 			_consume_target(bird)
 		bird.unfreeze_hunt_target()
@@ -123,7 +121,7 @@ func _tick_hunting_anim(bird: StoneMaskBird, now: float) -> int:
 
 
 func _tick_putting_on_face(bird: StoneMaskBird, now: float) -> int:
-	if bird.anim_is_finished(&"no_face_to_has_face") or (_anim_started_sec > 0.0 and now - _anim_started_sec >= PUTFACE_TIMEOUT_SEC):
+	if bird.anim_is_finished(&"no_face_to_has_face"):
 		bird.has_face = true
 		bird.trigger_hunt_cooldown(now)
 		bird.hunt_target = null
@@ -176,7 +174,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.velocity = Vector2.ZERO
-		bird.anim_stop_or_blendout()
 		bird.unfreeze_hunt_target()
 		# 被打断不销毁猎物，恢复后走 WAKE_FROM_STUN 回巢
 	_phase = Phase.SEARCHING
