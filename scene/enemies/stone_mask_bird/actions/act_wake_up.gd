@@ -21,6 +21,12 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_started = true
 	# 播放唤醒动画（一次性，不可打断）
 	bird.anim_play(&"wake_up", false, false)
+	if bird.anim_debug_log_enabled:
+		print("[StoneMaskBird][WakeUp] start mode=%d rest_hunt_requested=%s hunt_target=%s" % [
+			bird.mode,
+			str(bird.rest_hunt_requested),
+			str(bird.hunt_target),
+		])
 	# 写入攻击时间窗口
 	var now := StoneMaskBird.now_sec()
 	_wake_deadline_sec = now + WAKE_DURATION_SEC
@@ -40,9 +46,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var now := StoneMaskBird.now_sec()
 	if bird.anim_is_finished(&"wake_up") or now >= _wake_deadline_sec:
 		if bird.rest_hunt_requested and bird.hunt_target != null and is_instance_valid(bird.hunt_target) and bird.can_start_hunt(now):
+			if bird.anim_debug_log_enabled:
+				print("[StoneMaskBird][WakeUp] complete -> HUNTING")
 			bird.mode = StoneMaskBird.Mode.HUNTING
 			bird.rest_hunt_requested = false
 		else:
+			if bird.anim_debug_log_enabled:
+				print("[StoneMaskBird][WakeUp] complete -> FLYING_ATTACK")
 			bird.rest_hunt_requested = false
 			bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
