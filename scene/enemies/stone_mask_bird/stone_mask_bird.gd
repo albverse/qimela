@@ -83,6 +83,9 @@ enum Mode {
 @export var face_bullet_speed: float = 240.0
 ## 面具弹飞行速度（px/s）。
 
+@export var face_bullet_texture: Texture2D = preload("res://icon.svg")
+## 面具弹贴图（可在 Inspector 中替换材质/图片）。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -383,7 +386,7 @@ func spawn_face_bullet(player: Node2D) -> void:
 	bullet.collision_mask = 2
 
 	var sprite := Sprite2D.new()
-	sprite.texture = load("res://icon.svg") as Texture2D
+	sprite.texture = face_bullet_texture if face_bullet_texture != null else preload("res://icon.svg")
 	sprite.scale = Vector2(0.2, 0.2)
 	bullet.add_child(sprite)
 
