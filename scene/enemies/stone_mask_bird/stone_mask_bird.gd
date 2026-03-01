@@ -92,7 +92,7 @@ enum Mode {
 @export var face_bullet_homing_duration_sec: float = 2.0
 ## 面具弹自动追踪持续时长（秒）。超过后回归直线自然运动。
 
-@export var face_shoot_min_distance_px: float = 200.0
+@export var face_shoot_min_distance_px: float = 250.0
 ## 计划发射面具时与玩家保持的最小距离（px）。
 
 # ===== 内部状态（BT 叶节点直接读写）=====
@@ -156,6 +156,9 @@ var _current_anim_started_sec: float = -1.0
 var _pending_anim_after_wake: StringName = &""
 var _pending_anim_loop: bool = false
 var _pending_anim_interruptible: bool = true
+var _wake_transition_required: bool = false
+var _wake_lock_active: bool = false
+var _wake_lock_position: Vector2 = Vector2.ZERO
 
 # 单次动画的兜底时长（秒）：
 # Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
@@ -278,6 +281,13 @@ func _physics_process(dt: float) -> void:
 			])
 		_try_consume_pending_after_wake()
 
+	if _wake_lock_active and _current_anim == &"wake_up" and not _current_anim_finished:
+		if global_position != _wake_lock_position:
+			global_position = _wake_lock_position
+		velocity = Vector2.ZERO
+	elif _wake_lock_active and (_current_anim != &"wake_up" or _current_anim_finished):
+		_wake_lock_active = false
+
 	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
 	# 不做玩家接近自动唤醒。
 
@@ -297,13 +307,13 @@ func _do_move(_dt: float) -> void:
 
 func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	## 播放指定动画。BT 叶节点只调这一个接口，不直接碰 Spine。
-	# 规则：只要当前处于 rest_loop，后续播放任意非 rest_loop 动画都先经 wake_up 过渡。
-	if _current_anim == &"rest_loop" and anim_name != &"rest_loop" and anim_name != &"wake_up":
+	# 规则：只要从 rest_loop 离开，后续播放任意非 rest_loop 动画都先经 wake_up 过渡。
+	if _wake_transition_required and anim_name != &"rest_loop" and anim_name != &"wake_up":
 		_pending_anim_after_wake = anim_name
 		_pending_anim_loop = loop
 		_pending_anim_interruptible = interruptible
 		if anim_debug_log_enabled:
-			print("[StoneMaskBird][Anim] queue-after-wake from rest_loop next=%s loop=%s interruptible=%s mode=%d" % [
+			print("[StoneMaskBird][Anim] queue-after-wake next=%s loop=%s interruptible=%s mode=%d" % [
 				str(anim_name),
 				str(loop),
 				str(interruptible),
@@ -353,6 +363,17 @@ func _play_anim_internal(anim_name: StringName, loop: bool, interruptible: bool)
 			str(interruptible),
 			mode,
 		])
+	if anim_name == &"rest_loop":
+		_wake_transition_required = true
+		_wake_lock_active = false
+	elif anim_name == &"wake_up":
+		_wake_transition_required = false
+		_wake_lock_active = true
+		_wake_lock_position = global_position
+		velocity = Vector2.ZERO
+	else:
+		_wake_lock_active = false
+
 	if _anim_driver:
 		_anim_driver.play(0, resolved_anim, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
@@ -376,6 +397,7 @@ func anim_stop_or_blendout() -> void:
 	_pending_anim_after_wake = &""
 	_pending_anim_loop = false
 	_pending_anim_interruptible = true
+	_wake_lock_active = false
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -477,9 +499,19 @@ func ensure_face_shoot_min_distance(player: Node2D) -> void:
 	var to_bird := global_position - player.global_position
 	if to_bird == Vector2.ZERO:
 		to_bird = Vector2.RIGHT
+	var dir := to_bird.normalized()
 	var dist := to_bird.length()
-	if dist < face_shoot_min_distance_px:
-		global_position = player.global_position + to_bird.normalized() * face_shoot_min_distance_px
+	var min_dist := max(1.0, face_shoot_min_distance_px)
+	var max_dist := max(min_dist, face_shoot_engage_range_px() - 1.0)
+	var desired_dist := clampf(dist, min_dist, max_dist)
+	global_position = player.global_position + dir * desired_dist
+	if anim_debug_log_enabled:
+		print("[StoneMaskBird][Shoot] adjust-fire-distance old=%.2f new=%.2f min=%.2f max=%.2f" % [
+			dist,
+			desired_dist,
+			min_dist,
+			max_dist,
+		])
 
 
 func spawn_face_bullet(player: Node2D) -> void:
