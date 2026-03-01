@@ -68,7 +68,7 @@ enum Mode {
 @export var hunt_range_px: float = 400.0
 ## 狩猎感知范围（px）。walk_monster 在此范围内时才会飞过去狩猎。
 
-@export var rest_hunt_trigger_px: float = 100.0
+@export var rest_hunt_trigger_px: float = 200.0
 ## RESTING 时发现 MonsterWalk 的触发范围（px）。
 
 @export var hunt_cooldown_sec: float = 5.0
@@ -77,8 +77,8 @@ enum Mode {
 @export var face_shoot_range_px: float = 200.0
 ## has_face 发射面具弹的触发范围（px）。
 
-@export var face_hover_offset: Vector2 = Vector2(100.0, -100.0)
-## has_face 发射前悬停偏移（相对玩家坐标）。
+@export var face_shoot_hover_dist: float = 500.0
+## shoot_face 悬停距离（px）：飞到距玩家此距离、沿 player→bird 轴线方向的位置后开始发射。
 
 @export var face_bullet_speed: float = 240.0
 ## 面具弹飞行速度（px/s）。
@@ -653,9 +653,7 @@ func trigger_hunt_cooldown(now: float = -1.0) -> void:
 
 
 func face_shoot_engage_range_px() -> float:
-	# 当悬停偏移距离大于 face_shoot_range_px 时，
-	# 允许在“可到达悬停点”的距离内继续 ShootFace，避免 SelectorReactive 来回打断。
-	return max(face_shoot_range_px, face_hover_offset.length())
+	return face_shoot_range_px
 
 
 func reserve_rest_area(rest_area: Node2D) -> bool:
