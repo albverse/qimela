@@ -35,7 +35,4 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
-	var bird := actor as StoneMaskBird
-	if bird:
-		bird.anim_stop_or_blendout()
 	super(actor, blackboard)

@@ -12,7 +12,6 @@ enum Phase { HOVERING, SHOOTING }
 const HOVER_CLOSE_DIST: float = 20.0
 const HOVER_TIMEOUT_SEC: float = 2.5
 const HOVER_STALL_TIMEOUT_SEC: float = 0.8
-const SHOOT_TIMEOUT_SEC: float = 1.2
 const MIN_SHOOT_DISTANCE_FROM_PLAYER: float = 200.0
 
 var _phase: int = Phase.HOVERING
@@ -137,7 +136,7 @@ func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 			_bullet_spawned = true
 			bird.has_face = false
 
-	if bird.anim_is_finished(&"shoot_face") or (_shoot_started_sec > 0.0 and now - _shoot_started_sec >= SHOOT_TIMEOUT_SEC):
+	if bird.anim_is_finished(&"shoot_face"):
 		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 		bird.next_attack_sec = now + bird.dash_cooldown
 		return SUCCESS
@@ -149,7 +148,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.velocity = Vector2.ZERO
-		bird.anim_stop_or_blendout()
 		bird.face_shoot_event_fired = false
 	_phase = Phase.HOVERING
 	_shoot_started_sec = -1.0

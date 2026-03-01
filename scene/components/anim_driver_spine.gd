@@ -271,8 +271,11 @@ func _on_track_completed(track_id: int, track_entry) -> void:
 	if state.get("loop", false):
 		return
 
-	var anim_name: StringName = _get_animation_name(track_entry)
-	if debug_log: print("[AnimDriverSpine] completed: track=%d name=%s" % [track_id, str(anim_name)])
+	# 优先用 Spine 返回的名字；若为空（部分版本无法读出）则回退到已追踪名字，
+	# 确保 anim_completed 信号始终携带正确名字以通过上层比较。
+	var spine_name: StringName = _get_animation_name(track_entry)
+	var anim_name: StringName = spine_name if spine_name != &"" else state.get("anim", &"")
+	if debug_log: print("[AnimDriverSpine] completed: track=%d name=%s spine=%s" % [track_id, str(anim_name), str(spine_name)])
 
 	if track_id == 1:
 		_mix_out_track(1, track1_mix_out_duration)
