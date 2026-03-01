@@ -501,9 +501,9 @@ func ensure_face_shoot_min_distance(player: Node2D) -> void:
 		to_bird = Vector2.RIGHT
 	var dir := to_bird.normalized()
 	var dist := to_bird.length()
-	var min_dist := max(1.0, face_shoot_min_distance_px)
-	var max_dist := max(min_dist, face_shoot_engage_range_px() - 1.0)
-	var desired_dist := clampf(dist, min_dist, max_dist)
+	var min_dist: float = maxf(1.0, face_shoot_min_distance_px)
+	var max_dist: float = maxf(min_dist, face_shoot_engage_range_px() - 1.0)
+	var desired_dist: float = clampf(dist, min_dist, max_dist)
 	global_position = player.global_position + dir * desired_dist
 	if anim_debug_log_enabled:
 		print("[StoneMaskBird][Shoot] adjust-fire-distance old=%.2f new=%.2f min=%.2f max=%.2f" % [
