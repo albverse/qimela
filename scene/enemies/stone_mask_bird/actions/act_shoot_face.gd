@@ -80,7 +80,6 @@ func _compute_hover_point(bird: StoneMaskBird, player: Node2D) -> Vector2:
 		dir = Vector2.UP
 	return player.global_position + dir * bird.face_shoot_hover_dist
 
-
 func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 	if _hover_started_sec < 0.0:
 		_hover_started_sec = now
