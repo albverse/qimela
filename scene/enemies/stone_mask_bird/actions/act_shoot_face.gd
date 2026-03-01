@@ -20,6 +20,7 @@ var _hover_started_sec: float = -1.0
 var _last_hover_dist: float = INF
 var _hover_stall_sec: float = 0.0
 var _bullet_spawned: bool = false
+var _repositioning_for_shot: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -29,6 +30,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_last_hover_dist = INF
 	_hover_stall_sec = 0.0
 	_bullet_spawned = false
+	_repositioning_for_shot = false
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.face_shoot_event_fired = false
@@ -69,6 +71,22 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 		_hover_started_sec = now
 		_last_hover_dist = INF
 		_hover_stall_sec = 0.0
+		_repositioning_for_shot = false
+
+	if _repositioning_for_shot:
+		var dt_repos := bird.get_physics_process_delta_time()
+		if not bird.ensure_face_shoot_min_distance(player, dt_repos):
+			bird.velocity = Vector2.ZERO
+			if not bird.anim_is_playing(&"fly_move"):
+				bird.anim_play(&"fly_move", true, true)
+			return RUNNING
+		bird.velocity = Vector2.ZERO
+		bird.face_shoot_event_fired = false
+		_phase = Phase.SHOOTING
+		_shoot_started_sec = now
+		_repositioning_for_shot = false
+		bird.anim_play(&"shoot_face", false, false)
+		return RUNNING
 
 	var hover_point: Vector2 = player.global_position + bird.face_hover_offset
 	var to_hover: Vector2 = hover_point - bird.global_position
@@ -97,17 +115,7 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 			str(bird.face_hover_offset),
 		])
 
-	if not bird.ensure_face_shoot_min_distance(player, dt):
-		bird.velocity = Vector2.ZERO
-		if not bird.anim_is_playing(&"fly_move"):
-			bird.anim_play(&"fly_move", true, true)
-		return RUNNING
-
-	bird.velocity = Vector2.ZERO
-	bird.face_shoot_event_fired = false
-	_phase = Phase.SHOOTING
-	_shoot_started_sec = now
-	bird.anim_play(&"shoot_face", false, false)
+	_repositioning_for_shot = true
 	return RUNNING
 
 
@@ -116,6 +124,11 @@ func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 		bird.spawn_face_bullet(player)
 		_bullet_spawned = true
 		bird.has_face = false
+		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+		bird.next_attack_sec = now + bird.dash_cooldown
+		if bird.anim_debug_log_enabled:
+			print("[StoneMaskBird][ShootFace] bullet spawned -> RETURN_TO_REST")
+		return SUCCESS
 
 	if not bird.face_shoot_event_fired and bird._anim_mock != null:
 		if _shoot_started_sec > 0.0 and now - _shoot_started_sec >= 0.5 and not _bullet_spawned:
@@ -123,8 +136,15 @@ func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 			bird.spawn_face_bullet(player)
 			_bullet_spawned = true
 			bird.has_face = false
+			bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+			bird.next_attack_sec = now + bird.dash_cooldown
+			if bird.anim_debug_log_enabled:
+				print("[StoneMaskBird][ShootFace] mock bullet spawned -> RETURN_TO_REST")
+			return SUCCESS
 
 	if bird.anim_is_finished(&"shoot_face") or (_shoot_started_sec > 0.0 and now - _shoot_started_sec >= SHOOT_TIMEOUT_SEC):
+		if bird.anim_debug_log_enabled and not _bullet_spawned:
+			print("[StoneMaskBird][ShootFace][WARN] shoot finished/timeout without bullet -> RETURN_TO_REST")
 		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 		bird.next_attack_sec = now + bird.dash_cooldown
 		return SUCCESS
@@ -144,4 +164,5 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_last_hover_dist = INF
 	_hover_stall_sec = 0.0
 	_bullet_spawned = false
+	_repositioning_for_shot = false
 	super(actor, blackboard)
