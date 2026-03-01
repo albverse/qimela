@@ -399,7 +399,7 @@ func spawn_face_bullet(player: Node2D) -> void:
 	bullet.global_position = start_pos
 
 	var dir := (player.global_position - start_pos).normalized()
-	bullet.setup(dir, face_bullet_speed)
+	bullet.setup(dir, face_bullet_speed, player)
 	get_parent().add_child(bullet)
 
 
