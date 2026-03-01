@@ -2,10 +2,18 @@ extends ActionLeaf
 class_name ActShootFace
 
 ## Act_ShootFace（发射面具攻击）
-## 在 FLYING_ATTACK 模式下，has_face=true 时执行。
-## 玩家在 face_shoot_range_px 内时，飞到玩家斜上方偏移点，播放 shoot_face。
-## 读到 Spine 事件 shoot 的瞬间，从 StoneMaskBird/ShootPoint 发射子弹并切换为 no_face。
-## 发射后优先进入 RETURN_TO_REST。
+## 在 FLYING_ATTACK 模式下，has_face=true 时由 BT 触发。
+##
+## 执行流程：
+##   1. HOVERING：fly_move 飞向玩家偏移悬停点（约 200px 外），不因玩家离开范围而中止。
+##   2. SHOOTING：播放 shoot_face 动画，Spine 事件 shoot 触发时发射子弹并切 no_face，
+##               等待动画完整结束后才退出。
+##
+## 承诺机制：before_run() 调用时即将 shoot_face_committed 置 true，
+##   此后 CondHasFace / CondPlayerInFaceShootRange 在 committed=true 期间始终返回 SUCCESS，
+##   使 Seq_ShootFace 不会因"has_face=false"或"玩家离开范围"而 BT 中断此动作。
+##   只有眩晕 / weak（更高优先级序列）才能真正打断。
+## 发射完成后立即设置 RETURN_TO_REST，committed 同步清零。
 
 enum Phase { HOVERING, SHOOTING }
 
@@ -32,6 +40,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.face_shoot_event_fired = false
+		bird.shoot_face_committed = true  # 锁定：BT 条件节点在此期间始终通过
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -39,29 +48,29 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if bird == null:
 		return FAILURE
 
-	if not bird.has_face:
-		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
-		return SUCCESS
-
-	var player := bird._get_player()
-	if player == null:
-		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
-		return SUCCESS
-
 	var now := StoneMaskBird.now_sec()
 
 	match _phase:
 		Phase.HOVERING:
-			var dist_to_player := bird.global_position.distance_to(player.global_position)
-			if dist_to_player > bird.face_shoot_engage_range_px():
+			var player := bird._get_player()
+			if player == null:
+				# 目标消失，无法计算悬停位置，中止并回巢
+				_clear_committed(bird)
 				bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 				return SUCCESS
 			return _tick_hovering(bird, now, player)
+
 		Phase.SHOOTING:
-			# 进入 SHOOTING 后不再做距离退出检查，保证起手后动作完整执行。
+			# SHOOTING 阶段不再依赖玩家范围，子弹在事件触发时已锁定目标
+			var player := bird._get_player()
 			return _tick_shooting(bird, now, player)
 
 	return RUNNING
+
+
+func _clear_committed(bird: StoneMaskBird) -> void:
+	if bird:
+		bird.shoot_face_committed = false
 
 
 func _ensure_min_shoot_distance(bird: StoneMaskBird, player: Node2D) -> void:
@@ -80,7 +89,6 @@ func _ensure_min_shoot_distance(bird: StoneMaskBird, player: Node2D) -> void:
 	bird.velocity = Vector2.ZERO
 
 
-
 func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 	if _hover_started_sec < 0.0:
 		_hover_started_sec = now
@@ -93,7 +101,7 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 	var dist: float = to_hover.length()
 	var dt := bird.get_physics_process_delta_time()
 
-	# 若偏移点因障碍/移动目标导致长期无法到达，则兜底进入 SHOOTING，避免永远 RUNNING。
+	# 检测停滞（目标持续无法靠近）
 	if dist < _last_hover_dist - 1.0:
 		_hover_stall_sec = 0.0
 	else:
@@ -115,6 +123,7 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 			str(bird.face_hover_offset),
 		])
 
+	# 到达悬停点（或超时兜底）→ 进入 SHOOTING
 	bird.velocity = Vector2.ZERO
 	bird.face_shoot_event_fired = false
 	_phase = Phase.SHOOTING
@@ -124,11 +133,13 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 
 
 func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
+	# Spine 事件触发发射
 	if bird.face_shoot_event_fired and not _bullet_spawned:
 		bird.spawn_face_bullet(player)
 		_bullet_spawned = true
 		bird.has_face = false
 
+	# Mock 驱动兜底（无 Spine 时按时间模拟事件）
 	if not bird.face_shoot_event_fired and bird._anim_mock != null:
 		if _shoot_started_sec > 0.0 and now - _shoot_started_sec >= 0.5 and not _bullet_spawned:
 			bird.face_shoot_event_fired = true
@@ -136,7 +147,9 @@ func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 			_bullet_spawned = true
 			bird.has_face = false
 
+	# 等待 shoot_face 动画完整播完再离开（不因 has_face=false 提前退出）
 	if bird.anim_is_finished(&"shoot_face"):
+		_clear_committed(bird)
 		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
 		bird.next_attack_sec = now + bird.dash_cooldown
 		return SUCCESS
@@ -149,6 +162,7 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if bird:
 		bird.velocity = Vector2.ZERO
 		bird.face_shoot_event_fired = false
+		_clear_committed(bird)
 	_phase = Phase.HOVERING
 	_shoot_started_sec = -1.0
 	_hover_started_sec = -1.0

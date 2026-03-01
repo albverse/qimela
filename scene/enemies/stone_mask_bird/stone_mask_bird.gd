@@ -120,6 +120,11 @@ var hunt_target: Node2D = null
 ## shoot_face 动画中 shoot 事件是否已触发（由 Spine 事件回调写入）
 var face_shoot_event_fired: bool = false
 
+## act_shoot_face 已锁定发射意图：BT 条件节点在此期间始终返回 SUCCESS，
+## 防止玩家离开检测范围或 has_face 变 false 导致动画被中途打断。
+## 由 ActShootFace.before_run() 置 true，interrupt()/完成后置 false。
+var shoot_face_committed: bool = false
+
 ## 休息态触发的狩猎请求：wake_up 结束后直接进入 HUNTING
 var rest_hunt_requested: bool = false
 
