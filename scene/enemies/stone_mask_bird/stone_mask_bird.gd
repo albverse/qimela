@@ -150,6 +150,13 @@ var _current_interruptible: bool = true
 var _current_anim_deadline_sec: float = -1.0
 var _current_anim_started_sec: float = -1.0
 
+@export var anim_debug_log_enabled: bool = true
+## 动画调试日志开关：用于排查动画是否被跳过/覆盖。
+
+var _pending_anim_after_wake: StringName = &""
+var _pending_anim_loop: bool = false
+var _pending_anim_interruptible: bool = true
+
 # 单次动画的兜底时长（秒）：
 # Spine 在动画名不存在/未发 completed 信号时，避免 BT 永久卡在 RUNNING。
 const _ANIM_FALLBACK_DURATION := {
@@ -263,6 +270,13 @@ func _physics_process(dt: float) -> void:
 	if not _current_anim_finished and _current_anim_deadline_sec > 0.0 and now_sec() >= _current_anim_deadline_sec:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+		if anim_debug_log_enabled:
+			print("[StoneMaskBird][Anim] fallback-complete logical=%s resolved=%s mode=%d" % [
+				str(_current_anim),
+				str(_current_anim_resolved),
+				mode,
+			])
+		_try_consume_pending_after_wake()
 
 	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
 	# 不做玩家接近自动唤醒。
@@ -283,6 +297,38 @@ func _do_move(_dt: float) -> void:
 
 func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	## 播放指定动画。BT 叶节点只调这一个接口，不直接碰 Spine。
+	# 规则：只要当前处于 rest_loop，后续播放任意非 rest_loop 动画都先经 wake_up 过渡。
+	if _current_anim == &"rest_loop" and anim_name != &"rest_loop" and anim_name != &"wake_up":
+		_pending_anim_after_wake = anim_name
+		_pending_anim_loop = loop
+		_pending_anim_interruptible = interruptible
+		if anim_debug_log_enabled:
+			print("[StoneMaskBird][Anim] queue-after-wake from rest_loop next=%s loop=%s interruptible=%s mode=%d" % [
+				str(anim_name),
+				str(loop),
+				str(interruptible),
+				mode,
+			])
+		_play_anim_internal(&"wake_up", false, false)
+		return
+
+	if _current_anim == &"wake_up" and _pending_anim_after_wake != &"" and anim_name != &"wake_up":
+		_pending_anim_after_wake = anim_name
+		_pending_anim_loop = loop
+		_pending_anim_interruptible = interruptible
+		if anim_debug_log_enabled:
+			print("[StoneMaskBird][Anim] update pending-after-wake=%s loop=%s interruptible=%s mode=%d" % [
+				str(anim_name),
+				str(loop),
+				str(interruptible),
+				mode,
+			])
+		return
+
+	_play_anim_internal(anim_name, loop, interruptible)
+
+
+func _play_anim_internal(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	var resolved_anim: StringName = _resolve_anim_name(anim_name)
 	# 避免在同一动画已播放中时重复 set_animation 导致重启（影响不可打断动作完成判定）。
 	if _current_anim == anim_name and _current_anim_resolved == resolved_anim and not _current_anim_finished and _current_anim_loop == loop:
@@ -299,6 +345,14 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 	else:
 		var duration: float = float(_ANIM_FALLBACK_DURATION.get(anim_name, 0.0))
 		_current_anim_deadline_sec = now_sec() + duration if duration > 0.0 else -1.0
+	if anim_debug_log_enabled:
+		print("[StoneMaskBird][Anim] play logical=%s resolved=%s loop=%s interruptible=%s mode=%d" % [
+			str(anim_name),
+			str(resolved_anim),
+			str(loop),
+			str(interruptible),
+			mode,
+		])
 	if _anim_driver:
 		_anim_driver.play(0, resolved_anim, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
 	elif _anim_mock:
@@ -319,6 +373,7 @@ func anim_stop_or_blendout() -> void:
 	_current_anim_finished = true
 	_current_anim_deadline_sec = -1.0
 	_current_anim_started_sec = -1.0
+	_pending_anim_after_wake = &""
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -329,6 +384,32 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim_resolved:
 		_current_anim_finished = true
 		_current_anim_deadline_sec = -1.0
+		if anim_debug_log_enabled:
+			print("[StoneMaskBird][Anim] signal-complete logical=%s resolved=%s mode=%d" % [
+				str(_current_anim),
+				str(_current_anim_resolved),
+				mode,
+			])
+		_try_consume_pending_after_wake()
+
+
+func _try_consume_pending_after_wake() -> void:
+	if _current_anim != &"wake_up" or not _current_anim_finished:
+		return
+	if _pending_anim_after_wake == &"":
+		return
+	var next_anim := _pending_anim_after_wake
+	var next_loop := _pending_anim_loop
+	var next_interruptible := _pending_anim_interruptible
+	_pending_anim_after_wake = &""
+	if anim_debug_log_enabled:
+		print("[StoneMaskBird][Anim] wake_up->next logical=%s loop=%s interruptible=%s mode=%d" % [
+			str(next_anim),
+			str(next_loop),
+			str(next_interruptible),
+			mode,
+		])
+	_play_anim_internal(next_anim, next_loop, next_interruptible)
 
 
 func _resolve_anim_name(anim_name: StringName) -> StringName:
