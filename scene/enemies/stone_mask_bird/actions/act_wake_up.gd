@@ -39,7 +39,12 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	var now := StoneMaskBird.now_sec()
 	if bird.anim_is_finished(&"wake_up") or now >= _wake_deadline_sec:
-		bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
+		if bird.rest_hunt_requested and bird.hunt_target != null and is_instance_valid(bird.hunt_target) and bird.can_start_hunt(now):
+			bird.mode = StoneMaskBird.Mode.HUNTING
+			bird.rest_hunt_requested = false
+		else:
+			bird.rest_hunt_requested = false
+			bird.mode = StoneMaskBird.Mode.FLYING_ATTACK
 		return SUCCESS
 
 	# 动画仍在播放（或回调缺失但未到 0.5s）

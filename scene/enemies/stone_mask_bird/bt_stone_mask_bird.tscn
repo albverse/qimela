@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=25 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -7,7 +7,9 @@
 
 ; === 自定义 Condition 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_mode_is.gd" id="cond_mode_is"]
-[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_has_rest_area.gd" id="cond_has_rest_area"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_player_in_attack_range.gd" id="cond_player_in_attack_range"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_player_in_face_shoot_range.gd" id="cond_player_in_face_shoot_range"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/conditions/cond_has_face.gd" id="cond_has_face"]
 
 ; === 自定义 Action 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_stunned_fall.gd" id="act_stunned_fall"]
@@ -16,7 +18,11 @@
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_wake_up.gd" id="act_wake_up"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_return_to_rest.gd" id="act_return_to_rest"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_attack_loop_dash.gd" id="act_attack_loop_dash"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_chase_player.gd" id="act_chase_player"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_repair_rest_area.gd" id="act_repair_rest_area"]
 [ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_resting_loop.gd" id="act_resting_loop"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_shoot_face.gd" id="act_shoot_face"]
+[ext_resource type="Script" path="res://scene/enemies/stone_mask_bird/actions/act_hunt_walk_monster.gd" id="act_hunt_walk_monster"]
 
 ; =============================================================================
 ; BeehaveTree 根节点
@@ -28,7 +34,10 @@ script = ExtResource("bt_tree")
 
 ; =============================================================================
 ; RootSelector: SelectorReactiveComposite
-; 优先级从上到下：Stunned > WakeFromStun > Hurt > Waking > ReturnToRest > FlyingAttack > Resting
+; 优先级从上到下：
+;   Stunned > WakeFromStun > Hurt > Waking > ReturnToRest
+;   > FlyingAttack[ShootFace | AttackIfInRange | Chase]
+;   > Hunting > Repairing > Resting
 ; =============================================================================
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
@@ -85,13 +94,14 @@ script = ExtResource("sequence_reactive")
 script = ExtResource("cond_mode_is")
 target_mode = 3
 
-[node name="Cond_HasRestArea" type="Node" parent="RootSelector/Seq_ReturnToRest"]
-script = ExtResource("cond_has_rest_area")
-
 [node name="Act_ReturnToRest" type="Node" parent="RootSelector/Seq_ReturnToRest"]
 script = ExtResource("act_return_to_rest")
 
 ; --- 6. Seq_FlyingAttack ---
+; 进入 FLYING_ATTACK 模式后，按优先级选择攻击方式：
+; has_face + 玩家在 face_shoot_range_px 内 → ShootFace；
+; no_face + 玩家在 attack_range_px 范围 → AttackLoopDash；
+; 否则 → ChasePlayer（追击或切 HUNTING/REPAIRING）。
 [node name="Seq_FlyingAttack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -99,10 +109,60 @@ script = ExtResource("sequence_reactive")
 script = ExtResource("cond_mode_is")
 target_mode = 2
 
-[node name="Act_AttackLoopDash" type="Node" parent="RootSelector/Seq_FlyingAttack"]
+; 攻击/追击 子选择器（SelectorReactive：每帧重新从头评估，实现动态切换）
+[node name="Sel_AttackOrChase" type="Node" parent="RootSelector/Seq_FlyingAttack"]
+script = ExtResource("selector_reactive")
+
+; 6.1 最优先：has_face + 玩家在 face_shoot_range_px 内 → 发射面具攻击
+[node name="Seq_ShootFace" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_HasFace" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_ShootFace"]
+script = ExtResource("cond_has_face")
+
+[node name="Cond_PlayerInRange_Face" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_ShootFace"]
+script = ExtResource("cond_player_in_face_shoot_range")
+
+[node name="Act_ShootFace" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_ShootFace"]
+script = ExtResource("act_shoot_face")
+
+; 6.2 次优先：no_face 且玩家在攻击范围内 → 冲刺攻击循环（与 Shoot 半径隔离）
+[node name="Seq_AttackIfInRange" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerInAttackRange" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_AttackIfInRange"]
+script = ExtResource("cond_player_in_attack_range")
+
+[node name="Act_AttackLoopDash" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase/Seq_AttackIfInRange"]
 script = ExtResource("act_attack_loop_dash")
 
-; --- 7. Seq_Resting（优先级最低）---
+; 6.3 后备：玩家不在攻击范围 → 追击（或条件不满足时切 HUNTING/REPAIRING）
+[node name="Act_ChasePlayer" type="Node" parent="RootSelector/Seq_FlyingAttack/Sel_AttackOrChase"]
+script = ExtResource("act_chase_player")
+
+; --- 7. Seq_Hunting（狩猎 walk_monster 获取面具）---
+[node name="Seq_Hunting" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeHunting" type="Node" parent="RootSelector/Seq_Hunting"]
+script = ExtResource("cond_mode_is")
+target_mode = 8
+
+[node name="Act_HuntWalkMonster" type="Node" parent="RootSelector/Seq_Hunting"]
+script = ExtResource("act_hunt_walk_monster")
+
+; --- 8. Seq_Repairing（修复 rest_area_break）---
+[node name="Seq_Repairing" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeRepairing" type="Node" parent="RootSelector/Seq_Repairing"]
+script = ExtResource("cond_mode_is")
+target_mode = 7
+
+[node name="Act_RepairRestArea" type="Node" parent="RootSelector/Seq_Repairing"]
+script = ExtResource("act_repair_rest_area")
+
+; --- 9. Seq_Resting（优先级最低）---
 [node name="Seq_Resting" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
