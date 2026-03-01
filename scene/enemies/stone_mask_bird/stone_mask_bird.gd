@@ -312,12 +312,12 @@ func anim_play(anim_name: StringName, loop: bool, interruptible: bool) -> void:
 		_play_anim_internal(&"wake_up", false, false)
 		return
 
-	if _current_anim == &"wake_up" and _pending_anim_after_wake != &"" and anim_name != &"wake_up":
+	if _current_anim == &"wake_up" and not _current_anim_finished and anim_name != &"wake_up":
 		_pending_anim_after_wake = anim_name
 		_pending_anim_loop = loop
 		_pending_anim_interruptible = interruptible
 		if anim_debug_log_enabled:
-			print("[StoneMaskBird][Anim] update pending-after-wake=%s loop=%s interruptible=%s mode=%d" % [
+			print("[StoneMaskBird][Anim] defer-during-wake next=%s loop=%s interruptible=%s mode=%d" % [
 				str(anim_name),
 				str(loop),
 				str(interruptible),
@@ -374,6 +374,8 @@ func anim_stop_or_blendout() -> void:
 	_current_anim_deadline_sec = -1.0
 	_current_anim_started_sec = -1.0
 	_pending_anim_after_wake = &""
+	_pending_anim_loop = false
+	_pending_anim_interruptible = true
 	if _anim_driver:
 		_anim_driver.stop_all()
 	elif _anim_mock:
@@ -402,6 +404,8 @@ func _try_consume_pending_after_wake() -> void:
 	var next_loop := _pending_anim_loop
 	var next_interruptible := _pending_anim_interruptible
 	_pending_anim_after_wake = &""
+	_pending_anim_loop = false
+	_pending_anim_interruptible = true
 	if anim_debug_log_enabled:
 		print("[StoneMaskBird][Anim] wake_up->next logical=%s loop=%s interruptible=%s mode=%d" % [
 			str(next_anim),
