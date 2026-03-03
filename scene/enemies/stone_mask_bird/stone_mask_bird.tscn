@@ -16,10 +16,6 @@ radius = 83.60024
 [sub_resource type="CircleShape2D" id="attack_shape"]
 radius = 200.0
 
-; 攻击范围检测碰撞形状：默认半径 150px（与 attack_range_px export 值对应）
-[sub_resource type="CircleShape2D" id="attack_shape"]
-radius = 200.0
-
 [node name="StoneMaskBird" type="CharacterBody2D"]
 collision_layer = 4
 script = ExtResource("1_script")
@@ -65,5 +61,5 @@ shape = SubResource("attack_shape")
 position = Vector2(20, -6)
 
 [node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
-blackboard = NodePath("@Node@28124")
+blackboard = NodePath("@Node@21028")
 actor = NodePath("..")

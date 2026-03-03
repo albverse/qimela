@@ -410,6 +410,9 @@ func _on_ghost_fist_state_changed(new_state: int, context: StringName) -> void:
 	if context == &"idle_anima":
 		animator.play_ghost_fist_idle_anima()
 		return
+	if context == &"idle_direct":
+		animator.play_ghost_fist_idle_direct()
+		return
 	if context == &"exit_done":
 		animator.set_gf_mode(false)
 		return

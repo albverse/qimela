@@ -3,7 +3,7 @@ class_name StoneMaskBirdFaceBullet
 
 @export var speed: float = 720.0
 @export var life_sec: float = 3.0
-@export var homing_duration_sec: float = 2.0
+@export var homing_duration_sec: float = 2.5
 
 var _velocity: Vector2 = Vector2.ZERO
 var _alive_sec: float = 0.0
