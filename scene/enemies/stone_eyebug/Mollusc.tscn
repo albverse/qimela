@@ -1,0 +1,58 @@
+[gd_scene load_steps=8 format=3 uid="uid://mollusc_main"]
+
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/mollusc.gd" id="1_script"]
+[ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="Script" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/bt_mollusc.tscn" id="4_bt"]
+
+[sub_resource type="CapsuleShape2D" id="body_shape"]
+radius = 12.0
+height = 20.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 16.0
+
+[sub_resource type="CircleShape2D" id="attack_detect_shape"]
+radius = 120.0
+
+; =============================================================================
+; Mollusc（软体虫 逃跑阶段）
+; collision_layer = 4  # EnemyBody(3)
+; collision_mask = 1   # World(1)
+; =============================================================================
+[node name="Mollusc" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+; 占位精灵，待 Spine 资源完成后替换为 SpineSprite
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("hurtbox_shape")
+
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("hurtbox_shape")
+
+[node name="FloorRayFront" type="RayCast2D" parent="."]
+target_position = Vector2(12.0, 24.0)
+enabled = true
+
+[node name="WallRayFront" type="RayCast2D" parent="."]
+target_position = Vector2(16.0, 0.0)
+enabled = true
+
+[node name="BeehaveTree" parent="." instance=ExtResource("4_bt")]

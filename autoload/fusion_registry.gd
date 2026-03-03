@@ -100,6 +100,12 @@ func _load_rules() -> void:
 			"result_type": FusionResultType.SUCCESS
 		},
 
+		"mollusc + stone_eyebug_shell": {
+			# 软体虫（逃跑阶段）+ 石眼虫空壳 → 幽灵手奇美拉·左
+			"result_scene": "res://scene/ChimeraGhostHandL.tscn",
+			"result_type": FusionResultType.SUCCESS
+		},
+
 		# =================================================================
 		# 失败规则 - 泯灭（FAIL_VANISH）
 		# 同属性同型号无规则时触发

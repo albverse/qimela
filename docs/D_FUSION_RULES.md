@@ -27,6 +27,7 @@
 | `fly_light + neutral_small` | 飞怪(光) + 无属性怪 | ChimeraA | 无属性可融合任何 |
 | `neutral_small + walk_dark` | 无属性怪 + 走怪(暗) | ChimeraA | 无属性可融合任何 |
 | `fly_light + hand_light` | 飞怪(光) + 手怪(光) | Chimera_StoneSnake | 同属性特殊组合 |
+| `mollusc + stone_eyebug_shell` | 软体虫 + 石眼虫空壳 | ChimeraGhostHandL | 软体虫回壳触发融合，暗+暗同属性特殊规则允许 |
 
 ---
 
@@ -108,3 +109,4 @@ func _validate_rules() -> void:
 |------|------|
 | 2026-02-02 | 初始化文档，从fusion_registry.gd同步 |
 | 2026-02-02 | 添加 fly_light + hand_light → Chimera_StoneSnake 规则 |
+| 2026-03-03 | 添加 mollusc + stone_eyebug_shell → ChimeraGhostHandL 规则；新增石眼虫/软体虫/幽灵手奇美拉三实体 |

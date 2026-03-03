@@ -16,6 +16,9 @@
 | `hand_light` | MonsterHand.tscn | monster_hand.gd | LIGHT | SMALL | yure.png | 手怪 |
 | `neutral_small` | MonsterNeutral.tscn | monster_neutral.gd | NORMAL | SMALL | ❌未设置 | 无属性怪 |
 | `hostile_fail` | MonsterHostile.tscn | monster_hostile.gd | NORMAL | MEDIUM | ❌未设置 | 敌对怪（融合失败产物） |
+| `stone_eyebug` | enemies/stone_eyebug/StoneEyeBug.tscn | enemies/stone_eyebug/stone_eyebug.gd | DARK | SMALL | ❌未设置 | 石眼虫（壳阶段，正常行走/攻击） |
+| `stone_eyebug_shell` | （同 StoneEyeBug.tscn，动态切换） | （同 stone_eyebug.gd） | DARK | SMALL | ❌未设置 | 石眼虫空壳（mollusc逃出后；可被锁链命中；与mollusc融合→幽灵手） |
+| `mollusc` | enemies/stone_eyebug/Mollusc.tscn | enemies/stone_eyebug/mollusc.gd | DARK | SMALL | ❌未设置 | 软体虫（石眼虫翻面后逃出；逃跑/攻击；可与空壳融合） |
 
 ---
 
@@ -25,6 +28,7 @@
 |------------|---------|---------|-----------|------|---------|------|
 | `chimera_a` | ChimeraA.tscn | chimera_a.gd | NORMAL | MEDIUM | ❌未设置 | 基础奇美拉（跟随型） |
 | `chimera_stone_snake` | Chimera_StoneSnake.tscn | chimera_stone_snake.gd | NORMAL | MEDIUM | stone_snake.png | 石蛇奇美拉（攻击型） |
+| `chimera_ghost_hand_l` | ChimeraGhostHandL.tscn | chimera_ghost_hand_l.gd | NORMAL | MEDIUM | ❌未设置 | 幽灵手奇美拉·左（链控飞行，鬼拳攻击；由 mollusc + stone_eyebug_shell 融合产生） |
 
 ---
 
