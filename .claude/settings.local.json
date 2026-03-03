@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:\\\\Users\\\\zhang-rui\\\\Downloads\\\\godot-editor-windows\\\\godot-4.2-4.5.1-stable.exe\":*)"
+    ]
+  }
+}

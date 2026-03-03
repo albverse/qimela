@@ -346,6 +346,17 @@ func play_ghost_fist_idle_anima() -> void:
 	_log_play(0, &"ghost_fist_/idle_anima", false)
 
 
+## attack_1/2 断连时直接回 idle：停 action overlay 轨，GF spine 切悬浮 idle
+## 不清零速度（与 cooldown 不同），让 locomotion 在下一 tick 自然接管
+func play_ghost_fist_idle_direct() -> void:
+	if _driver != null and _driver.has_method("stop"):
+		_driver.stop(TRACK_ACTION)
+	_play_on_gf_spine(GhostFist.Hand.LEFT, &"ghost_fist_/idle", true)
+	_play_on_gf_spine(GhostFist.Hand.RIGHT, &"ghost_fist_/idle", true)
+	_cur_action_anim = &""
+	_cur_action_mode = -1
+
+
 ## GF 模式下的 locomotion 切换（PlayerSpine 切 GF locomotion + 武器端 idle）
 func switch_ghost_fist_locomotion(key: StringName) -> void:
 	var profile: Dictionary = WeaponAnimProfiles.get_profile("GHOST_FIST")

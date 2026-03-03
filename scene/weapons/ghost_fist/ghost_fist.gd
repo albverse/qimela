@@ -313,8 +313,12 @@ func on_animation_complete(_anim_name: StringName) -> void:
 				_gf_log("[GF] Attack completion ignored (combo_check already handled)")
 				return
 			var stage: int = state - GFState.GF_ATTACK_1 + 1
-			_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
-			_enter_cooldown()
+			if stage <= 2:
+				_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback idle" % stage)
+				_enter_idle_direct()
+			else:
+				_gf_log("[GF] ⚠ Attack %d ended without combo_check → fallback cooldown" % stage)
+				_enter_cooldown()
 
 # ════════════════════════════════════════
 # 连击门控
@@ -345,10 +349,22 @@ func _on_combo_check() -> void:
 		_gf_log("[GF] │ → Combo continues to stage %d ✓" % (stage + 1))
 		_gf_log("[GF] └──────────────────────────────────────")
 		_start_attack(stage + 1)
+	elif stage <= 2:
+		# attack_1/2 断连：直接回 idle，不播 cooldown
+		_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), direct idle ✗" % [stage, hit_confirmed, queued_next])
+		_gf_log("[GF] └──────────────────────────────────────")
+		_enter_idle_direct()
 	else:
 		_gf_log("[GF] │ → Combo broken (stage=%d hit=%s queued=%s), entering cooldown ✗" % [stage, hit_confirmed, queued_next])
 		_gf_log("[GF] └──────────────────────────────────────")
 		_enter_cooldown()
+
+
+## attack_1/2 断连时直接回 idle，跳过 cooldown 动画
+func _enter_idle_direct() -> void:
+	state = GFState.GF_IDLE
+	state_changed.emit(state, &"idle_direct")
+	_gf_log("[GF] Entering idle (direct, skip cooldown)")
 
 
 ## Cooldown 状态说明：

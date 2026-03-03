@@ -29,7 +29,7 @@ enum Mode {
 @export var dash_speed: float = 1000.0
 ## 冲刺速度（px/s）。决定"极快"的体感。建议范围：900~1200。
 
-@export var attack_offset_y: float = 90.0
+@export var attack_offset_y: float = 190.0
 ## 攻击时悬停点的垂直偏移（px）。目标点 = player.position + Vector2(0, -attack_offset_y)。
 
 @export var return_speed: float = 450.0
@@ -50,22 +50,22 @@ enum Mode {
 @export var hover_speed: float = 300.0
 ## 飞行悬停移动速度（px/s），飞向 hover_point 时使用。
 
-@export var attack_duration_sec: float = 60.0
+@export var attack_duration_sec: float = 30.0
 ## 每次唤醒后的攻击持续时间（秒）。
 
-@export var dash_cooldown: float = 0.5
+@export var dash_cooldown: float = 1
 ## 冲刺攻击间隔（秒）。
 
 @export var attack_range_px: float = 200.0
 ## 攻击范围（px）。AttackArea 半径与此值匹配。玩家在此范围内才执行 ActAttackLoopDash。
 
-@export var chase_range_px: float = 200.0
+@export var chase_range_px: float = 300.0
 ## 追击感知范围（px）。玩家在此范围内时执行飞行追击（fly_move）。
 
 @export var hunt_speed: float = 250.0
 ## 狩猎飞行速度（px/s）。飞向 walk_monster 时使用。
 
-@export var hunt_range_px: float = 400.0
+@export var hunt_range_px: float = 350.0
 ## 狩猎感知范围（px）。walk_monster 在此范围内时才会飞过去狩猎。
 
 @export var rest_hunt_trigger_px: float = 200.0
@@ -74,10 +74,10 @@ enum Mode {
 @export var hunt_cooldown_sec: float = 5.0
 ## 每次成功狩猎后的冷却时间（秒）。冷却中不能再次进入 HUNTING。
 
-@export var face_shoot_range_px: float = 200.0
+@export var face_shoot_range_px: float = 350.0
 ## has_face 发射面具弹的触发范围（px）。
 
-@export var face_shoot_hover_dist: float = 500.0
+@export var face_shoot_hover_dist: float = 350.0
 ## shoot_face 悬停距离（px）：飞到距玩家此距离、沿 player→bird 轴线方向的位置后开始发射。
 
 @export var face_bullet_speed: float = 240.0

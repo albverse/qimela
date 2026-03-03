@@ -36,14 +36,14 @@ GhostFist 是玩家的独立武器形态，核心由以下能力组成：
 - 若 `hit_confirmed && queued_next`：进入下一段攻击。
 - 否则：
   - `stage >= 3`：进入 `COOLDOWN`
-  - `stage < 3`：直接回 `IDLE`（轻断连，不播 cooldown）
+  - `stage < 3`（attack_1 / attack_2）：直接回 `IDLE`（轻断连，不播 cooldown）
 
 ### 2.3 攻击完成兜底
 
 若某段攻击动画结束但未收到 `combo_check`：
 
 - `stage >= 3`：fallback 到 `COOLDOWN`
-- `stage < 3`：fallback 到 `IDLE`
+- `stage < 3`：fallback 到 `IDLE`（直接，不播 cooldown）
 
 并且使用 `_combo_check_handled` 防止同一段被 `combo_check` 和 `animation_completed` 重复处理。
 
@@ -78,7 +78,7 @@ GhostFist 是玩家的独立武器形态，核心由以下能力组成：
 
 ### 问题现象
 
-`attack_3` 连击失败时，状态曾先进入 `COOLDOWN`，但随后被过期完成回调马上推进到 `IDLE`，视觉上表现为“看不到 cooldown”。
+`attack_3` 连击失败时，状态曾先进入 `COOLDOWN`，但随后被过期完成回调马上推进到 `IDLE`，视觉上表现为”看不到 cooldown”。
 
 ### 根因
 
@@ -88,12 +88,26 @@ GhostFist 是玩家的独立武器形态，核心由以下能力组成：
 
 在 `GF_COOLDOWN` 分支增加 completion 门禁：
 
-- 仅 `"ghost_fist_/cooldown"`（或空名兜底）允许将状态推进到 `IDLE`
+- 仅 `”ghost_fist_/cooldown”`（或空名兜底）允许将状态推进到 `IDLE`
 - 非 cooldown 动画名在该状态下直接忽略
 
 这保证了 attack3 fail 后 cooldown 不会被过期攻击 completion 抢跑。
 
-## 4.2 既有稳定性改动（与本轮逻辑关联）
+## 4.2 Attack1/2 断连直接回 idle（跳过 cooldown）
+
+### 问题现象
+
+`attack_1` / `attack_2` 连击失败时，会播放 cooldown 动画再回到 idle，期望是直接回 idle。
+
+### 修复
+
+- `ghost_fist.gd`：新增 `_enter_idle_direct()`，`state = GF_IDLE` + `state_changed.emit(state, “idle_direct”)`
+- `_on_combo_check()`：stage <= 2 断连 → `_enter_idle_direct()`；stage >= 3 断连 → `_enter_cooldown()`（不变）
+- `on_animation_complete()`：fallback 同样按 stage 路由
+- `player.gd`：`_on_ghost_fist_state_changed` 处理 `”idle_direct”` → `animator.play_ghost_fist_idle_direct()`
+- `player_animator.gd`：`play_ghost_fist_idle_direct()` 停 TRACK_ACTION + GF spine 切 idle loop，不清零速度
+
+## 4.3 既有稳定性改动（与本轮逻辑关联）
 
 - `_on_gf_anim_complete` 对攻击态做“主攻手 + 动画名匹配/空名容错”过滤，避免旧段 completion 干扰新段。
 - `_combo_check_handled` 标志用于防止同段 `combo_check` 与 `animation_completed` 重复推进。
