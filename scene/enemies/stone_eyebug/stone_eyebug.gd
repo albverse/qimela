@@ -48,6 +48,12 @@ enum Mode {
 @export var mollusc_scene: PackedScene = null
 ## 软体虫实例场景，运行时 spawn
 
+@export var soft_body_bone: String = "belly"
+## SoftHurtbox 追踪的 Spine 骨骼名；骨骼必须在 Spine 骨架中存在
+
+@export var soft_body_fallback_offset: Vector2 = Vector2(0.0, 14.0)
+## Mock 模式（无 Spine）或骨骼查询失败时 SoftHurtbox 的本地坐标偏移（px，相对根节点）
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.NORMAL
@@ -83,6 +89,9 @@ var mollusc_spawned: bool = false
 var atk1_window_open: bool = false
 var atk2_window_open: bool = false
 
+## 本帧下一次 apply_hit() 视为软体命中（由 SoftHurtbox.get_host() 在命中前写入，命中后立即清除）
+var _next_hit_is_soft: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -93,6 +102,9 @@ var _current_anim_loop: bool = false
 
 var _anim_driver: AnimDriverSpine = null
 var _anim_mock: AnimDriverMock = null
+
+var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
+var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -107,6 +119,9 @@ func _ready() -> void:
 	weak_hp = 1
 	super._ready()
 	add_to_group("stone_eyebug")
+
+	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
+	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -141,6 +156,12 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
+
+	_update_hurtbox_states()
+	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
+	# 注：AnimDriverSpine 是子节点，其 _physics_process 在本节点之后执行，存在 1 帧位置滞后，
+	#     对游戏玩法判定无显著影响。
+	_update_soft_hurtbox_position()
 
 	# 移动和 BT 逻辑由叶节点（+ BeehaveTree tick）驱动，_physics_process 不再调用 super
 
@@ -198,12 +219,17 @@ func _on_spine_event(_a1, _a2, _a3, _a4) -> void:
 # =============================================================================
 
 func apply_hit(hit: HitData) -> bool:
+	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在本帧命中前写入）
+	var is_soft_hit: bool = _next_hit_is_soft
+	_next_hit_is_soft = false
+
 	if hit == null:
 		return false
 	if not has_hp or hp <= 0:
 		return false
 
-	# 弹翻阶段
+	# 弹翻阶段：ShellHurtbox 已由 _update_hurtbox_states() 禁用，
+	# 本阶段所有命中均来自 SoftHurtbox（soft_hitbox_active=true 时）
 	if mode == Mode.FLIPPED:
 		if soft_hitbox_active:
 			# 软体易伤：标记 was_attacked_while_flipped → BT 触发分裂
@@ -226,6 +252,26 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 壳体保护阶段（NORMAL / RETREATING / IN_SHELL）
+
+	# --- ghost_fist / chimera_ghost_hand_l → 弹翻（优先级最高，绕过软腹规则）---
+	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
+		if mode == Mode.NORMAL:
+			mode = Mode.FLIPPED
+			_flash_once()
+			return true
+		# 缩壳/壳内：壳保护，反向行走，刷新受攻时间
+		_reflect_from_shell(hit)
+		return true
+
+	# --- StoneMaskBirdFaceBullet → 弹翻（仅 NORMAL 态，优先级同上）---
+	if hit.weapon_id == &"stone_mask_bird_face_bullet":
+		if mode == Mode.NORMAL:
+			mode = Mode.FLIPPED
+			_flash_once()
+			return true
+		_reflect_from_shell(hit)
+		return true
+
 	# --- 雷花 → 触发缩壳 ---
 	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower":
 		if mode != Mode.RETREATING and mode != Mode.IN_SHELL:
@@ -237,30 +283,14 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- ghost_fist / chimera_ghost_hand_l → 弹翻（仅 NORMAL 态壳外）---
-	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		# 缩壳/壳内：壳保护，反向行走，刷新受攻时间
-		_reflect_from_shell(hit)
+	# --- NORMAL 态软腹命中（通用攻击命中 SoftHurtbox）→ 缩壳，不扣血 ---
+	if is_soft_hit and mode == Mode.NORMAL:
+		mode = Mode.RETREATING
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		_flash_once()
 		return true
 
-	# --- StoneMaskBirdFaceBullet → 弹翻（仅 NORMAL 态）---
-	if hit.weapon_id == &"stone_mask_bird_face_bullet":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		_reflect_from_shell(hit)
-		return true
-
-	# --- 软体命中（弹翻前，NORMAL 且未弹翻）→ 缩壳 ---
-	# 注：在弹翻前，软体骨骼被打到 → 触发缩壳（不扣血，只闪白）
-	# weapon_id 留空或使用通用攻击：在 NORMAL 态软体被命中逻辑
-	# 其他武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效
-
+	# --- 其余武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效 ---
 	_reflect_from_shell(hit)
 	return true
 
@@ -275,6 +305,62 @@ func _reflect_from_shell(hit: HitData) -> void:
 		elif dx < 0.0:
 			facing = 1
 	_flash_once()
+
+
+# =============================================================================
+# 软体受击盒接口
+# =============================================================================
+
+func _mark_next_hit_soft() -> void:
+	## 由 SoftHurtbox.get_host() 在命中前调用，标记本次 apply_hit() 为软体命中
+	_next_hit_is_soft = true
+
+
+func _update_hurtbox_states() -> void:
+	## 按当前 mode 和 soft_hitbox_active 开关壳体 / 软腹受击盒的 monitoring
+	## 每帧在 _physics_process 开头调用，保证与状态机同步
+	if _shell_hurtbox == null and _soft_hurtbox == null:
+		return
+	match mode:
+		Mode.NORMAL:
+			# 壳体可被命中（反弹），软腹也可被命中（缩壳）
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = true
+		Mode.RETREATING, Mode.IN_SHELL:
+			# 缩壳 / 壳内：软腹已收起，只留壳体
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = false
+		Mode.FLIPPED:
+			# 翻倒：壳体朝下无法命中，软腹随 soft_hitbox_active 开关
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = false
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = soft_hitbox_active
+		Mode.EMPTY_SHELL:
+			# 空壳：只有壳可受击，软腹已逃走
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = false
+
+
+func _update_soft_hurtbox_position() -> void:
+	## 每帧将 SoftHurtbox 的 global_position 对齐到 Spine 骨骼（或 Mock 固定偏移）
+	## AnimDriverSpine 是子节点，其 _physics_process 在本帧稍后执行，存在 1 帧骨骼滞后，
+	## 对游戏命中判定无显著影响。
+	if _soft_hurtbox == null:
+		return
+	if _anim_driver != null:
+		var bone_pos: Vector2 = _anim_driver.get_bone_world_position(soft_body_bone)
+		if bone_pos != Vector2.ZERO:
+			_soft_hurtbox.global_position = bone_pos
+			return
+	# Fallback：无 Spine 或骨骼未找到，使用本地偏移
+	_soft_hurtbox.position = soft_body_fallback_offset
 
 
 # =============================================================================

@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://stone_eyebug_main"]
+[gd_scene load_steps=11 format=3 uid="uid://stone_eyebug_main"]
 
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/stone_eyebug.gd" id="1_script"]
 [ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
 [ext_resource type="Script" path="res://scene/light_receiver.gd" id="3_light_recv"]
 [ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/bt_stone_eyebug.tscn" id="4_bt"]
 [ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/Mollusc.tscn" id="5_mollusc"]
+[ext_resource type="Script" path="res://scene/soft_hurtbox.gd" id="6_soft_hurtbox"]
 
 [sub_resource type="CapsuleShape2D" id="body_shape"]
 radius = 16.0
@@ -15,6 +16,10 @@ radius = 20.0
 
 [sub_resource type="CircleShape2D" id="detect_shape"]
 radius = 150.0
+
+[sub_resource type="CircleShape2D" id="soft_hurtbox_shape"]
+; 软腹受击半径（比壳体小）；运行时 global_position 由 stone_eyebug.gd 骨骼追踪覆盖
+radius = 12.0
 
 ; =============================================================================
 ; StoneEyeBug（石眼虫 壳体阶段）
@@ -33,6 +38,7 @@ mollusc_scene = ExtResource("5_mollusc")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("body_shape")
 
+; 壳体受击盒：layer=8(EnemyHurtbox)，在 FLIPPED 阶段由 _update_hurtbox_states() 禁用
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
 collision_mask = 0
@@ -40,6 +46,21 @@ script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("hurtbox_shape")
+
+; 软腹受击盒：layer=8(EnemyHurtbox)，默认 monitoring=false
+; global_position 每帧由 stone_eyebug.gd._update_soft_hurtbox_position() 追踪骨骼 "belly"
+; monitoring 由 _update_hurtbox_states() 按 mode 控制：
+;   NORMAL          → true （打中软腹触发缩壳）
+;   RETREATING/IN_SHELL/EMPTY_SHELL → false
+;   FLIPPED+struggle → true （打中软腹触发分裂逃跑）
+[node name="SoftHurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+script = ExtResource("6_soft_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SoftHurtbox"]
+shape = SubResource("soft_hurtbox_shape")
 
 [node name="LightReceiver" type="Area2D" parent="."]
 collision_layer = 16
