@@ -17,6 +17,7 @@ var _alive_sec: float = 0.0
 var _target: Node2D = null
 var _reflected: bool = false
 var _done: bool = false  # 防止同帧多次命中
+var owner_bird: Node2D = null
 
 
 func setup(dir: Vector2, bullet_speed: float, target: Node2D = null) -> void:
@@ -29,10 +30,10 @@ func _ready() -> void:
 	# 物理层设置：
 	#   collision_layer = 32（hazards/Layer6）
 	#     → ghost_fist 的 hitbox（mask=40含32）可通过 area_entered 检测 BulletHurtbox 子节点
-	#   collision_mask  = 7（World=1 + PlayerBody=2 + EnemyBody=4）
-	#     → move_and_slide() 与地形/玩家/怪物发生物理碰撞，触发 _on_collide
+	#   collision_mask  = 2（PlayerBody）
+	#     → move_and_slide() 仅与玩家发生物理碰撞，命中策略与 master 语义一致
 	collision_layer = 32  # hazards(Layer6)
-	collision_mask = 1 | 2 | 4  # World(1) + PlayerBody(2) + EnemyBody(4)
+	collision_mask = 2  # PlayerBody(2)
 
 	# BulletHurtbox：Area2D 子节点，同置于 hazards(32) 层
 	# ghost_fist 的 Area2D hitbox（mask=40）通过 area_entered 检测此节点，
@@ -81,9 +82,11 @@ func _physics_process(dt: float) -> void:
 func _on_collide(collider: Node) -> void:
 	if collider == null or _done:
 		return
+	if collider == owner_bird:
+		return
 	_done = true
-	# 命中玩家或怪物 → apply_hit；命中地形等 → 直接消失
-	if collider.is_in_group("player") or collider is MonsterBase:
+	# 仅命中玩家 → apply_hit；其余情况直接消失
+	if collider.is_in_group("player"):
 		if collider.has_method("apply_hit"):
 			var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
 			collider.call("apply_hit", hit)
