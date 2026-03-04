@@ -24,9 +24,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if ghost == null:
 		return FAILURE
 
-	# 将 A/D/W 输入重定向为幽灵手的速度（S/下降无对应 action，暂不实现）
+	# 将 WASD 输入重定向为幽灵手的速度（无重力，四向自由飞行）
 	var dir_x := Input.get_axis(&"move_left", &"move_right")
-	var dir_y := -1.0 if Input.is_action_pressed(&"jump") else 0.0  # W → 上升
+	var dir_y := Input.get_axis(&"jump", &"move_down")  # W → 上升，S → 下降
 
 	ghost.velocity = Vector2(dir_x, dir_y) * MOVE_SPEED
 	ghost.move_and_slide()
