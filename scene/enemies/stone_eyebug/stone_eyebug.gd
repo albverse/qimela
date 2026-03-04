@@ -214,6 +214,7 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 空壳阶段：可被常规攻击打，走弱化流程
 	if mode == Mode.EMPTY_SHELL:
+		anim_play(&"hit_shell_small", false, false)  # 空壳受击视觉反馈
 		if hp_locked:
 			_flash_once()
 			return true
@@ -377,3 +378,4 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
 	_anim_mock._durations[&"escape_split"] = 0.6
+	_anim_mock._durations[&"hit_shell_small"] = 0.25

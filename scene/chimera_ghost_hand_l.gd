@@ -69,6 +69,10 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("chimera_ghost_hand_l")
 
+	# AttackArea 检测 EnemyBody(3)+hazards(6)，不含 PlayerBody 防止误伤玩家
+	if _attack_area != null:
+		_attack_area.collision_mask = 4 | 32  # EnemyBody(3) + hazards(6)
+
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
 		_anim_driver = AnimDriverSpine.new()
@@ -175,13 +179,10 @@ func resolve_hit_on_targets() -> void:
 	for body in bodies:
 		if not is_instance_valid(body):
 			continue
-		# 命中 StoneMaskBirdFaceBullet → Y 轴速度翻转（不走 apply_hit）
-		if body.get_class() == "CharacterBody2D" and body.has_method("get_script"):
-			var sc = body.get_script()
-			if sc != null and "StoneMaskBirdFaceBullet" in sc.get_path():
-				if "velocity" in body:
-					body.set("velocity", Vector2(body.get("velocity").x, -body.get("velocity").y))
-				continue  # 子弹处理完毕，不再走下面的 apply_hit
+		# 命中 StoneMaskBirdFaceBullet → 反弹（不走 apply_hit）
+		if body is StoneMaskBirdFaceBullet:
+			body.reflect()
+			continue  # 子弹处理完毕，不再走下面的 apply_hit
 		# 命中带壳石眼虫（NORMAL 态）→ 触发弹翻（不走 apply_hit，弹翻本身即为伤害效果）
 		if body is StoneEyeBug:
 			var seb := body as StoneEyeBug

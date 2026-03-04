@@ -28,6 +28,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if seb == null:
 		return FAILURE
 
+	# 空壳阶段：保持静止，播放 in_shell_loop 等待软体归来
+	if seb.mode == StoneEyeBug.Mode.EMPTY_SHELL:
+		seb.velocity = Vector2.ZERO
+		if not seb.anim_is_playing(&"in_shell_loop") and not seb.anim_is_playing(&"hit_shell_small"):
+			seb.anim_play(&"in_shell_loop", true, true)
+		return RUNNING
+
 	match _phase:
 		Phase.IDLE:
 			_tick_idle(seb)

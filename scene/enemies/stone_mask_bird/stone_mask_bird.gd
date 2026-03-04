@@ -358,8 +358,7 @@ func spawn_face_bullet(player: Node2D) -> void:
 		return
 	var bullet := StoneMaskBirdFaceBullet.new()
 	bullet.name = "FaceBullet"
-	bullet.collision_layer = 0
-	bullet.collision_mask = 2
+	# collision_layer/mask 由 StoneMaskBirdFaceBullet._ready() 设置，此处不覆盖
 
 	var sprite := Sprite2D.new()
 	sprite.texture = face_bullet_texture if face_bullet_texture != null else preload("res://icon.svg")
