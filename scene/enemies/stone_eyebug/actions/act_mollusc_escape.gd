@@ -45,7 +45,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	mollusc.move_and_slide()
 
 	# 更新剩余逃跑距离
-	var moved := abs(mollusc.velocity.x) * dt
+	var moved: float = absf(mollusc.velocity.x) * dt
 	mollusc.escape_remaining = max(mollusc.escape_remaining - moved, 0.0)
 	if mollusc.escape_remaining <= 0.0:
 		# 本轮逃跑完成，重新规划
