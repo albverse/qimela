@@ -285,9 +285,14 @@ func _is_player_attack(hit: HitData) -> bool:
 
 
 func _can_flip_on_hit(hit: HitData) -> bool:
-	# 设计确认：仅玩家 ghost_fist 可触发翻倒
-	return _is_player_attack(hit)
-
+	# 设计确认：仅以下来源触发翻倒：ghost_fist / chimera_ghost_hand_l / StoneMaskBirdFaceBullet
+	if hit == null:
+		return false
+	return (
+		hit.weapon_id == &"ghost_fist"
+		or hit.weapon_id == &"chimera_ghost_hand_l"
+		or hit.weapon_id == &"stone_mask_bird_face_bullet"
+	)
 
 
 func apply_hit(hit: HitData) -> bool:
@@ -336,7 +341,13 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- NORMAL 态软腹命中（通用攻击命中 SoftHurtbox）→ 缩壳，不扣血 ---
+	# --- NORMAL 态可翻转命中（ghost_fist / chimera_ghost_hand_l / 面具弹）---
+	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
+		mode = Mode.FLIPPED
+		_flash_once()
+		return true
+
+	# --- NORMAL 态软腹命中（仅缩壳流）→ 缩壳，不扣血 ---
 	if is_soft_hit and mode == Mode.NORMAL:
 		mode = Mode.RETREATING
 		shell_last_attacked_ms = Time.get_ticks_msec()
@@ -345,12 +356,6 @@ func apply_hit(hit: HitData) -> bool:
 			# 且需等待 2s（attack_cd）后才可进入 ATTACK_FLOW。
 			attack_enabled_after_player_retreat = true
 			next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
-		_flash_once()
-		return true
-
-	# --- NORMAL 态可翻转命中（玩家武器 + 面具弹）---
-	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
-		mode = Mode.FLIPPED
 		_flash_once()
 		return true
 
@@ -432,6 +437,20 @@ func _update_soft_hurtbox_position() -> void:
 # =============================================================================
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
+	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在命中前写入）
+	var is_soft_hit: bool = _next_hit_is_soft
+	_next_hit_is_soft = false
+
+	# NORMAL + SoftHurtbox 链命中：触发缩壳（非翻倒）
+	if mode == Mode.NORMAL and is_soft_hit:
+		mode = Mode.RETREATING
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		# 设计确认：只有玩家触发 retreat_in 后，等待 2s 才可攻击
+		attack_enabled_after_player_retreat = true
+		next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
+		_flash_once()
+		return 0
+
 	# 空壳 + 虚弱 → 可链接
 	if mode == Mode.EMPTY_SHELL and weak:
 		_linked_player = _player
