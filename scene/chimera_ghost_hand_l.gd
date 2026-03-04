@@ -40,6 +40,9 @@ var attack_requested: bool = false
 ## 攻击期间冻结玩家操控输入
 var control_input_frozen: bool = false
 
+## 幽灵攻击命中检测窗口（hit_on/off 等效，供 ForceCloseHitWindows 使用）
+var atk_hit_window_open: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -127,6 +130,11 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 # 伤害接口（受到任意伤害 → 触发重置）
 # =============================================================================
 
+func force_close_hit_windows() -> void:
+	## 强制关闭幽灵攻击命中检测窗口（见 0.1 节）
+	atk_hit_window_open = false
+
+
 func on_damage_received() -> void:
 	## 由攻击命中回调或 EventBus 调用，触发断链重置
 	took_damage = true
@@ -167,18 +175,20 @@ func resolve_hit_on_targets() -> void:
 	for body in bodies:
 		if not is_instance_valid(body):
 			continue
-		# 命中 StoneMaskBirdFaceBullet → Y 轴速度翻转
+		# 命中 StoneMaskBirdFaceBullet → Y 轴速度翻转（不走 apply_hit）
 		if body.get_class() == "CharacterBody2D" and body.has_method("get_script"):
 			var sc = body.get_script()
 			if sc != null and "StoneMaskBirdFaceBullet" in sc.get_path():
 				if "velocity" in body:
 					body.set("velocity", Vector2(body.get("velocity").x, -body.get("velocity").y))
-		# 命中 StoneEyeBug（带壳态）→ 触发弹翻
+				continue  # 子弹处理完毕，不再走下面的 apply_hit
+		# 命中带壳石眼虫（NORMAL 态）→ 触发弹翻（不走 apply_hit，弹翻本身即为伤害效果）
 		if body is StoneEyeBug:
 			var seb := body as StoneEyeBug
 			if seb.mode == StoneEyeBug.Mode.NORMAL:
 				seb.mode = StoneEyeBug.Mode.FLIPPED
 				seb._flash_once()
+			continue  # StoneEyeBug 统一在此处理，不再走下面的 apply_hit
 		# 命中其他实体 → 普通伤害
 		if body.has_method("apply_hit"):
 			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")

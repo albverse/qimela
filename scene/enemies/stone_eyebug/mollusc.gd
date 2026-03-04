@@ -49,6 +49,17 @@ var next_attack_end_ms: int = 0
 ## 是否正在执行攻击（供 BT 叶节点使用）
 var is_attacking: bool = false
 
+## 攻击命中检测窗口（见 0.1 节 ForceCloseHitWindows 安全机制）
+var atk1_window_open: bool = false
+var atk2_window_open: bool = false
+
+## 受击硬直标记（防止受击打断攻击时判定残留）
+var is_hurt: bool = false
+var hurt_lock_t: float = 0.0
+
+## 死亡动画播放中（播完后 queue_free）
+var _die_anim_playing: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -108,6 +119,18 @@ func _physics_process(dt: float) -> void:
 		if weak_stun_t <= 0.0:
 			_restore_from_weak()
 
+	# 死亡动画播放完毕 → 销毁
+	if _die_anim_playing:
+		if anim_is_finished(&"die"):
+			queue_free()
+		return
+
+	# 受击硬直计时
+	if hurt_lock_t > 0.0:
+		hurt_lock_t = max(hurt_lock_t - dt, 0.0)
+		if hurt_lock_t <= 0.0:
+			is_hurt = false
+
 	# 移动由 BT 叶节点控制；apply_gravity 在 Act_MolluscEscape 内处理
 
 
@@ -147,6 +170,43 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 # =============================================================================
 # 辅助方法（BT 叶节点调用）
 # =============================================================================
+
+func force_close_hit_windows() -> void:
+	## 强制关闭所有命中检测窗口（见 0.1 节）
+	atk1_window_open = false
+	atk2_window_open = false
+
+
+func apply_hit(hit: HitData) -> bool:
+	## 受击处理：真实伤害命中 → 播 hurt；hp<=0 → 播 die
+	if _die_anim_playing:
+		return false
+	var applied := super.apply_hit(hit)
+	if not applied:
+		return false
+	# 受击硬直（hurt_lock_t 内不重复触发）
+	if hurt_lock_t <= 0.0 and not _die_anim_playing:
+		_do_hurt()
+	return true
+
+
+func _do_hurt() -> void:
+	force_close_hit_windows()
+	is_hurt = true
+	hurt_lock_t = 0.3  # 300ms 防抽搐
+	anim_play(&"hurt", false, false)
+
+
+func _on_death() -> void:
+	## 覆盖基类：先播 die 动画，_physics_process 确认播完后才 queue_free
+	_die_anim_playing = true
+	force_close_hit_windows()
+	is_hurt = false
+	hurt_lock_t = 0.0
+	is_attacking = false
+	anim_play(&"die", false, false)
+	# 不调用 super()，延迟销毁
+
 
 func set_home_shell(shell: Node2D) -> void:
 	home_shell = shell

@@ -84,5 +84,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if seb != null:
 		seb.soft_hitbox_active = false
 		seb.velocity = Vector2.ZERO
+		seb.force_close_hit_windows()  # 安全关窗
 	_phase = Phase.FLIP
 	super(actor, blackboard)

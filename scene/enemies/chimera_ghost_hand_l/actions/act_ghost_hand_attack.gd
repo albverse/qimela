@@ -45,11 +45,13 @@ func _tick_freeze(ghost: ChimeraGhostHandL) -> int:
 	ghost.control_input_frozen = true
 	_phase = Phase.ATTACK_ANIM
 	ghost.anim_play(&"attack", false, false)
+	ghost.atk_hit_window_open = true  # 命中窗口开（hit_on 等效）
 	return RUNNING
 
 
 func _tick_attack(ghost: ChimeraGhostHandL) -> int:
 	if ghost.anim_is_finished(&"attack"):
+		ghost.atk_hit_window_open = false  # 命中窗口关（hit_off 等效）
 		# 命中检测（hit_on/off 事件在 Mock 中以动画结束点代替）
 		ghost.resolve_hit_on_targets()
 		_phase = Phase.UNFREEZE
@@ -76,5 +78,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 			player.call("set_external_control_frozen", false)
 		ghost.control_input_frozen = false
 		ghost.velocity = Vector2.ZERO
+		ghost.force_close_hit_windows()  # 强制关命中窗口（受伤重置打断攻击时）
 	_phase = Phase.FREEZE
 	super(actor, blackboard)

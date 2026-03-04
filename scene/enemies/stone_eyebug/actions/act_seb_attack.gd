@@ -44,11 +44,13 @@ func _tick_stop(seb: StoneEyeBug, player: Node2D) -> int:
 		seb.facing = 1 if player.global_position.x >= seb.global_position.x else -1
 	_phase = Phase.ATTACK_STONE
 	seb.anim_play(&"attack_stone", false, false)
+	seb.atk1_window_open = true  # 命中窗口开（atk1_hit_on 等效）
 	return RUNNING
 
 
 func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 	if seb.anim_is_finished(&"attack_stone"):
+		seb.atk1_window_open = false  # 命中窗口关（atk1_hit_off 等效）
 		# 命中判定：玩家是否仍在检测区
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
 			_apply_stone_stun(seb, player)
@@ -56,6 +58,7 @@ func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 		if seb.is_player_in_detect_area():
 			_phase = Phase.ATTACK_LICK
 			seb.anim_play(&"attack_lick", false, false)
+			seb.atk2_window_open = true  # 命中窗口开（atk2_hit_on 等效）
 		else:
 			_finish_attack(seb)
 	return RUNNING
@@ -69,6 +72,7 @@ func _apply_stone_stun(seb: StoneEyeBug, player: Node2D) -> void:
 
 func _tick_attack_lick(seb: StoneEyeBug, player: Node2D) -> int:
 	if seb.anim_is_finished(&"attack_lick"):
+		seb.atk2_window_open = false  # 命中窗口关（atk2_hit_off 等效）
 		# 命中判定：将玩家击退到检测区以外
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
 			_apply_lick_knockback(seb, player)
@@ -96,5 +100,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var seb := actor as StoneEyeBug
 	if seb != null:
 		seb.velocity = Vector2.ZERO
+		seb.force_close_hit_windows()  # 强制关命中窗口（雷击/弹翻打断时防止判定残留）
 	_phase = Phase.STOP
 	super(actor, blackboard)

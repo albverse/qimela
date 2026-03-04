@@ -99,5 +99,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if seb != null:
 		seb.velocity = Vector2.ZERO
 		seb.is_thunder_pending = false
+		seb.force_close_hit_windows()  # 安全关窗（弹翻打断缩壳时）
 	_phase = Phase.RETREAT_IN
 	super(actor, blackboard)

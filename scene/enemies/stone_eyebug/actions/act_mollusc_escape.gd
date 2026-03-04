@@ -19,6 +19,16 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if mollusc == null:
 		return FAILURE
 
+	# 死亡动画播放中：冻结移动，等待 _physics_process 销毁
+	if mollusc._die_anim_playing:
+		mollusc.velocity = Vector2.ZERO
+		return RUNNING
+
+	# 受击硬直中：冻结移动，等待 hurt 动画和 hurt_lock_t 结束
+	if mollusc.is_hurt:
+		mollusc.velocity = Vector2.ZERO
+		return RUNNING
+
 	var dt := mollusc.get_physics_process_delta_time()
 
 	# 重规划（玩家进入威胁距离）

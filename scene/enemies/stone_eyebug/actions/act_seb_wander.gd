@@ -90,5 +90,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var seb := actor as StoneEyeBug
 	if seb != null:
 		seb.velocity = Vector2.ZERO
+		seb.force_close_hit_windows()  # 安全关窗（通常无开窗，防残留）
 	_phase = Phase.IDLE
 	super(actor, blackboard)

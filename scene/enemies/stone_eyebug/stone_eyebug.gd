@@ -79,6 +79,10 @@ var next_attack_end_ms: int = 0
 ## FLIPPED 阶段是否已生成软体实例（防止重复 spawn）
 var mollusc_spawned: bool = false
 
+## 攻击命中检测窗口（供 ForceCloseHitWindows 安全机制使用，见 0.1 节）
+var atk1_window_open: bool = false
+var atk2_window_open: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -288,6 +292,12 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 # =============================================================================
 # 状态切换辅助（供 BT 叶节点调用）
 # =============================================================================
+
+func force_close_hit_windows() -> void:
+	## 强制关闭所有命中检测窗口（见 0.1 节：强制打断必须强制关命中窗口）
+	atk1_window_open = false
+	atk2_window_open = false
+
 
 func notify_become_empty_shell() -> void:
 	## 软体逃跑后，将壳变为空壳状态
