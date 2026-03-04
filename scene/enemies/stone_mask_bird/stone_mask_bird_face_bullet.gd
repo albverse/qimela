@@ -8,12 +8,13 @@ class_name StoneMaskBirdFaceBullet
 @export var speed: float = 720.0
 
 ## 存在时间（s）；超过后自动销毁
-@export var life_sec: float = 3.0
+@export var life_sec: float = 10.0
 
 ## 追踪持续时间（s）；在此时间内持续转向目标；超过后变直线弹
 @export var homing_duration_sec: float = 2.5
 
 var _alive_sec: float = 0.0
+var _bounce_count: int = 0
 var _target: Node2D = null
 var _reflected: bool = false
 var _done: bool = false  # 防止同帧多次命中
@@ -70,24 +71,41 @@ func _physics_process(dt: float) -> void:
 
 	# 碰撞处理（取第一个有效碰撞）
 	for i: int in get_slide_collision_count():
-		if _done:
-			break
 		var col := get_slide_collision(i)
 		if col == null:
 			continue
-		_on_collide(col.get_collider())
+		_on_collide(col)
+		break
 
 
-func _on_collide(collider: Node) -> void:
-	if collider == null or _done:
+func _on_collide(collision: KinematicCollision2D) -> void:
+	if collision == null or _done:
 		return
-	_done = true
-	# 命中玩家或怪物 → apply_hit；命中地形等 → 直接消失
-	if collider.is_in_group("player") or collider is MonsterBase:
-		if collider.has_method("apply_hit"):
-			var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
-			collider.call("apply_hit", hit)
-	queue_free()
+
+	var collider := collision.get_collider()
+	if collider == null or collider == self:
+		return
+
+	# 命中任意非自身目标：若可受击则造成伤害并销毁
+	if collider.has_method("apply_hit"):
+		_done = true
+		var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
+		collider.call("apply_hit", hit)
+		queue_free()
+		return
+
+	# 与世界（及不可受击对象）碰撞：反弹，最多 3 次
+	var n := collision.get_normal()
+	if n != Vector2.ZERO:
+		velocity = velocity.bounce(n)
+	else:
+		velocity = -velocity
+	_reflected = true
+	_target = null
+	_bounce_count += 1
+	if _bounce_count > 3:
+		_done = true
+		queue_free()
 
 
 func reflect() -> void:
