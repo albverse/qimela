@@ -7,6 +7,6 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost == null:
 		return FAILURE
-	if ghost.is_linked():
+	if ghost.is_active_control_slot():
 		return SUCCESS
 	return FAILURE

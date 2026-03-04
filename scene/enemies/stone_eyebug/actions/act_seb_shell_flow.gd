@@ -13,6 +13,10 @@ enum Phase { HIT_SHELL, RETREAT_IN, IN_SHELL, EMERGE }
 
 var _phase: int = Phase.RETREAT_IN
 var _retreat_start_ms: int = 0
+var _phase_start_ms: int = 0
+
+const HIT_SHELL_FALLBACK_MS: int = 300
+const EMERGE_FALLBACK_MS: int = 500
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -35,6 +39,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 
 	if thunder:
 		_phase = Phase.HIT_SHELL
+		_phase_start_ms = StoneEyeBug.now_ms()
 		seb.anim_play(&"hit_shell", false, true)
 	else:
 		_start_retreat(seb)
@@ -54,7 +59,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_hit_shell(seb: StoneEyeBug) -> int:
-	if seb.anim_is_finished(&"hit_shell"):
+	# 根因修复：当 Spine 动画资源/事件未就绪时，anim_is_finished 可能无法可靠推进，
+	# 导致卡死在 HIT_SHELL，后续 emerge_out 永远不会进入。
+	var elapsed_ms: int = StoneEyeBug.now_ms() - _phase_start_ms
+	if seb.anim_is_finished(&"hit_shell") or elapsed_ms >= HIT_SHELL_FALLBACK_MS:
 		_start_retreat(seb)
 	return RUNNING
 
@@ -62,6 +70,7 @@ func _tick_hit_shell(seb: StoneEyeBug) -> int:
 func _start_retreat(seb: StoneEyeBug) -> void:
 	seb.mode = StoneEyeBug.Mode.RETREATING
 	_retreat_start_ms = StoneEyeBug.now_ms()
+	_phase_start_ms = _retreat_start_ms
 	seb.ev_retreat_done = false
 	seb.anim_play(&"retreat_in", false, false)
 
@@ -84,14 +93,16 @@ func _tick_in_shell(seb: StoneEyeBug) -> int:
 	var safe_ms: int = int(seb.shell_safe_time * 1000.0)
 	if elapsed_ms >= safe_ms:
 		_phase = Phase.EMERGE
+		_phase_start_ms = StoneEyeBug.now_ms()
 		seb.ev_emerge_done = false
 		seb.anim_play(&"emerge_out", false, true)
 	return RUNNING
 
 
 func _tick_emerge(seb: StoneEyeBug) -> int:
-	# Spine emerge_done 事件优先；Fallback：轮询动画结束
-	if seb.ev_emerge_done or seb.anim_is_finished(&"emerge_out"):
+	# Spine emerge_done 事件优先；Fallback：轮询动画结束 + 固定时长兜底
+	var elapsed_ms: int = StoneEyeBug.now_ms() - _phase_start_ms
+	if seb.ev_emerge_done or seb.anim_is_finished(&"emerge_out") or elapsed_ms >= EMERGE_FALLBACK_MS:
 		seb.ev_emerge_done = false
 		seb.mode = StoneEyeBug.Mode.NORMAL
 		return SUCCESS

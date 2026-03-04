@@ -172,6 +172,28 @@ func teleport_to_player_side() -> void:
 	global_position = p.global_position + Vector2(-player_side_offset, -40.0)
 
 
+func is_active_control_slot() -> bool:
+	## 仅当本奇美拉占用当前 active_slot 时，才允许移动操控/攻击。
+	if not is_linked():
+		return false
+	var p := get_player_node()
+	if p == null or not is_instance_valid(p):
+		return false
+	if not ("chain_sys" in p):
+		return false
+	var cs = p.chain_sys
+	if cs == null or not ("active_slot" in cs):
+		return false
+	return int(cs.active_slot) == int(get_linked_slot())
+
+
+func on_player_interact(_player_ref: Player) -> void:
+	## 激活槽位上的 M 键交互：请求攻击。
+	if not is_active_control_slot():
+		return
+	request_attack()
+
+
 func request_attack() -> void:
 	## 玩家输入层调用：请求攻击
 	attack_requested = true

@@ -73,6 +73,7 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 var facing: int = 1
 var jump_request: bool = false
 var _player_locked: bool = false
+var _external_control_frozen: bool = false  # 由奇美拉等外部实体控制时冻结玩家输入
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
 
@@ -477,7 +478,7 @@ func get_action_state() -> StringName:
 	return action_fsm.state_name() if action_fsm != null else &"None"
 
 func is_horizontal_input_locked() -> bool:
-	if _player_locked:
+	if _player_locked or _external_control_frozen:
 		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
@@ -489,7 +490,7 @@ func is_horizontal_input_locked() -> bool:
 	return false
 
 func is_player_locked() -> bool:
-	if _player_locked:
+	if _player_locked or _external_control_frozen:
 		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
@@ -497,6 +498,16 @@ func is_player_locked() -> bool:
 
 func set_player_locked(locked: bool) -> void:
 	_player_locked = locked
+
+
+func set_external_control_frozen(frozen: bool) -> void:
+	_external_control_frozen = frozen
+	if frozen:
+		jump_request = false
+
+
+func is_external_control_frozen() -> bool:
+	return _external_control_frozen
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if health != null:

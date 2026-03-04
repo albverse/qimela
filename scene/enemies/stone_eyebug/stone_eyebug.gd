@@ -82,9 +82,11 @@ var shell_last_attacked_ms: int = 0
 ## 攻击冷却截止时间戳（ms）
 var next_attack_end_ms: int = 0
 
+## 空壳受击小反馈最短展示截止时间（避免 hit_shell_small 被同帧覆盖）
+var empty_shell_hit_small_until_ms: int = 0
+
 ## 仅当玩家触发 retreat_in 后才允许攻击（并进入 2s 冷却窗口）
 var attack_enabled_after_player_retreat: bool = false
-var retreat_attack_lock_end_ms: int = 0
 
 ## FLIPPED 阶段是否已生成软体实例（防止重复 spawn）
 var mollusc_spawned: bool = false
@@ -282,21 +284,12 @@ func _get_obj_name(obj: Object) -> StringName:
 func _is_player_attack(hit: HitData) -> bool:
 	if hit == null:
 		return false
-	if hit.source != null and is_instance_valid(hit.source) and hit.source.is_in_group("player"):
-		return true
-	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
-		return true
-	return false
+	return hit.weapon_id == &"ghost_fist"
 
 
 func _can_flip_on_hit(hit: HitData) -> bool:
-	if hit == null:
-		return false
-	if _is_player_attack(hit):
-		return true
-	if hit.weapon_id == &"stone_mask_bird_face_bullet":
-		return true
-	return false
+	# 设计确认：仅玩家 ghost_fist 可触发翻倒
+	return _is_player_attack(hit)
 
 
 
@@ -322,6 +315,7 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 空壳阶段：可被常规攻击打，走弱化流程
 	if mode == Mode.EMPTY_SHELL:
+		empty_shell_hit_small_until_ms = Time.get_ticks_msec() + 250
 		anim_play(&"hit_shell_small", false, false)  # 空壳受击视觉反馈
 		if hp_locked:
 			_flash_once()
@@ -351,8 +345,10 @@ func apply_hit(hit: HitData) -> bool:
 		mode = Mode.RETREATING
 		shell_last_attacked_ms = Time.get_ticks_msec()
 		if _is_player_attack(hit):
+			# 设计确认：StoneEyeBug 只有在玩家触发 retreat_in 后才允许攻击；
+			# 且需等待 2s（attack_cd）后才可进入 ATTACK_FLOW。
 			attack_enabled_after_player_retreat = true
-			retreat_attack_lock_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
+			next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
 		_flash_once()
 		return true
 
