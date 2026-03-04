@@ -53,12 +53,16 @@ var is_attacking: bool = false
 var atk1_window_open: bool = false
 var atk2_window_open: bool = false
 
+## Spine 事件标志（_on_spine_event 置位，BT 叶节点读取后清零）
+var ev_atk1_hit_on: bool = false
+var ev_atk1_hit_off: bool = false
+var ev_atk2_hit_on: bool = false
+var ev_atk2_hit_off: bool = false
+
 ## 受击硬直标记（防止受击打断攻击时判定残留）
 var is_hurt: bool = false
 var hurt_lock_t: float = 0.0
 
-## 死亡动画播放中（播完后 queue_free）
-var _die_anim_playing: bool = false
 
 # ===== 动画状态追踪 =====
 
@@ -98,6 +102,8 @@ func _ready() -> void:
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
 		_anim_driver.anim_completed.connect(_on_anim_completed)
+		if _spine_sprite.has_signal("animation_event"):
+			_spine_sprite.animation_event.connect(_on_spine_event)
 	else:
 		_anim_mock = AnimDriverMock.new()
 		_setup_mock_durations()
@@ -118,12 +124,6 @@ func _physics_process(dt: float) -> void:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
 			_restore_from_weak()
-
-	# 死亡动画播放完毕 → 销毁
-	if _die_anim_playing:
-		if anim_is_finished(&"die"):
-			queue_free()
-		return
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
@@ -178,14 +178,12 @@ func force_close_hit_windows() -> void:
 
 
 func apply_hit(hit: HitData) -> bool:
-	## 受击处理：真实伤害命中 → 播 hurt；hp<=0 → 播 die
-	if _die_anim_playing:
-		return false
+	## 受击处理：命中 → 播 hurt；hp 降到 weak_hp 进入虚弱眩晕（hp_locked=true）。
+	## Mollusc 无 die 状态，生命终结由 BT（回壳融合）或 FusionRegistry 的 queue_free() 处理。
 	var applied := super.apply_hit(hit)
 	if not applied:
 		return false
-	# 受击硬直（hurt_lock_t 内不重复触发）
-	if hurt_lock_t <= 0.0 and not _die_anim_playing:
+	if hurt_lock_t <= 0.0:
 		_do_hurt()
 	return true
 
@@ -195,17 +193,6 @@ func _do_hurt() -> void:
 	is_hurt = true
 	hurt_lock_t = 0.3  # 300ms 防抽搐
 	anim_play(&"hurt", false, false)
-
-
-func _on_death() -> void:
-	## 覆盖基类：先播 die 动画，_physics_process 确认播完后才 queue_free
-	_die_anim_playing = true
-	force_close_hit_windows()
-	is_hurt = false
-	hurt_lock_t = 0.0
-	is_attacking = false
-	anim_play(&"die", false, false)
-	# 不调用 super()，延迟销毁
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -283,6 +270,49 @@ static func now_ms() -> int:
 
 
 # =============================================================================
+# Spine 事件
+# =============================================================================
+
+func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
+	var event_name: StringName = _extract_spine_event_name([_a1, _a2, _a3, _a4])
+	if event_name == &"":
+		return
+	match event_name:
+		&"atk1_hit_on":  ev_atk1_hit_on = true;  atk1_window_open = true
+		&"atk1_hit_off": ev_atk1_hit_off = true; atk1_window_open = false
+		&"atk2_hit_on":  ev_atk2_hit_on = true;  atk2_window_open = true
+		&"atk2_hit_off": ev_atk2_hit_off = true; atk2_window_open = false
+
+
+func _extract_spine_event_name(args: Array) -> StringName:
+	for arg in args:
+		if arg == null:
+			continue
+		if arg is StringName:
+			return arg
+		if arg is String:
+			return StringName(arg)
+		if arg.has_method("get_data"):
+			var d: Variant = arg.get_data()
+			if d != null:
+				var n: StringName = _get_obj_name(d)
+				if n != &"":
+					return n
+		var n: StringName = _get_obj_name(arg)
+		if n != &"":
+			return n
+	return &""
+
+
+func _get_obj_name(obj: Object) -> StringName:
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
+
+
+# =============================================================================
 # Mock 驱动时长
 # =============================================================================
 
@@ -293,4 +323,4 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3
-	_anim_mock._durations[&"die"] = 0.6
+	_anim_mock._durations[&"weak_stun"] = 5.0  # 虚弱眩晕循环动画（循环播放，时长仅供 Mock 参考）

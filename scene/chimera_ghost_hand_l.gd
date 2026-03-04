@@ -43,6 +43,10 @@ var control_input_frozen: bool = false
 ## 幽灵攻击命中检测窗口（hit_on/off 等效，供 ForceCloseHitWindows 使用）
 var atk_hit_window_open: bool = false
 
+## Spine 事件标志（_on_spine_event 置位，BT 叶节点读取后清零）
+var ev_hit_on: bool = false
+var ev_attack_done: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -79,6 +83,8 @@ func _ready() -> void:
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
 		_anim_driver.anim_completed.connect(_on_anim_completed)
+		if _spine_sprite.has_signal("animation_event"):
+			_spine_sprite.animation_event.connect(_on_spine_event)
 	else:
 		_anim_mock = AnimDriverMock.new()
 		_setup_mock_durations()
@@ -183,13 +189,11 @@ func resolve_hit_on_targets() -> void:
 		if body is StoneMaskBirdFaceBullet:
 			body.reflect()
 			continue  # 子弹处理完毕，不再走下面的 apply_hit
-		# 命中带壳石眼虫（NORMAL 态）→ 触发弹翻（不走 apply_hit，弹翻本身即为伤害效果）
+		# 命中石眼虫 → 经 apply_hit 统一处理（ghost_fist/chimera_ghost_hand_l 武器 ID 触发弹翻逻辑）
 		if body is StoneEyeBug:
-			var seb := body as StoneEyeBug
-			if seb.mode == StoneEyeBug.Mode.NORMAL:
-				seb.mode = StoneEyeBug.Mode.FLIPPED
-				seb._flash_once()
-			continue  # StoneEyeBug 统一在此处理，不再走下面的 apply_hit
+			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
+			body.call("apply_hit", hit)
+			continue
 		# 命中其他实体 → 普通伤害
 		if body.has_method("apply_hit"):
 			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
@@ -198,6 +202,48 @@ func resolve_hit_on_targets() -> void:
 
 static func now_ms() -> int:
 	return Time.get_ticks_msec()
+
+
+# =============================================================================
+# Spine 事件
+# =============================================================================
+
+func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
+	var event_name: StringName = _extract_spine_event_name([_a1, _a2, _a3, _a4])
+	if event_name == &"":
+		return
+	match event_name:
+		&"hit_on":       ev_hit_on = true;      atk_hit_window_open = true
+		&"hit_off":      atk_hit_window_open = false
+		&"attack_done":  ev_attack_done = true
+
+
+func _extract_spine_event_name(args: Array) -> StringName:
+	for arg in args:
+		if arg == null:
+			continue
+		if arg is StringName:
+			return arg
+		if arg is String:
+			return StringName(arg)
+		if arg.has_method("get_data"):
+			var d: Variant = arg.get_data()
+			if d != null:
+				var n: StringName = _get_obj_name(d)
+				if n != &"":
+					return n
+		var n: StringName = _get_obj_name(arg)
+		if n != &"":
+			return n
+	return &""
+
+
+func _get_obj_name(obj: Object) -> StringName:
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
 
 
 # =============================================================================

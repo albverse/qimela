@@ -1,11 +1,22 @@
 extends ActionLeaf
 class_name ActGhostHandLinkedMove
 
-## 幽灵手跟随：被链接时随玩家移动（无重力，飞行）。
-## 永远返回 RUNNING。
+## 幽灵手链接操控：被链接时冻结玩家自身移动，将 WASD/Jump 输入重定向到幽灵手。
+## A/D → 幽灵手水平移动；W/Jump → 幽灵手上升；S → 幽灵手下降（无重力）。
+## 切换 slot 或断开链接时，SelectorReactive interrupt 自动解冻玩家。
 
-const FOLLOW_OFFSET: Vector2 = Vector2(-80.0, -40.0)
-## 跟随偏移：幽灵手悬停在玩家左上方
+const MOVE_SPEED: float = 200.0
+## 链接操控速度（px/s）
+
+
+func before_run(actor: Node, _blackboard: Blackboard) -> void:
+	var ghost := actor as ChimeraGhostHandL
+	if ghost == null:
+		return
+	# 冻结玩家自身方向输入
+	var player := ghost.get_player_node()
+	if player != null and player.has_method("set_external_control_frozen"):
+		player.call("set_external_control_frozen", true)
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -13,33 +24,31 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if ghost == null:
 		return FAILURE
 
-	var player := ghost.get_player_node()
-	if player == null:
-		ghost.velocity = Vector2.ZERO
-		ghost.move_and_slide()
-		if not ghost.anim_is_playing(&"idle_float"):
-			ghost.anim_play(&"idle_float", true, true)
-		return RUNNING
+	# 将 A/D/W 输入重定向为幽灵手的速度（S/下降无对应 action，暂不实现）
+	var dir_x := Input.get_axis(&"move_left", &"move_right")
+	var dir_y := -1.0 if Input.is_action_pressed(&"jump") else 0.0  # W → 上升
 
-	var target := player.global_position + FOLLOW_OFFSET
-	var to_target := target - ghost.global_position
-	var dist := to_target.length()
+	ghost.velocity = Vector2(dir_x, dir_y) * MOVE_SPEED
+	ghost.move_and_slide()
 
-	if dist > 8.0:
-		ghost.velocity = to_target.normalized() * ghost.float_speed
-		if not ghost.anim_is_playing(&"move_float") and not ghost.anim_is_playing(&"idle_float"):
+	# 动画：有输入播 move_float，静止播 idle_float
+	var is_moving := ghost.velocity.length_squared() > 1.0
+	if is_moving:
+		if not ghost.anim_is_playing(&"move_float"):
 			ghost.anim_play(&"move_float", true, true)
 	else:
-		ghost.velocity = Vector2.ZERO
 		if not ghost.anim_is_playing(&"idle_float"):
 			ghost.anim_play(&"idle_float", true, true)
 
-	ghost.move_and_slide()
 	return RUNNING
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost != null:
+		# 解冻玩家操控，恢复正常移动
+		var player := ghost.get_player_node()
+		if player != null and player.has_method("set_external_control_frozen"):
+			player.call("set_external_control_frozen", false)
 		ghost.velocity = Vector2.ZERO
 	super(actor, blackboard)

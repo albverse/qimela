@@ -48,8 +48,8 @@ enum Mode {
 @export var mollusc_scene: PackedScene = null
 ## 软体虫实例场景，运行时 spawn
 
-@export var soft_body_bone: String = "belly"
-## SoftHurtbox 追踪的 Spine 骨骼名；骨骼必须在 Spine 骨架中存在
+@export var soft_body_bone: String = "Mollusc"
+## SoftHurtbox 追踪的 Spine 骨骼名；骨骼必须在 Spine 骨架中存在（蓝图规定命名：Mollusc）
 
 @export var soft_body_fallback_offset: Vector2 = Vector2(0.0, 14.0)
 ## Mock 模式（无 Spine）或骨骼查询失败时 SoftHurtbox 的本地坐标偏移（px，相对根节点）
@@ -91,6 +91,22 @@ var atk2_window_open: bool = false
 
 ## 本帧下一次 apply_hit() 视为软体命中（由 SoftHurtbox.get_host() 在命中前写入，命中后立即清除）
 var _next_hit_is_soft: bool = false
+
+# ===== Spine 事件标志（_on_spine_event 写入，BT 叶节点读取后立即清除）=====
+## 攻击1命中窗口开/关（atk1_hit_on / atk1_hit_off）
+var ev_atk1_hit_on: bool = false
+var ev_atk1_hit_off: bool = false
+## 攻击2命中窗口开/关（atk2_hit_on / atk2_hit_off）
+var ev_atk2_hit_on: bool = false
+var ev_atk2_hit_off: bool = false
+## 缩壳动画完成（retreat_done）
+var ev_retreat_done: bool = false
+## 出壳动画完成（emerge_done）
+var ev_emerge_done: bool = false
+## 弹翻动画完成（flip_done）
+var ev_flip_done: bool = false
+## 软体生成精确帧（escape_spawn）
+var ev_escape_spawn: bool = false
 
 # ===== 动画状态追踪 =====
 
@@ -209,9 +225,50 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_finished = true
 
 
-func _on_spine_event(_a1, _a2, _a3, _a4) -> void:
-	## Spine 事件回调（escape_spawn 等事件由 BT 动作轮询计时，不依赖此信号）
-	pass
+func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
+	## Spine 动画事件回调（事件名解析后写入 ev_* 标志，BT 叶节点读取并驱动状态转移）
+	var event_name: StringName = _extract_spine_event_name([_a1, _a2, _a3, _a4])
+	if event_name == &"":
+		return
+	match event_name:
+		&"atk1_hit_on":   ev_atk1_hit_on = true;  atk1_window_open = true
+		&"atk1_hit_off":  ev_atk1_hit_off = true; atk1_window_open = false
+		&"atk2_hit_on":   ev_atk2_hit_on = true;  atk2_window_open = true
+		&"atk2_hit_off":  ev_atk2_hit_off = true; atk2_window_open = false
+		&"retreat_done":  ev_retreat_done = true
+		&"emerge_done":   ev_emerge_done = true
+		&"flip_done":     ev_flip_done = true
+		&"escape_spawn":  ev_escape_spawn = true
+
+
+func _extract_spine_event_name(args: Array) -> StringName:
+	## 从 Spine animation_event 信号的不定参数中提取事件名（兼容多版本 spine-godot 运行时）
+	for arg in args:
+		if arg == null:
+			continue
+		if arg is StringName:
+			return arg
+		if arg is String:
+			return StringName(arg)
+		# SpineTrackEntry.get_data() → SpineEventData.get_name()
+		if arg.has_method("get_data"):
+			var d: Variant = arg.get_data()
+			if d != null:
+				var n: StringName = _get_obj_name(d)
+				if n != &"":
+					return n
+		var n: StringName = _get_obj_name(arg)
+		if n != &"":
+			return n
+	return &""
+
+
+func _get_obj_name(obj: Object) -> StringName:
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
 
 
 # =============================================================================

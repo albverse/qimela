@@ -3,13 +3,17 @@ class_name ActGhostHandAttack
 
 ## 幽灵手攻击：冻结操控 → 播 attack 动画 → 命中检测 → 解冻操控 → 清除请求。
 ## 命中规则：
-##   - StoneMaskBirdFaceBullet → bullet.velocity.y *= -1
-##   - StoneEyeBug（带壳态 NORMAL）→ 触发弹翻
+##   - StoneMaskBirdFaceBullet → bullet.reflect()
+##   - StoneEyeBug → apply_hit（weapon_id=chimera_ghost_hand_l，内部触发弹翻）
 ##   - 其他实体 → 普通伤害
+##
+## 命中时机依赖 Spine 事件：hit_on / attack_done。
+## Mock 兜底：动画结束点作为命中时机。
 
 enum Phase { FREEZE, ATTACK_ANIM, UNFREEZE, DONE }
 
 var _phase: int = Phase.FREEZE
+var _hit_resolved: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -38,22 +42,30 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_freeze(ghost: ChimeraGhostHandL) -> int:
-	# 冻结玩家操控输入
 	var player := ghost.get_player_node()
 	if player != null and player.has_method("set_external_control_frozen"):
 		player.call("set_external_control_frozen", true)
 	ghost.control_input_frozen = true
 	_phase = Phase.ATTACK_ANIM
+	_hit_resolved = false
+	ghost.ev_hit_on = false
+	ghost.ev_attack_done = false
 	ghost.anim_play(&"attack", false, false)
-	ghost.atk_hit_window_open = true  # 命中窗口开（hit_on 等效）
 	return RUNNING
 
 
 func _tick_attack(ghost: ChimeraGhostHandL) -> int:
-	if ghost.anim_is_finished(&"attack"):
-		ghost.atk_hit_window_open = false  # 命中窗口关（hit_off 等效）
-		# 命中检测（hit_on/off 事件在 Mock 中以动画结束点代替）
+	# Spine hit_on：命中窗口开，立即执行命中检测
+	if not _hit_resolved and ghost.ev_hit_on:
+		ghost.ev_hit_on = false
+		_hit_resolved = true
 		ghost.resolve_hit_on_targets()
+	# Spine attack_done 或 Mock anim_finished：动画结束，推进到解冻
+	if ghost.ev_attack_done or ghost.anim_is_finished(&"attack"):
+		ghost.ev_attack_done = false
+		# Mock 兜底：若 Spine 未触发 hit_on，在动画结束点执行命中检测
+		if not _hit_resolved:
+			ghost.resolve_hit_on_targets()
 		_phase = Phase.UNFREEZE
 	return RUNNING
 
