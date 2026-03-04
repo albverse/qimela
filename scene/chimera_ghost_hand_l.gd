@@ -73,9 +73,9 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("chimera_ghost_hand_l")
 
-	# AttackArea 检测 EnemyBody(3)+hazards(6)，不含 PlayerBody 防止误伤玩家
+	# AttackArea 检测 EnemyBody(3) + enemy_hurtbox(4) + hazards(6)，不含 PlayerBody 防止误伤玩家
 	if _attack_area != null:
-		_attack_area.collision_mask = 4 | 32  # EnemyBody(3) + hazards(6)
+		_attack_area.collision_mask = 4 | 8 | 32  # EnemyBody(3) + enemy_hurtbox(4) + hazards(6)
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -181,23 +181,63 @@ func resolve_hit_on_targets() -> void:
 	## 检测攻击区域内的目标并处理命中效果
 	if _attack_area == null:
 		return
+	var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
+	var seen: Dictionary = {}
+
 	var bodies := _attack_area.get_overlapping_bodies()
 	for body in bodies:
 		if not is_instance_valid(body):
 			continue
+		var rid_b: RID = body.get_rid()
+		if seen.has(rid_b):
+			continue
+		seen[rid_b] = true
 		# 命中 StoneMaskBirdFaceBullet → 反弹（不走 apply_hit）
 		if body is StoneMaskBirdFaceBullet:
 			body.reflect()
-			continue  # 子弹处理完毕，不再走下面的 apply_hit
-		# 命中石眼虫 → 经 apply_hit 统一处理（ghost_fist/chimera_ghost_hand_l 武器 ID 触发弹翻逻辑）
-		if body is StoneEyeBug:
-			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
-			body.call("apply_hit", hit)
 			continue
-		# 命中其他实体 → 普通伤害
 		if body.has_method("apply_hit"):
-			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
 			body.call("apply_hit", hit)
+
+	var areas := _attack_area.get_overlapping_areas()
+	for area in areas:
+		if not is_instance_valid(area):
+			continue
+		var rid_a: RID = area.get_rid()
+		if seen.has(rid_a):
+			continue
+		seen[rid_a] = true
+		var bullet := _resolve_bullet(area)
+		if bullet != null:
+			bullet.reflect()
+			continue
+		var target := _resolve_monster(area)
+		if target != null:
+			target.apply_hit(hit)
+
+
+func _resolve_monster(area_or_body: Node) -> MonsterBase:
+	var cur: Node = area_or_body
+	if cur != null and cur.has_method("get_host"):
+		cur = cur.call("get_host")
+	for _i: int in range(6):
+		if cur == null:
+			return null
+		if cur is MonsterBase:
+			return cur as MonsterBase
+		cur = cur.get_parent()
+	return null
+
+
+func _resolve_bullet(area_or_body: Node) -> StoneMaskBirdFaceBullet:
+	var cur: Node = area_or_body
+	for _i: int in range(4):
+		if cur == null:
+			return null
+		if cur is StoneMaskBirdFaceBullet:
+			return cur as StoneMaskBirdFaceBullet
+		cur = cur.get_parent()
+	return null
 
 
 static func now_ms() -> int:

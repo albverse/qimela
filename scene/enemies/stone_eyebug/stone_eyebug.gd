@@ -82,6 +82,10 @@ var shell_last_attacked_ms: int = 0
 ## 攻击冷却截止时间戳（ms）
 var next_attack_end_ms: int = 0
 
+## 仅当玩家触发 retreat_in 后才允许攻击（并进入 2s 冷却窗口）
+var attack_enabled_after_player_retreat: bool = false
+var retreat_attack_lock_end_ms: int = 0
+
 ## FLIPPED 阶段是否已生成软体实例（防止重复 spawn）
 var mollusc_spawned: bool = false
 
@@ -275,6 +279,27 @@ func _get_obj_name(obj: Object) -> StringName:
 # 受击规则
 # =============================================================================
 
+func _is_player_attack(hit: HitData) -> bool:
+	if hit == null:
+		return false
+	if hit.source != null and is_instance_valid(hit.source) and hit.source.is_in_group("player"):
+		return true
+	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
+		return true
+	return false
+
+
+func _can_flip_on_hit(hit: HitData) -> bool:
+	if hit == null:
+		return false
+	if _is_player_attack(hit):
+		return true
+	if hit.weapon_id == &"stone_mask_bird_face_bullet":
+		return true
+	return false
+
+
+
 func apply_hit(hit: HitData) -> bool:
 	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在本帧命中前写入）
 	var is_soft_hit: bool = _next_hit_is_soft
@@ -310,25 +335,6 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 壳体保护阶段（NORMAL / RETREATING / IN_SHELL）
 
-	# --- ghost_fist / chimera_ghost_hand_l → 弹翻（优先级最高，绕过软腹规则）---
-	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		# 缩壳/壳内：壳保护，反向行走，刷新受攻时间
-		_reflect_from_shell(hit)
-		return true
-
-	# --- StoneMaskBirdFaceBullet → 弹翻（仅 NORMAL 态，优先级同上）---
-	if hit.weapon_id == &"stone_mask_bird_face_bullet":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		_reflect_from_shell(hit)
-		return true
-
 	# --- 雷花 → 触发缩壳 ---
 	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower":
 		if mode != Mode.RETREATING and mode != Mode.IN_SHELL:
@@ -344,6 +350,15 @@ func apply_hit(hit: HitData) -> bool:
 	if is_soft_hit and mode == Mode.NORMAL:
 		mode = Mode.RETREATING
 		shell_last_attacked_ms = Time.get_ticks_msec()
+		if _is_player_attack(hit):
+			attack_enabled_after_player_retreat = true
+			retreat_attack_lock_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
+		_flash_once()
+		return true
+
+	# --- NORMAL 态可翻转命中（玩家武器 + 面具弹）---
+	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
+		mode = Mode.FLIPPED
 		_flash_once()
 		return true
 
