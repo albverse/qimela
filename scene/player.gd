@@ -23,6 +23,7 @@ extends CharacterBody2D
 @export var action_chain_cancel: StringName = &"cancel_chains"
 @export var action_fuse: StringName = &"fuse"
 @export var action_healing_burst: StringName = &"healing_burst"
+@export var action_chain_switch_slot: StringName = &"switch_chain_slot"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
@@ -271,6 +272,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	# W / jump → LocomotionFSM
 	if _is_action_just_pressed(event, action_jump, KEY_W):
 		loco_fsm.on_w_pressed()
+		return
+	# Tab / switch chain slot
+	if _is_action_just_pressed(event, action_chain_switch_slot, KEY_TAB):
+		var is_chain: bool = (
+			weapon_controller != null
+			and weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN
+		)
+		if is_chain and chain_sys != null and chain_sys.has_method("switch_slot"):
+			chain_sys.switch_slot()
+			log_msg("INPUT", "Tab_pressed: manual chain slot switch")
 		return
 
 	# === HANDOFF 推荐方案：Chain 绕过 ActionFSM，作为 overlay ===

@@ -1,58 +1,52 @@
-[gd_scene load_steps=11 format=3 uid="uid://stone_eyebug_main"]
+[gd_scene load_steps=12 format=3 uid="uid://c2b8gjfqbjoca"]
 
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/stone_eyebug.gd" id="1_script"]
-[ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
-[ext_resource type="Script" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="Script" uid="uid://bkaor0x2be4mn" path="res://scene/enemies/stone_eyebug/stone_eyebug.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://cp31slnedta7r" path="res://scene/enemies/stone_eyebug/spine_art/stone_eyebug.tres" id="3_cy17c"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="3_light_recv"]
 [ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/bt_stone_eyebug.tscn" id="4_bt"]
 [ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/Mollusc.tscn" id="5_mollusc"]
-[ext_resource type="Script" path="res://scene/soft_hurtbox.gd" id="6_soft_hurtbox"]
+[ext_resource type="Script" uid="uid://b05ts55g6stjj" path="res://scene/soft_hurtbox.gd" id="6_soft_hurtbox"]
 
 [sub_resource type="CapsuleShape2D" id="body_shape"]
 radius = 16.0
 height = 32.0
 
 [sub_resource type="CircleShape2D" id="hurtbox_shape"]
-radius = 20.0
+radius = 64.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_35hdl"]
+size = Vector2(206, 28)
 
 [sub_resource type="CircleShape2D" id="detect_shape"]
-radius = 150.0
+radius = 129.00388
 
-[sub_resource type="CircleShape2D" id="soft_hurtbox_shape"]
-; 软腹受击半径（比壳体小）；运行时 global_position 由 stone_eyebug.gd 骨骼追踪覆盖
-radius = 12.0
-
-; =============================================================================
-; StoneEyeBug（石眼虫 壳体阶段）
-; collision_layer = 4  # EnemyBody(3)
-; collision_mask = 1   # World(1)
-; =============================================================================
 [node name="StoneEyeBug" type="CharacterBody2D"]
 collision_layer = 4
-collision_mask = 1
 script = ExtResource("1_script")
 mollusc_scene = ExtResource("5_mollusc")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-; 占位精灵，待 Spine 资源完成后替换为 SpineSprite
+[node name="SpineSprite" type="SpineSprite" parent="."]
+skeleton_data_res = ExtResource("3_cy17c")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(9, -17)
 shape = SubResource("body_shape")
 
-; 壳体受击盒：layer=8(EnemyHurtbox)，在 FLIPPED 阶段由 _update_hurtbox_states() 禁用
 [node name="Hurtbox" type="Area2D" parent="."]
+position = Vector2(1, -52)
 collision_layer = 8
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(8, -5)
 shape = SubResource("hurtbox_shape")
 
-; 软腹受击盒：layer=8(EnemyHurtbox)，默认 monitoring=false
-; global_position 每帧由 stone_eyebug.gd._update_soft_hurtbox_position() 追踪骨骼 "belly"
-; monitoring 由 _update_hurtbox_states() 按 mode 控制：
-;   NORMAL          → true （打中软腹触发缩壳）
-;   RETREATING/IN_SHELL/EMPTY_SHELL → false
-;   FLIPPED+struggle → true （打中软腹触发分裂逃跑）
 [node name="SoftHurtbox" type="Area2D" parent="."]
 collision_layer = 8
 collision_mask = 0
@@ -60,7 +54,9 @@ monitoring = false
 script = ExtResource("6_soft_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="SoftHurtbox"]
-shape = SubResource("soft_hurtbox_shape")
+position = Vector2(9, -13)
+shape = SubResource("RectangleShape2D_35hdl")
+debug_color = Color(0.95640117, 0, 0.540705, 0.41960785)
 
 [node name="LightReceiver" type="Area2D" parent="."]
 collision_layer = 16
@@ -68,13 +64,18 @@ collision_mask = 16
 script = ExtResource("3_light_recv")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+position = Vector2(9, -56)
 shape = SubResource("hurtbox_shape")
+debug_color = Color(0.59017456, 0.5433032, 0.06837133, 0.41960785)
 
 [node name="DetectArea" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea"]
+position = Vector2(11, -40)
 shape = SubResource("detect_shape")
 
-[node name="BeehaveTree" parent="." instance=ExtResource("4_bt")]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+blackboard = NodePath("@Node@24593")
+actor = NodePath("..")

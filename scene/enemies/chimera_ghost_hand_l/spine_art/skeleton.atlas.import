@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://ccmjnkwbv4m03"
+path="res://.godot/imported/skeleton.atlas-e6d79acef54ee2d27eb7193ad95aefff.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/chimera_ghost_hand_l/spine_art/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-e6d79acef54ee2d27eb7193ad95aefff.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

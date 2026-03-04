@@ -1,0 +1,13 @@
+skeleton.png
+size:492,154
+filter:Linear,Linear
+pma:true
+Mollusc
+bounds:2,17,323,135
+face
+bounds:327,2,102,127
+offsets:8,6,123,140
+rotate:90
+te
+bounds:327,106,163,46
+offsets:5,1,169,57
