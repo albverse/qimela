@@ -31,14 +31,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# 空壳阶段：保持静止，播放 in_shell_loop 等待软体归来
 	if seb.mode == StoneEyeBug.Mode.EMPTY_SHELL:
 		seb.velocity = Vector2.ZERO
-		var now_ms := StoneEyeBug.now_ms()
-		# 根因修复：某些 Spine 资源未就绪时 hit_shell_small 可能瞬时完成，
-		# 导致肉眼看不到。这里加最短展示窗口，避免立即被 in_shell_loop 覆盖。
-		if now_ms < seb.empty_shell_hit_small_until_ms:
-			if not seb.anim_is_playing(&"hit_shell_small"):
-				seb.anim_play(&"hit_shell_small", false, false)
-			return RUNNING
-		if not seb.anim_is_playing(&"in_shell_loop"):
+		if not seb.anim_is_playing(&"in_shell_loop") and not seb.anim_is_playing(&"hit_shell_small"):
 			seb.anim_play(&"in_shell_loop", true, true)
 		return RUNNING
 

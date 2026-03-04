@@ -82,9 +82,6 @@ var shell_last_attacked_ms: int = 0
 ## 攻击冷却截止时间戳（ms）
 var next_attack_end_ms: int = 0
 
-## 空壳受击小反馈最短展示截止时间（避免 hit_shell_small 被同帧覆盖）
-var empty_shell_hit_small_until_ms: int = 0
-
 ## 仅当玩家触发 retreat_in 后才允许攻击（并进入 2s 冷却窗口）
 var attack_enabled_after_player_retreat: bool = false
 
@@ -315,7 +312,6 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 空壳阶段：可被常规攻击打，走弱化流程
 	if mode == Mode.EMPTY_SHELL:
-		empty_shell_hit_small_until_ms = Time.get_ticks_msec() + 250
 		anim_play(&"hit_shell_small", false, false)  # 空壳受击视觉反馈
 		if hp_locked:
 			_flash_once()
