@@ -245,21 +245,43 @@ func find_empty_shell() -> Node2D:
 
 
 func is_player_in_attack_range() -> bool:
-	var player := get_player()
-	if player == null:
-		return false
-	return global_position.distance_to(player.global_position) <= attack_range
+	return _get_attack_target_in_range(attack_range) != null
 
 
 func is_player_near_threat() -> bool:
-	var player := get_player()
-	if player == null:
-		return false
-	return global_position.distance_to(player.global_position) <= threat_dist
+	return _get_attack_target_in_range(threat_dist) != null
 
 
 func get_player() -> Node2D:
-	return get_priority_attack_target()
+	## Beehave 优先：仅在“攻击分支已判定进入攻击范围”时再取攻击目标。
+	## 这里严格限制为 attack_range 内目标，避免主动寻敌改变行为树语义。
+	return _get_attack_target_in_range(attack_range)
+
+
+func _get_attack_target_in_range(range_limit: float) -> Node2D:
+	if range_limit <= 0.0:
+		return null
+	var targets := get_tree().get_nodes_in_group(ATTACK_TARGET_GROUP)
+	if targets.is_empty():
+		targets = get_tree().get_nodes_in_group("player")
+	if targets.is_empty():
+		return null
+
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for t in targets:
+		if not is_instance_valid(t):
+			continue
+		var n := t as Node2D
+		if n == null:
+			continue
+		var d := global_position.distance_to(n.global_position)
+		if d > range_limit:
+			continue
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = n
+	return nearest
 
 
 func is_wall_ahead() -> bool:
@@ -305,18 +327,16 @@ func _ray_hits_world(from: Vector2, to: Vector2) -> bool:
 
 
 func plan_escape_if_player_near() -> void:
-	## 若玩家在威胁距离内则重新规划逃跑路线
-	var player := get_player()
+	## 若威胁范围内存在攻击目标则重新规划逃跑路线
+	var player := _get_attack_target_in_range(threat_dist)
 	if player == null:
 		return
-	var dist := global_position.distance_to(player.global_position)
-	if dist <= threat_dist:
-		# 逃离玩家：往玩家反方向
-		var dx := global_position.x - player.global_position.x
-		escape_dir_x = 1 if dx >= 0.0 else -1
-		# 仅在未处于“逃跑段”时装填距离，避免每帧重置导致 escape_dist 永远跑不完。
-		if escape_remaining <= 0.0:
-			escape_remaining = escape_dist
+	# 逃离目标：往目标反方向
+	var dx := global_position.x - player.global_position.x
+	escape_dir_x = 1 if dx >= 0.0 else -1
+	# 仅在未处于“逃跑段”时装填距离，避免每帧重置导致 escape_dist 永远跑不完。
+	if escape_remaining <= 0.0:
+		escape_remaining = escape_dist
 
 
 static func now_ms() -> int:
