@@ -134,7 +134,6 @@ var _anim_mock: AnimDriverMock = null
 
 var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
 var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
-var _light_receiver: Area2D = null ## 受光盒缓存（LightReceiver 节点）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -152,7 +151,6 @@ func _ready() -> void:
 
 	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
 	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
-	_light_receiver = get_node_or_null("LightReceiver") as Area2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -187,12 +185,6 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
-
-	# 雷击反应：通过光照累计触发（外部事件驱动），命中后立刻进入 hit_shell -> retreat_in 流程。
-	if mode == Mode.NORMAL and light_counter >= light_counter_max:
-		is_thunder_pending = true
-		mode = Mode.RETREATING
-		light_counter = 0.0
 
 	_update_hurtbox_states()
 	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
