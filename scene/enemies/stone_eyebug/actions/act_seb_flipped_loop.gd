@@ -92,7 +92,9 @@ func _tick_recover(seb: StoneEyeBug) -> int:
 		seb.was_attacked_while_flipped = false
 		seb.flipped_recover_requested = false
 		seb.flipped_started_ms = 0
+		# 新增规则：起身回到 idle 后，立刻进入缩壳流程。
 		seb.anim_play(&"idle", true, true)
+		seb.mode = StoneEyeBug.Mode.RETREATING
 		_phase = Phase.DONE
 		return SUCCESS
 	return RUNNING

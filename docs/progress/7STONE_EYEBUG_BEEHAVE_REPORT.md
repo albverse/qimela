@@ -33,7 +33,7 @@
   1. `nomal_to_flip`（非循环，入场翻倒）；
   2. `struggle_loop`（循环，倒地挣扎）；
   3. 满足恢复条件后播放 `flip_to_nomal`（非循环，起身恢复）；
-  4. 结束后切回 `mode=NORMAL` 并播放 `idle`（循环）。
+  4. 结束后先回 `idle`（循环），随后立刻切到 `mode=RETREATING` 进入缩壳流程。
 - 恢复触发条件（任一满足）：
   - FLIPPED 期间被攻击一次（只触发一次恢复请求，不会反复触发）；
   - FLIPPED 持续 5 秒仍未被攻击（自动恢复）。
