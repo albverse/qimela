@@ -282,6 +282,16 @@ func _extract_spine_event_name(args: Array) -> StringName:
 	return &""
 
 
+func _get_obj_name(obj: Object) -> StringName:
+	if obj == null:
+		return &""
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
+
+
 func _on_thunder_burst(add_seconds: float) -> void:
 	super._on_thunder_burst(add_seconds)
 	_trigger_thunder_shell_react()
