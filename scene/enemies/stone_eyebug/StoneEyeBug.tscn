@@ -68,6 +68,10 @@ position = Vector2(9, -56)
 shape = SubResource("hurtbox_shape")
 debug_color = Color(0.59017456, 0.5433032, 0.06837133, 0.41960785)
 
+
+[node name="MolluscSpawnMark" type="Marker2D" parent="."]
+position = Vector2(0, -24)
+
 [node name="DetectArea" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 2
