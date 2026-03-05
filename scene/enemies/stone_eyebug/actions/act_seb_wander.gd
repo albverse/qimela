@@ -28,11 +28,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if seb == null:
 		return FAILURE
 
-	# 空壳阶段：保持静止，播放 in_shell_loop 等待软体归来
+	# 空壳阶段：完全冻结，仅播放 empty_loop（无其它互动行为）
 	if seb.mode == StoneEyeBug.Mode.EMPTY_SHELL:
 		seb.velocity = Vector2.ZERO
-		if not seb.anim_is_playing(&"in_shell_loop") and not seb.anim_is_playing(&"hit_shell_small"):
-			seb.anim_play(&"in_shell_loop", true, true)
+		if not seb.anim_is_playing(&"empty_loop"):
+			seb.anim_play(&"empty_loop", true, true)
 		return RUNNING
 
 	match _phase:
@@ -53,7 +53,12 @@ func _start_idle(seb: StoneEyeBug) -> void:
 
 
 func _tick_idle(seb: StoneEyeBug) -> void:
-	seb.velocity = Vector2.ZERO
+	var dt := seb.get_physics_process_delta_time()
+	seb.velocity.x = 0.0
+	seb.velocity.y += 800.0 * dt
+	seb.move_and_slide()
+	if not seb.anim_is_playing(&"idle"):
+		seb.anim_play(&"idle", true, true)
 	if StoneEyeBug.now_ms() >= _idle_end_ms:
 		_start_walk(seb)
 

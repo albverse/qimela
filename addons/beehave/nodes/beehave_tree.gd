@@ -291,9 +291,15 @@ func _get_debugger_data(node: Node) -> Dictionary:
 	if not (node is BeehaveTree or node is BeehaveNode):
 		return {}
 
+	var display_name: String = node.name
+	if node is BeehaveTree:
+		var tree_node := node as BeehaveTree
+		if tree_node.actor != null and is_instance_valid(tree_node.actor):
+			display_name = "%s (%s)" % [tree_node.actor.name, node.name]
+
 	var data := {
 		path = node.get_path(),
-		name = node.name,
+		name = display_name,
 		type = node.get_class_name(),
 		id = str(node.get_instance_id())
 	}

@@ -34,7 +34,7 @@ func _ready() -> void:
 	#   collision_mask  = 3（World=1 + PlayerBody=2）
 	#     → move_and_slide() 与地形/玩家发生物理碰撞，触发 _on_collide
 	collision_layer = 32  # hazards(Layer6)
-	collision_mask = 1 | 2  # World(1) + PlayerBody(2)
+	collision_mask = 1 | 2 | 4  # World(1) + PlayerBody(2) + EnemyBody(3)
 
 	# BulletHurtbox：Area2D 子节点，同置于 hazards(32) 层
 	# ghost_fist 的 Area2D hitbox（mask=40）通过 area_entered 检测此节点，
@@ -86,11 +86,10 @@ func _on_collide(collider: Node) -> void:
 	if _owner_bird != null and collider == _owner_bird:
 		return
 	_done = true
-	# 命中玩家 → apply_hit；命中地形等 → 直接消失
-	if collider.is_in_group("player"):
-		if collider.has_method("apply_hit"):
-			var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
-			collider.call("apply_hit", hit)
+	# 命中玩家/怪物 → apply_hit；命中地形等 → 直接消失
+	if collider.has_method("apply_hit"):
+		var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
+		collider.call("apply_hit", hit)
 	queue_free()
 
 
