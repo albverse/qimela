@@ -111,3 +111,41 @@ MonsterFly 有两套碰撞保存：
 | D7 | `allow_move_interrupt_action` | 蓄力武器移动打断 |
 | D14 | `add_rule/remove_rule/has_rule` | 运行时配方解锁系统 |
 | D11 | `setup(player)` / `set_player(player)` | 奇美拉显式注入player引用 |
+
+---
+
+## 9. 怪物/Boss统一索敌目标组（enemy_attack_target）
+
+为支持“玩家 + 指定奇美拉”共享索敌目标，新增统一目标组：`enemy_attack_target`。
+
+- 玩家在 `_ready()` 中加入该组。
+- 怪物/Boss 的目标获取应优先通过 `MonsterBase.get_priority_attack_target()`，
+  不再直接读取 `player` 组。
+- `get_priority_attack_target()` 会优先从 `enemy_attack_target` 组选择最近目标；
+  若组为空，才退化到旧 `player` 组逻辑（兼容存量场景）。
+
+### 奇美拉可配置为“是否可被怪物索敌”
+
+`ChimeraBase` 新增导出参数：
+
+- `count_as_enemy_target_when_linked: bool = false`
+
+行为规则：
+
+- `true`：当奇美拉处于链接状态时加入 `enemy_attack_target`，断链时移出。
+- `false`：始终不作为怪物索敌目标。
+
+> 这允许“部分奇美拉可被攻击、部分不可被攻击”的关卡/玩法配置，
+> 且不会污染 `player` 组的“唯一玩家”语义。
+
+
+### Beehave优先原则（Mollusc 约束）
+
+`enemy_attack_target` 仅用于“在当前行为分支允许攻击时”的目标选择，**不能反向驱动行为树改分支**。
+
+对 `Mollusc` 的具体约束：
+
+- 行为决策始终以 Beehave 为主：回壳/逃跑/待机分支优先于攻击语义变更。
+- 只有当 Beehave 进入攻击分支时，才在 `attack_range` 内选择攻击目标。
+- 不允许因为存在 `enemy_attack_target` 就主动寻敌、追击或触发攻击分支。
+- 若目标不在攻击范围内，则攻击分支必须失败并回到逃跑/待机逻辑。

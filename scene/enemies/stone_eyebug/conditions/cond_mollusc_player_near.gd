@@ -8,8 +8,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
-	var player := mollusc.get_player()
-	if player == null:
-		return FAILURE
-	var dist := mollusc.global_position.distance_to(player.global_position)
-	return SUCCESS if dist <= mollusc.threat_dist else FAILURE
+	# 玩家在威胁半径内：立刻逃跑。
+	if mollusc.is_player_near_threat():
+		return SUCCESS
+	# 玩家离开后仍允许把当前“逃跑段”跑完，避免 escape_dist/escape_speed 体感失效。
+	if mollusc.escape_remaining > 0.0:
+		return SUCCESS
+	return FAILURE

@@ -23,6 +23,9 @@ class_name Mollusc
 @export var attack_range: float = 120.0
 ## 攻击触发范围（px）
 
+@export var attack_cd: float = 2.0
+## 攻击冷却（秒）
+
 @export var player_stone_stun: float = 2.0
 ## attack_stone 命中后玩家僵直时长（秒）
 
@@ -31,6 +34,15 @@ class_name Mollusc
 
 @export var gravity: float = 800.0
 ## 重力加速度（px/s²）
+
+@export var wall_check_forward: float = 96.0
+## 前向撞墙检测距离（px）
+
+@export var floor_check_forward: float = 16.0
+## 断崖检测的前向探针偏移（px）
+
+@export var floor_check_down: float = 24.0
+## 断崖检测的向下探针长度（px）
 
 # ===== 内部状态 =====
 
@@ -94,9 +106,10 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	escape_dir_x = 1 if rng.randi() % 2 == 0 else -1
-	escape_remaining = escape_dist
+	escape_remaining = 0.0
 
 	_spine_sprite = get_node_or_null("SpineSprite")
+	_setup_front_rays()
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
@@ -109,6 +122,16 @@ func _ready() -> void:
 		_setup_mock_durations()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+
+func _setup_front_rays() -> void:
+	## 运行时兜底：确保前向检测射线启用（避免场景勾选遗漏导致不掉头）
+	if _wall_ray_front != null:
+		_wall_ray_front.enabled = true
+		_wall_ray_front.collision_mask = 1  # World(1)
+	if _floor_ray_front != null:
+		_floor_ray_front.enabled = true
+		_floor_ray_front.collision_mask = 1  # World(1)
 
 
 func _physics_process(dt: float) -> void:
@@ -222,47 +245,97 @@ func find_empty_shell() -> Node2D:
 
 
 func is_player_in_attack_range() -> bool:
-	var player := get_player()
-	if player == null:
-		return false
-	return global_position.distance_to(player.global_position) <= attack_range
+	return _get_attack_target_in_range(attack_range) != null
+
+
+func is_player_near_threat() -> bool:
+	return _get_attack_target_in_range(threat_dist) != null
 
 
 func get_player() -> Node2D:
-	var players := get_tree().get_nodes_in_group("player")
-	if players.is_empty():
+	## Beehave 优先：仅在“攻击分支已判定进入攻击范围”时再取攻击目标。
+	## 这里严格限制为 attack_range 内目标，避免主动寻敌改变行为树语义。
+	return _get_attack_target_in_range(attack_range)
+
+
+func _get_attack_target_in_range(range_limit: float) -> Node2D:
+	if range_limit <= 0.0:
 		return null
-	return players[0] as Node2D
+	var targets := get_tree().get_nodes_in_group(ATTACK_TARGET_GROUP)
+	if targets.is_empty():
+		targets = get_tree().get_nodes_in_group("player")
+	if targets.is_empty():
+		return null
+
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for t in targets:
+		if not is_instance_valid(t):
+			continue
+		var n := t as Node2D
+		if n == null:
+			continue
+		var d := global_position.distance_to(n.global_position)
+		if d > range_limit:
+			continue
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = n
+	return nearest
 
 
 func is_wall_ahead() -> bool:
 	## 检测正前方是否有墙（RayCast2D）
-	if _wall_ray_front == null:
-		return false
-	_wall_ray_front.target_position = Vector2(escape_dir_x * 16.0, 0.0)
-	_wall_ray_front.force_raycast_update()
-	return _wall_ray_front.is_colliding()
+	if _wall_ray_front != null and _wall_ray_front.enabled:
+		_wall_ray_front.target_position = Vector2(escape_dir_x * wall_check_forward, 0.0)
+		_wall_ray_front.force_raycast_update()
+		return _wall_ray_front.is_colliding()
+
+	# fallback：即便 RayCast 节点失效，也用空间射线检测前墙
+	var from: Vector2 = global_position + Vector2(0.0, -8.0)
+	var to: Vector2 = from + Vector2(float(escape_dir_x) * wall_check_forward, 0.0)
+	return _ray_hits_world(from, to)
 
 
 func is_floor_ahead() -> bool:
 	## 检测正前方是否有地面（防止走下断崖）
-	if _floor_ray_front == null:
-		return true  # 没有射线时不检测断崖
-	_floor_ray_front.target_position = Vector2(escape_dir_x * 16.0, 24.0)
-	_floor_ray_front.force_raycast_update()
-	return _floor_ray_front.is_colliding()
+	if _floor_ray_front != null and _floor_ray_front.enabled:
+		_floor_ray_front.target_position = Vector2(escape_dir_x * floor_check_forward, floor_check_down)
+		_floor_ray_front.force_raycast_update()
+		return _floor_ray_front.is_colliding()
+
+	# fallback：前方探针点向下射线检测地面
+	var probe: Vector2 = global_position + Vector2(float(escape_dir_x) * floor_check_forward, 0.0)
+	var to: Vector2 = probe + Vector2(0.0, floor_check_down)
+	return _ray_hits_world(probe, to)
+
+
+func _ray_hits_world(from: Vector2, to: Vector2) -> bool:
+	var world2d := get_world_2d()
+	if world2d == null:
+		return false
+	var space: PhysicsDirectSpaceState2D = world2d.direct_space_state
+	if space == null:
+		return false
+	var q := PhysicsRayQueryParameters2D.create(from, to)
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	q.collision_mask = 1  # World(1)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(q)
+	return not hit.is_empty()
 
 
 func plan_escape_if_player_near() -> void:
-	## 若玩家在威胁距离内则重新规划逃跑路线
-	var player := get_player()
+	## 若威胁范围内存在攻击目标则重新规划逃跑路线
+	var player := _get_attack_target_in_range(threat_dist)
 	if player == null:
 		return
-	var dist := global_position.distance_to(player.global_position)
-	if dist <= threat_dist:
-		# 逃离玩家：往玩家反方向
-		var dx := global_position.x - player.global_position.x
-		escape_dir_x = 1 if dx >= 0.0 else -1
+	# 逃离目标：往目标反方向
+	var dx := global_position.x - player.global_position.x
+	escape_dir_x = 1 if dx >= 0.0 else -1
+	# 仅在未处于“逃跑段”时装填距离，避免每帧重置导致 escape_dist 永远跑不完。
+	if escape_remaining <= 0.0:
 		escape_remaining = escape_dist
 
 
@@ -324,4 +397,5 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3
-	_anim_mock._durations[&"weak_stun"] = 5.0  # 虚弱眩晕循环动画（循环播放，时长仅供 Mock 参考）
+	_anim_mock._durations[&"weak_stun"] = 0.35      # 入场眩晕（一次）
+	_anim_mock._durations[&"weak_stun_loop"] = 1.0  # 虚弱眩晕循环

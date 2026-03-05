@@ -60,14 +60,14 @@ func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 		seb.ev_atk1_hit_on = false
 		_atk1_hit_applied = true
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
-			_apply_stone_stun(seb, player)
+			_apply_stone_attack_effect(seb, player)
 	# Spine atk1_hit_off 或 Mock anim_finished：命中窗口关，推进阶段
 	if seb.ev_atk1_hit_off or seb.anim_is_finished(&"attack_stone"):
 		seb.ev_atk1_hit_off = false
 		# Mock 兜底：若 Spine 未开窗，在动画结束点应用伤害
 		if not _atk1_hit_applied:
 			if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
-				_apply_stone_stun(seb, player)
+				_apply_stone_attack_effect(seb, player)
 		if seb.is_player_in_detect_area():
 			_phase = Phase.ATTACK_LICK
 			_atk2_hit_applied = false
@@ -79,9 +79,23 @@ func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 	return RUNNING
 
 
-func _apply_stone_stun(seb: StoneEyeBug, player: Node2D) -> void:
-	if player.has_method("apply_stone_stun"):
-		player.call("apply_stone_stun", seb.player_stone_stun)
+
+func _apply_stone_attack_effect(seb: StoneEyeBug, target: Node2D) -> void:
+	_apply_generic_damage(target)
+	if target.has_method("apply_stone_stun"):
+		target.call("apply_stone_stun", seb.player_stone_stun)
+
+
+func _apply_lick_attack_effect(seb: StoneEyeBug, target: Node2D) -> void:
+	_apply_generic_damage(target)
+	_apply_lick_knockback(seb, target)
+
+
+func _apply_generic_damage(target: Node2D) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if target.has_method("on_damage_received"):
+		target.call("on_damage_received")
 
 
 func _tick_attack_lick(seb: StoneEyeBug, player: Node2D) -> int:
@@ -90,13 +104,13 @@ func _tick_attack_lick(seb: StoneEyeBug, player: Node2D) -> int:
 		seb.ev_atk2_hit_on = false
 		_atk2_hit_applied = true
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
-			_apply_lick_knockback(seb, player)
+			_apply_lick_attack_effect(seb, player)
 	# Spine atk2_hit_off 或 Mock anim_finished：命中窗口关，结束攻击
 	if seb.ev_atk2_hit_off or seb.anim_is_finished(&"attack_lick"):
 		seb.ev_atk2_hit_off = false
 		if not _atk2_hit_applied:
 			if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
-				_apply_lick_knockback(seb, player)
+				_apply_lick_attack_effect(seb, player)
 		_finish_attack(seb)
 	return RUNNING
 

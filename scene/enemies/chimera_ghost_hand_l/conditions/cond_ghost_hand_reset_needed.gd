@@ -7,6 +7,6 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost == null:
 		return FAILURE
-	if ghost.took_damage or ghost.over_chain_limit:
+	if ghost.took_damage or ghost.over_chain_limit or ghost.detached_reset_pending:
 		return SUCCESS
 	return FAILURE

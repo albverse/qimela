@@ -11,7 +11,8 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return
-	mollusc.escape_remaining = mollusc.escape_dist
+	if mollusc.escape_remaining <= 0.0:
+		mollusc.escape_remaining = mollusc.escape_dist
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -27,24 +28,27 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var dt := mollusc.get_physics_process_delta_time()
 
 	# 重规划（玩家进入威胁距离）
+	var player_near: bool = mollusc.is_player_near_threat()
 	mollusc.plan_escape_if_player_near()
+
+	# 若玩家已不在威胁范围，且本轮逃跑距离已消耗完，则退出本分支（交给 Idle）。
+	if not player_near and mollusc.escape_remaining <= 0.0:
+		mollusc.velocity = Vector2.ZERO
+		return FAILURE
 
 	# 死路/断崖检测 → 掉头
 	if mollusc.is_wall_ahead() or not mollusc.is_floor_ahead():
 		mollusc.escape_dir_x = -mollusc.escape_dir_x
-		mollusc.escape_remaining = mollusc.escape_dist
 
+	var prev_pos: Vector2 = mollusc.global_position
 	# 移动
 	mollusc.velocity.x = float(mollusc.escape_dir_x) * mollusc.escape_speed
 	mollusc.velocity.y += GRAVITY * dt
 	mollusc.move_and_slide()
 
 	# 更新剩余逃跑距离
-	var moved: float = absf(mollusc.velocity.x) * dt
+	var moved: float = absf(mollusc.global_position.x - prev_pos.x)
 	mollusc.escape_remaining = max(mollusc.escape_remaining - moved, 0.0)
-	if mollusc.escape_remaining <= 0.0:
-		# 本轮逃跑完成，重新规划
-		mollusc.escape_remaining = mollusc.escape_dist
 
 	# 播放跑步动画
 	if not mollusc.anim_is_playing(&"run"):
