@@ -437,10 +437,10 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- RESTING：只有 ghost_fist 能唤醒，其他武器全部无效 ---
+	# --- RESTING：ghost_fist / chimera_ghost_hand_l 能唤醒，其他武器无效 ---
 	if mode == Mode.RESTING:
-		if hit.weapon_id == &"ghost_fist":
-			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+		if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
+			# 鬼拳或幽灵手命中唤醒石面鸟（不扣血，只切换模式）
 			_release_target_rest()
 			mode = Mode.WAKING
 			_flash_once()
