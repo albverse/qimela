@@ -86,6 +86,7 @@ func _ready() -> void:
 	attribute_type = AttributeType.NORMAL
 	size_tier = SizeTier.MEDIUM
 	is_flying = true
+	count_as_enemy_target_when_linked = true
 	# 禁用基类默认跟随：BT 的 Act_LinkedMove 负责位移
 	follow_player_when_linked = false
 	super._ready()

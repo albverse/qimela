@@ -640,10 +640,7 @@ func spawn_mollusc_instance() -> Node2D:
 func is_player_in_detect_area() -> bool:
 	## 自给自足地检测玩家是否在检测范围内
 	if _detect_area == null:
-		var players := get_tree().get_nodes_in_group("player")
-		if players.is_empty():
-			return false
-		var p := players[0] as Node2D
+		var p := get_priority_attack_target()
 		if p == null:
 			return false
 		return global_position.distance_to(p.global_position) <= detect_area_radius
@@ -651,10 +648,7 @@ func is_player_in_detect_area() -> bool:
 
 
 func get_player() -> Node2D:
-	var players := get_tree().get_nodes_in_group("player")
-	if players.is_empty():
-		return null
-	return players[0] as Node2D
+	return get_priority_attack_target()
 
 
 static func now_ms() -> int:

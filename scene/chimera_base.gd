@@ -12,6 +12,7 @@ enum ChimeraOriginType {
 # ===== 奇美拉专属属性 =====
 @export var origin_type: ChimeraOriginType = ChimeraOriginType.MONSTER_MONSTER
 @export var can_be_attacked: bool = false
+@export var count_as_enemy_target_when_linked: bool = false
 @export var follow_player_when_linked: bool = true
 @export var move_speed: float = 170.0
 @export var is_flying: bool = false
@@ -34,8 +35,16 @@ func _ready() -> void:
 	entity_type = EntityType.CHIMERA
 	has_hp = can_be_attacked
 	add_to_group("chimera")
+	_update_enemy_target_group()
 	_rng.randomize()
 	_pick_next_wander()
+
+
+func _update_enemy_target_group() -> void:
+	if count_as_enemy_target_when_linked and is_linked():
+		add_to_group("enemy_attack_target")
+	else:
+		remove_from_group("enemy_attack_target")
 
 func _physics_process(dt: float) -> void:
 	if is_linked() and follow_player_when_linked and _player != null and is_instance_valid(_player):
@@ -92,6 +101,7 @@ func on_chain_hit(_player_ref: Node, slot: int) -> int:
 # ========== 修复问题2：确保再次链接时_player被正确设置 ==========
 func on_chain_attached(slot: int) -> void:
 	super.on_chain_attached(slot)
+	_update_enemy_target_group()
 	
 	# 关键修复：如果_player为null，从_linked_player获取或从player组获取
 	if _player == null:
@@ -107,6 +117,7 @@ func on_chain_attached(slot: int) -> void:
 func on_chain_detached(slot: int) -> void:
 	var was_linked: bool = is_linked() and get_linked_slot() == slot
 	super.on_chain_detached(slot)
+	_update_enemy_target_group()
 	
 	# 只有真正断开链接时才清空_player
 	if was_linked and not is_linked():

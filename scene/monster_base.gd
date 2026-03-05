@@ -1,6 +1,8 @@
 extends EntityBase
 class_name MonsterBase
 
+const ATTACK_TARGET_GROUP: StringName = &"enemy_attack_target"
+
 # ===== 怪物专属 =====
 @export var hit_stun_time: float = 0.1
 # 受击时短暂眩晕时间
@@ -78,6 +80,31 @@ func _physics_process(dt: float) -> void:
 
 func _do_move(_dt: float) -> void:
 	pass
+
+
+func get_priority_attack_target() -> Node2D:
+	## 统一目标选择：优先从 enemy_attack_target 组中选取最近目标。
+	## 用于“玩家 + 可配置奇美拉”共享被索敌语义，避免污染 player 组。
+	var targets := get_tree().get_nodes_in_group(ATTACK_TARGET_GROUP)
+	if targets.is_empty():
+		# 兼容旧逻辑：若未配置目标组，退化为 player 组。
+		targets = get_tree().get_nodes_in_group("player")
+	if targets.is_empty():
+		return null
+
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for t in targets:
+		if not is_instance_valid(t):
+			continue
+		var n := t as Node2D
+		if n == null:
+			continue
+		var d := global_position.distance_to(n.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = n
+	return nearest
 
 # ===== 眩晕状态（重写基类方法）=====
 func is_stunned() -> bool:

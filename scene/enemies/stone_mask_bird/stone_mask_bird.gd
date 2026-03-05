@@ -628,10 +628,7 @@ func _setup_mock_durations() -> void:
 # =============================================================================
 
 func _get_player() -> Node2D:
-	var players := get_tree().get_nodes_in_group("player")
-	if players.is_empty():
-		return null
-	return players[0] as Node2D
+	return get_priority_attack_target()
 
 
 ## 时间基准：秒

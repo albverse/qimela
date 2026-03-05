@@ -107,6 +107,7 @@ func _ready() -> void:
 		if not is_instance_valid(_healing_slots[i]):
 			_healing_slots[i] = null
 	add_to_group("player")
+	add_to_group("enemy_attack_target")
 	# 缓存组件
 	movement = $Components/Movement as PlayerMovement
 	loco_fsm = $Components/LocomotionFSM as PlayerLocomotionFSM
