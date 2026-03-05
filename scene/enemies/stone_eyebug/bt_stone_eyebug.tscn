@@ -32,7 +32,7 @@ script = ExtResource("selector_reactive")
 
 ; --- 1. Seq_Flipped（最高优先级）---
 ; 新规则：ActFlipAndStruggle 内部完成
-; nomal_to_flip → struggle_loop → (被打一次或5s超时) → flip_to_nomal → idle。
+; normal_to_flip → struggle_loop → (被打一次或5s超时) → flip_to_normal → idle。
 [node name="Seq_Flipped" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 

@@ -12,7 +12,7 @@ enum Mode {
 	NORMAL = 0,      ## 正常状态：巡走 / 发呆 / 攻击
 	RETREATING = 1,  ## 缩壳中（retreat_in 动画，0.5s）
 	IN_SHELL = 2,    ## 壳内待机（in_shell_loop，5s 不受攻击才出壳）
-	FLIPPED = 3,     ## 被弹翻（nomal_to_flip → struggle_loop → flip_to_nomal）
+	FLIPPED = 3,     ## 被弹翻（normal_to_flip → struggle_loop → flip_to_normal）
 	EMPTY_SHELL = 4, ## 软体逃跑后的空壳（等待软体回来，可被链接）
 }
 
@@ -187,6 +187,12 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
+
+	# 雷击反应：通过光照累计触发（外部事件驱动），命中后立刻进入 hit_shell -> retreat_in 流程。
+	if mode == Mode.NORMAL and light_counter >= light_counter_max:
+		is_thunder_pending = true
+		mode = Mode.RETREATING
+		light_counter = 0.0
 
 	_update_hurtbox_states()
 	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
@@ -401,6 +407,20 @@ func _reflect_from_shell(hit: HitData) -> void:
 			facing = -1
 		elif dx < 0.0:
 			facing = 1
+
+	# hit_shell_small：壳体无效受击短反馈。
+	# 若处于关键动作（攻击/缩壳/翻转）则不插播，仅闪白。
+	var in_critical_anim: bool = (
+		anim_is_playing(&"attack_stone")
+		or anim_is_playing(&"attack_lick")
+		or anim_is_playing(&"retreat_in")
+		or anim_is_playing(&"normal_to_flip")
+		or anim_is_playing(&"flip_to_normal")
+		or mode == Mode.FLIPPED
+		or mode == Mode.RETREATING
+	)
+	if not in_critical_anim:
+		anim_play(&"hit_shell_small", false, true)
 	_flash_once()
 
 
@@ -595,9 +615,9 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"emerge_out"] = 0.5
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
-	# NOTE: "flip" 为旧名（deprecated），当前入场动画名为 "nomal_to_flip"。
-	_anim_mock._durations[&"nomal_to_flip"] = 0.4
+	# NOTE: "flip" 为旧名（deprecated），当前入场动画名为 "normal_to_flip"。
+	_anim_mock._durations[&"normal_to_flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
-	_anim_mock._durations[&"flip_to_nomal"] = 0.4
+	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"empty_loop"] = 1.0
 	_anim_mock._durations[&"hit_shell_small"] = 0.25

@@ -5,8 +5,8 @@
 ## 0) 动画命名与旧名说明
 - `flip` 为旧名（deprecated）。
 - 当前翻倒相关动画：
-  - 入场翻倒：`nomal_to_flip`
-  - 起身恢复：`flip_to_nomal`
+  - 入场翻倒：`normal_to_flip`
+  - 起身恢复：`flip_to_normal`
   - 分裂逃出：`escape_split`
   - 空壳冻结：`empty_loop`
 
@@ -16,12 +16,12 @@
 ## 2) 关键行为说明
 
 ### A. FLIPPED（打翻）
-流程：`nomal_to_flip -> struggle_loop`，随后二选一：
+流程：`normal_to_flip -> struggle_loop`，随后二选一：
 1. **恢复流**：
    - 触发条件：
      - 被 `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet` 命中一次；或
      - 5 秒内未被命中自动超时。
-   - 动画：`flip_to_nomal -> idle`，随后立刻切 `RETREATING` 进入缩壳流。
+   - 动画：`flip_to_normal -> idle`，随后立刻切 `RETREATING` 进入缩壳流。
 2. **分裂流（escape_split）**：
    - 触发条件：在 FLIPPED 期间，`SoftHurtbox` 被“非上述三种来源”的武器命中超过 3 次。
    - 动画：`escape_split`（播放期间不可打断）。
@@ -76,3 +76,12 @@
   `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet`，
   StoneEyeBug 会立刻进入 `FLIPPED`，不再保持缩壳无敌。
 - 该规则与 `NORMAL` 态的翻倒来源保持一致。
+- 即使处于缩壳流过程中（`RETREATING` / `IN_SHELL`），被三类来源命中也会立刻中断缩壳并进入 `FLIPPED`（`normal_to_flip`）。
+
+
+## 8) hit_shell / hit_shell_small 规则
+
+- `hit_shell`：雷击受击反应，不由 BT 主循环主动选择；由外部雷击事件触发后立即进入缩壳流：`hit_shell -> retreat_in`。
+- `hit_shell_small`：壳体无效受击短反馈。
+  - 触发：壳（Hurtbox）被无效伤害命中。
+  - 限制：若正在攻击/缩壳/翻转等关键动画，不插播，仅闪白。
