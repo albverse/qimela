@@ -18,6 +18,15 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var seb := actor as StoneEyeBug
 	if seb == null:
 		return
+	# 根因修复：Root 使用 SequenceReactive，会反复重入 before_run。
+	# 仅在首次进入 FLIPPED 时播放 flip，后续重入保持 struggle_loop。
+	if seb.flipped_intro_done:
+		_phase = Phase.DONE
+		seb.soft_hitbox_active = true
+		seb.velocity = Vector2.ZERO
+		if not seb.anim_is_playing(&"struggle_loop"):
+			seb.anim_play(&"struggle_loop", true, true)
+		return
 	_phase = Phase.FLIP
 	seb.was_attacked_while_flipped = false
 	seb.soft_hitbox_active = false
@@ -39,6 +48,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if seb.ev_flip_done or seb.anim_is_finished(&"flip"):
 		seb.ev_flip_done = false
 		seb.soft_hitbox_active = true
+		seb.flipped_intro_done = true
 		seb.anim_play(&"struggle_loop", true, true)
 		_phase = Phase.DONE
 		return SUCCESS

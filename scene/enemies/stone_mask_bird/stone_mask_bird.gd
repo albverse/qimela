@@ -238,7 +238,7 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			mode = Mode.WAKE_FROM_STUN
 
-	# 唤醒方式：只有 ghost_fist 的 apply_hit() 才能触发 RESTING → WAKING。
+	# 唤醒方式：ghost_fist / chimera_ghost_hand_l 的 apply_hit() 可触发 RESTING → WAKING。
 	# 不做玩家接近自动唤醒。
 
 	# 不调用 super._physics_process()：
@@ -437,10 +437,10 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- RESTING：只有 ghost_fist 能唤醒，其他武器全部无效 ---
+	# --- RESTING：ghost_fist / chimera_ghost_hand_l 能唤醒，其他武器无效 ---
 	if mode == Mode.RESTING:
-		if hit.weapon_id == &"ghost_fist":
-			# ghost_fist 唤醒石面鸟（不扣血，只切换模式）
+		if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
+			# ghost_fist / chimera_ghost_hand_l 唤醒石面鸟（不扣血，只切换模式）
 			_release_target_rest()
 			mode = Mode.WAKING
 			_flash_once()

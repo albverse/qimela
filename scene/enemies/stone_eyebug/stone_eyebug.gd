@@ -88,6 +88,9 @@ var attack_enabled_after_player_retreat: bool = false
 ## FLIPPED 阶段是否已生成软体实例（防止重复 spawn）
 var mollusc_spawned: bool = false
 
+## FLIPPED 入场 flip 是否已播放完成（用于避免 Reactive Sequence 反复重播 flip）
+var flipped_intro_done: bool = false
+
 ## 攻击命中检测窗口（供 ForceCloseHitWindows 安全机制使用，见 0.1 节）
 var atk1_window_open: bool = false
 var atk2_window_open: bool = false
@@ -344,6 +347,7 @@ func apply_hit(hit: HitData) -> bool:
 	# --- NORMAL 态可翻转命中（ghost_fist / chimera_ghost_hand_l / 面具弹）---
 	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
 		mode = Mode.FLIPPED
+		flipped_intro_done = false
 		_flash_once()
 		return true
 
@@ -475,6 +479,7 @@ func notify_become_empty_shell() -> void:
 	species_id = &"stone_eyebug_shell"
 	soft_hitbox_active = false
 	mollusc_spawned = true
+	flipped_intro_done = false
 	# 空壳重置 HP，进入可被弱化流程
 	hp = max_hp
 	weak = false
@@ -487,6 +492,7 @@ func notify_shell_restored() -> void:
 	mode = Mode.IN_SHELL
 	species_id = &"stone_eyebug"
 	mollusc_spawned = false
+	flipped_intro_done = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
 
 
