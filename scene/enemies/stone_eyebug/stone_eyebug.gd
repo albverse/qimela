@@ -79,6 +79,10 @@ var was_attacked_while_flipped: bool = false
 ## FLIPPED 阶段恢复请求：被攻击一次或超时都会触发恢复到 NORMAL
 var flipped_recover_requested: bool = false
 
+## FLIPPED 阶段“其它武器”命中 SoftHurtbox 计数；>3 触发 escape_split
+var flipped_escape_hit_count: int = 0
+var flipped_escape_requested: bool = false
+
 ## 进入 FLIPPED 的起始时间戳（ms），用于 5s 无攻击自动恢复
 var flipped_started_ms: int = 0
 
@@ -315,26 +319,24 @@ func apply_hit(hit: HitData) -> bool:
 	# 本阶段所有命中均来自 SoftHurtbox（soft_hitbox_active=true 时）
 	if mode == Mode.FLIPPED:
 		if soft_hitbox_active:
-			# 新规则：FLIPPED 下被攻击仅触发一次“恢复请求”，不再进入分裂流。
-			if not flipped_recover_requested:
-				flipped_recover_requested = true
-			was_attacked_while_flipped = true  # 兼容标记：保留供历史调试观察
+			# 可触发 normal<->flipped 的来源：ghost_fist / chimera_ghost_hand_l / 面具弹。
+			if _can_flip_on_hit(hit):
+				if not flipped_recover_requested:
+					flipped_recover_requested = true
+				was_attacked_while_flipped = true
+				_flash_once()
+				return true
+			# 其它武器命中 SoftHurtbox：计数 >3 时触发 escape_split。
+			flipped_escape_hit_count += 1
+			if flipped_escape_hit_count > 3:
+				flipped_escape_requested = true
 			_flash_once()
 			return true
 		return false
 
-	# 空壳阶段：可被常规攻击打，走弱化流程
+	# 空壳阶段：冻结，无受击交互（仅等待软体回壳通知）
 	if mode == Mode.EMPTY_SHELL:
-		anim_play(&"hit_shell_small", false, false)  # 空壳受击视觉反馈
-		if hp_locked:
-			_flash_once()
-			return true
-		hp = max(hp - hit.damage, 0)
-		_flash_once()
-		_update_weak_state()
-		if hp <= 0 and not hp_locked:
-			_on_death()
-		return true
+		return false
 
 	# 壳体保护阶段（NORMAL / RETREATING / IN_SHELL）
 
@@ -354,6 +356,8 @@ func apply_hit(hit: HitData) -> bool:
 		mode = Mode.FLIPPED
 		flipped_started_ms = now_ms()
 		flipped_recover_requested = false
+		flipped_escape_hit_count = 0
+		flipped_escape_requested = false
 		was_attacked_while_flipped = false
 		_flash_once()
 		return true
@@ -462,10 +466,9 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		_flash_once()
 		return 0
 
-	# 空壳 + 虚弱 → 可链接
-	if mode == Mode.EMPTY_SHELL and weak:
-		_linked_player = _player
-		return 1
+	# 空壳冻结态：不接受任何交互（包括链接）
+	if mode == Mode.EMPTY_SHELL:
+		return 0
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
 
@@ -481,12 +484,16 @@ func force_close_hit_windows() -> void:
 
 
 func notify_become_empty_shell() -> void:
-	## 软体逃跑后，将壳变为空壳状态
+	## 软体逃跑后，将壳变为空壳冻结状态（仅播放 empty_loop，等待回壳通知）
 	mode = Mode.EMPTY_SHELL
 	species_id = &"stone_eyebug_shell"
 	soft_hitbox_active = false
 	mollusc_spawned = true
-	# 空壳重置 HP，进入可被弱化流程
+	attack_enabled_after_player_retreat = false
+	flipped_recover_requested = false
+	flipped_escape_requested = false
+	flipped_escape_hit_count = 0
+	flipped_started_ms = 0
 	hp = max_hp
 	weak = false
 	hp_locked = false
@@ -499,6 +506,7 @@ func notify_shell_restored() -> void:
 	species_id = &"stone_eyebug"
 	mollusc_spawned = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
+	anim_play(&"in_shell_loop", true, true)
 
 
 func spawn_mollusc_instance() -> Node2D:
@@ -509,7 +517,8 @@ func spawn_mollusc_instance() -> Node2D:
 	var m: Node = (mollusc_scene as PackedScene).instantiate()
 	var m2d := m as Node2D
 	if m2d != null:
-		m2d.global_position = global_position
+		var mark := get_node_or_null("MolluscSpawnMark") as Node2D
+		m2d.global_position = mark.global_position if mark != null else global_position
 	get_parent().add_child(m)
 	if m.has_method("set_home_shell"):
 		m.call("set_home_shell", self)
@@ -559,4 +568,5 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"nomal_to_flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
 	_anim_mock._durations[&"flip_to_nomal"] = 0.4
+	_anim_mock._durations[&"empty_loop"] = 1.0
 	_anim_mock._durations[&"hit_shell_small"] = 0.25
