@@ -42,7 +42,7 @@ enum Mode {
 @export var knockback_strength: float = 400.0
 ## attack_lick 击退强度（velocity px/s，严禁 position）
 
-@export var detect_area_radius: float = 150.0
+@export var detect_area_radius: float = 129.0
 ## 玩家检测区半径（px）—— 与场景内 DetectArea Shape 保持一致
 
 @export var mollusc_scene: PackedScene = null
