@@ -26,6 +26,21 @@ class_name ChimeraGhostHandL
 @export var player_side_offset: float = 80.0
 ## 重置后贴近玩家的水平偏移（px）
 
+@export var respawn_radius: float = 200.0
+## 重置后围绕玩家选点的半径（px）
+
+@export var respawn_up_offset: float = 100.0
+## 重置后默认偏上高度（px）
+
+@export var respawn_probe_side_step: float = 36.0
+## 重置选点时左右探测步长（px）
+
+@export var respawn_probe_up_step: float = 26.0
+## 重置选点时向上探测步长（px）
+
+@export var respawn_probe_tries: int = 6
+## 重置选点时每侧最大探测层数
+
 # ===== 内部状态（BT 叶节点读写）=====
 
 ## 是否受到了伤害 → 触发重置
@@ -33,6 +48,9 @@ var took_damage: bool = false
 
 ## 是否超出链距离 → 触发重置
 var over_chain_limit: bool = false
+
+## 断链后请求重置（vanish -> appear）
+var detached_reset_pending: bool = false
 
 ## 攻击是否被请求（玩家输入层写入）
 var attack_requested: bool = false
@@ -164,12 +182,66 @@ func get_player_node() -> Node2D:
 
 
 func teleport_to_player_side() -> void:
-	## 重置时传送到玩家附近
+	## 重置时传送到玩家附近（优先玩家左右上方约 200px，避开碰撞体）
 	var p := get_player_node()
 	if p == null:
 		return
-	# 检查朝向，偏移到玩家左侧（L 手在左）
-	global_position = p.global_position + Vector2(-player_side_offset, -40.0)
+	var base_left: Vector2 = p.global_position + Vector2(-respawn_radius, -respawn_up_offset)
+	var base_right: Vector2 = p.global_position + Vector2(respawn_radius, -respawn_up_offset)
+	var fallback: Vector2 = p.global_position + Vector2(-player_side_offset, -40.0)
+
+	var candidate: Vector2 = _pick_safe_respawn_point([base_left, base_right], p)
+	if candidate == Vector2.ZERO:
+		candidate = _pick_safe_respawn_point([base_right, base_left], p)
+	if candidate == Vector2.ZERO:
+		candidate = fallback
+	global_position = candidate
+
+
+func _pick_safe_respawn_point(bases: Array[Vector2], player: Node2D) -> Vector2:
+	for base: Vector2 in bases:
+		if _is_respawn_position_clear(base, player):
+			return base
+		for i: int in range(1, max(1, respawn_probe_tries) + 1):
+			var side: float = respawn_probe_side_step * float(i)
+			var up: float = respawn_probe_up_step * float(i)
+			var c1: Vector2 = base + Vector2(side, -up)
+			if _is_respawn_position_clear(c1, player):
+				return c1
+			var c2: Vector2 = base + Vector2(-side, -up)
+			if _is_respawn_position_clear(c2, player):
+				return c2
+	return Vector2.ZERO
+
+
+func _is_respawn_position_clear(pos: Vector2, player: Node2D) -> bool:
+	var world2d := get_world_2d()
+	if world2d == null:
+		return true
+	var space: PhysicsDirectSpaceState2D = world2d.direct_space_state
+	if space == null:
+		return true
+
+	var shape: Shape2D = null
+	var body_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if body_shape != null:
+		shape = body_shape.shape
+	if shape == null:
+		return true
+
+	var q := PhysicsShapeQueryParameters2D.new()
+	q.shape = shape
+	q.collide_with_areas = false
+	q.collide_with_bodies = true
+	# World(1)=1, EnemyBody(3)=4, hazards(6)=32
+	q.collision_mask = 1 | 4 | 32
+	q.transform = Transform2D(0.0, pos)
+	q.exclude = [get_rid()]
+	if player != null and is_instance_valid(player):
+		q.exclude.append(player.get_rid())
+
+	var hits: Array = space.intersect_shape(q, 8)
+	return hits.is_empty()
 
 
 func is_active_control_slot() -> bool:
@@ -213,6 +285,7 @@ func on_chain_detached(slot: int) -> void:
 	if was_linked:
 		# 断链后恢复；若仍有其他链接但非当前激活槽位，也不应保持冻结。
 		_set_player_control_frozen(is_active_control_slot())
+		detached_reset_pending = true
 
 
 func request_attack() -> void:

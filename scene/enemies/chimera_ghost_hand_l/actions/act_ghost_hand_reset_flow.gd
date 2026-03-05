@@ -53,6 +53,7 @@ func _tick_appear(ghost: ChimeraGhostHandL) -> int:
 		# 清除重置标记
 		ghost.took_damage = false
 		ghost.over_chain_limit = false
+		ghost.detached_reset_pending = false
 		ghost.anim_play(&"idle_float", true, true)
 		return SUCCESS
 	return RUNNING
