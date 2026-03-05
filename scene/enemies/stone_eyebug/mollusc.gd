@@ -94,7 +94,7 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	escape_dir_x = 1 if rng.randi() % 2 == 0 else -1
-	escape_remaining = escape_dist
+	escape_remaining = 0.0
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -228,6 +228,13 @@ func is_player_in_attack_range() -> bool:
 	return global_position.distance_to(player.global_position) <= attack_range
 
 
+func is_player_near_threat() -> bool:
+	var player := get_player()
+	if player == null:
+		return false
+	return global_position.distance_to(player.global_position) <= threat_dist
+
+
 func get_player() -> Node2D:
 	var players := get_tree().get_nodes_in_group("player")
 	if players.is_empty():
@@ -263,7 +270,9 @@ func plan_escape_if_player_near() -> void:
 		# 逃离玩家：往玩家反方向
 		var dx := global_position.x - player.global_position.x
 		escape_dir_x = 1 if dx >= 0.0 else -1
-		escape_remaining = escape_dist
+		# 仅在未处于“逃跑段”时装填距离，避免每帧重置导致 escape_dist 永远跑不完。
+		if escape_remaining <= 0.0:
+			escape_remaining = escape_dist
 
 
 static func now_ms() -> int:
