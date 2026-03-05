@@ -186,12 +186,6 @@ func _physics_process(dt: float) -> void:
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
 
-	# 雷击反应：通过光照累计触发（外部事件驱动），命中后立刻进入 hit_shell -> retreat_in 流程。
-	if mode == Mode.NORMAL and light_counter >= light_counter_max:
-		is_thunder_pending = true
-		mode = Mode.RETREATING
-		light_counter = 0.0
-
 	_update_hurtbox_states()
 	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
 	# 注：AnimDriverSpine 是子节点，其 _physics_process 在本节点之后执行，存在 1 帧位置滞后，
@@ -292,18 +286,18 @@ func _get_obj_name(obj: Object) -> StringName:
 	return &""
 
 
-func _on_thunder_burst(add_seconds: float) -> void:
-	super._on_thunder_burst(add_seconds)
-	_trigger_thunder_shell_react()
+func _on_thunder_burst(_add_seconds: float) -> void:
+	# StoneEyeBug 不响应全局 thunder_burst 事件；仅响应 LightFlower 的光照释放逻辑。
+	return
 
 
 func on_light_exposure(remaining_time: float) -> void:
 	super.on_light_exposure(remaining_time)
 	if remaining_time > 0.0:
-		_trigger_thunder_shell_react()
+		_trigger_lightflower_shell_react()
 
 
-func _trigger_thunder_shell_react() -> void:
+func _trigger_lightflower_shell_react() -> void:
 	if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 		return
 	if mode == Mode.RETREATING or mode == Mode.IN_SHELL:

@@ -199,23 +199,26 @@
 ### 13.2 “只有缩壳态才会触发攻击”规则校正
 
 - `CondSEBAttackReady` 现已显式要求 `mode == IN_SHELL`；
-- `ActSEBShellFlow._start_retreat()` 统一在缩壳流启动时开启攻击窗口并设置冷却起点，保证从翻倒恢复进壳、雷击进壳、普通缩壳都能在壳内进入攻击检测窗口。
+- `ActSEBShellFlow._start_retreat()` 统一在缩壳流启动时开启攻击窗口并设置冷却起点，保证从翻倒恢复进壳、LightFlower 光照触发进壳、普通缩壳都能在壳内进入攻击检测窗口。
 
-### 13.3 雷花反应为何不明显 / `hit_shell` 未播放
+### 13.3 LightFlower 光照触发 `hit_shell` 的链路修正
 
-根因是旧逻辑依赖“光照计数累计到阈值”后才转入雷击缩壳，触发不够直接；
-因此表现为“雷花命中后看起来没立刻反应/不播 `hit_shell`”。
+根因澄清：
+
+- 设计要求是 **StoneEyeBug 与 LightFlower 光照释放建立关系**，而不是与全局 `thunder_burst` 事件建立关系。
+- 之前实现把 `StoneEyeBug` 直接挂到了 `_on_thunder_burst` 响应链上，语义偏离需求。
 
 修复：
 
-- 在 `StoneEyeBug` 覆盖 `MonsterBase` 的雷击/受光入口：
-  - `_on_thunder_burst(add_seconds)`
-  - `on_light_exposure(remaining_time)`
-- 两条入口统一调用 `_trigger_thunder_shell_react()`：
+- `StoneEyeBug._on_thunder_burst()` 改为忽略（不响应全局雷击事件）。
+- 仅保留并强化 `on_light_exposure(remaining_time)` 入口；当 LightFlower 释放光照命中时，调用
+  `_trigger_lightflower_shell_react()`：
   - 若当前可进入缩壳，立即置 `is_thunder_pending=true` + `mode=RETREATING`；
-  - 在 `ActSEBShellFlow.before_run()` 中读到 `is_thunder_pending` 后先播 `hit_shell` 再 `retreat_in`；
+  - `ActSEBShellFlow.before_run()` 读到该标记后先播 `hit_shell` 再播 `retreat_in`；
   - 若已在壳内则刷新 `shell_last_attacked_ms`。
+- 移除 StoneEyeBug 里“通过 `light_counter >= light_counter_max` 轮询触发缩壳”的路径，避免再次与全局雷击计数耦合。
 
 结果：
 
-- 雷花触发不再依赖“等计数攒满才生效”，而是外部事件即刻驱动缩壳反应链（`hit_shell -> retreat_in`）。
+- `hit_shell` 成为 **LightFlower 光照释放驱动的外部事件反应**，而非 BT 主循环主动挑选。
+- StoneEyeBug 不再与全局 `thunder_burst` 事件直接耦合，符合需求边界。
