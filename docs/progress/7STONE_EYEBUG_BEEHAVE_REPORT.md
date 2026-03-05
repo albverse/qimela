@@ -176,3 +176,46 @@
 
 - 无效伤害命中壳体时（包括锁链命中），现在都会尝试触发 `hit_shell_small`；
   若处于攻击/缩壳/翻转关键阶段，仍按设计只闪白不插播动画。
+
+## 13) 本轮排查与修复（对应最新三条问题）
+
+### 13.1 为什么“缩壳后似乎不检测/不攻击玩家”
+
+根因是 **BT 优先级顺序冲突**：
+
+- 之前 `Seq_InShell`（`mode=IN_SHELL`）排在 `Seq_Attack` 前面。
+- `Act_ShellFlow` 在 `IN_SHELL` 阶段会持续 `RUNNING`，导致 Selector 永远先吃到 InShell 分支，`Seq_Attack` 没机会执行。
+
+修复：
+
+- 将 `Seq_Attack` 前移到 `Seq_InShell` 之前；
+- 同时在 `CondSEBAttackReady` 增加硬门：`mode == IN_SHELL` 才允许攻击。
+
+结果：
+
+- 只有在缩壳态（`IN_SHELL`）才会检测并触发 `attack_stone -> attack_lick`；
+- 行走/idle（`NORMAL`）不会触发攻击。
+
+### 13.2 “只有缩壳态才会触发攻击”规则校正
+
+- `CondSEBAttackReady` 现已显式要求 `mode == IN_SHELL`；
+- `ActSEBShellFlow._start_retreat()` 统一在缩壳流启动时开启攻击窗口并设置冷却起点，保证从翻倒恢复进壳、雷击进壳、普通缩壳都能在壳内进入攻击检测窗口。
+
+### 13.3 雷花反应为何不明显 / `hit_shell` 未播放
+
+根因是旧逻辑依赖“光照计数累计到阈值”后才转入雷击缩壳，触发不够直接；
+因此表现为“雷花命中后看起来没立刻反应/不播 `hit_shell`”。
+
+修复：
+
+- 在 `StoneEyeBug` 覆盖 `MonsterBase` 的雷击/受光入口：
+  - `_on_thunder_burst(add_seconds)`
+  - `on_light_exposure(remaining_time)`
+- 两条入口统一调用 `_trigger_thunder_shell_react()`：
+  - 若当前可进入缩壳，立即置 `is_thunder_pending=true` + `mode=RETREATING`；
+  - 在 `ActSEBShellFlow.before_run()` 中读到 `is_thunder_pending` 后先播 `hit_shell` 再 `retreat_in`；
+  - 若已在壳内则刷新 `shell_last_attacked_ms`。
+
+结果：
+
+- 雷花触发不再依赖“等计数攒满才生效”，而是外部事件即刻驱动缩壳反应链（`hit_shell -> retreat_in`）。

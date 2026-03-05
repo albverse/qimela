@@ -282,12 +282,27 @@ func _extract_spine_event_name(args: Array) -> StringName:
 	return &""
 
 
-func _get_obj_name(obj: Object) -> StringName:
-	if obj.has_method("get_name"):
-		return StringName(obj.get_name())
-	if obj.has_method("getName"):
-		return StringName(obj.getName())
-	return &""
+func _on_thunder_burst(add_seconds: float) -> void:
+	super._on_thunder_burst(add_seconds)
+	_trigger_thunder_shell_react()
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time > 0.0:
+		_trigger_thunder_shell_react()
+
+
+func _trigger_thunder_shell_react() -> void:
+	if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
+		return
+	if mode == Mode.RETREATING or mode == Mode.IN_SHELL:
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		return
+	is_thunder_pending = true
+	mode = Mode.RETREATING
+	attack_enabled_after_player_retreat = true
+	next_attack_end_ms = max(next_attack_end_ms, Time.get_ticks_msec() + int(attack_cd * 1000.0))
 
 
 # =============================================================================
