@@ -24,6 +24,7 @@ radius = 129.00388
 [node name="StoneEyeBug" type="CharacterBody2D"]
 collision_layer = 4
 script = ExtResource("1_script")
+light_receiver_path = NodePath("LightReceiver")
 mollusc_scene = ExtResource("5_mollusc")
 
 [node name="SpineSprite" type="SpineSprite" parent="."]
@@ -67,6 +68,10 @@ script = ExtResource("3_light_recv")
 position = Vector2(9, -56)
 shape = SubResource("hurtbox_shape")
 debug_color = Color(0.59017456, 0.5433032, 0.06837133, 0.41960785)
+
+
+[node name="MolluscSpawnMark" type="Marker2D" parent="."]
+position = Vector2(0, -24)
 
 [node name="DetectArea" type="Area2D" parent="."]
 collision_layer = 0
