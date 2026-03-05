@@ -13,16 +13,19 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost == null:
 		return
-	# 冻结玩家自身方向输入
-	var player := ghost.get_player_node()
-	if player != null and player.has_method("set_external_control_frozen"):
-		player.call("set_external_control_frozen", true)
+	# 仅当前切到本奇美拉槽位时冻结玩家移动。
+	if ghost.has_method("_set_player_control_frozen"):
+		ghost.call("_set_player_control_frozen", ghost.is_active_control_slot())
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost == null:
 		return FAILURE
+
+	# 槽位切换时同步冻结状态：仅 active_slot=本槽位时冻结玩家。
+	if ghost.has_method("_set_player_control_frozen"):
+		ghost.call("_set_player_control_frozen", ghost.is_active_control_slot())
 
 	# 将 WASD 输入重定向为幽灵手的速度（无重力，四向自由飞行）
 	var dir_x := Input.get_axis(&"move_left", &"move_right")
@@ -46,9 +49,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost != null:
-		# 解冻玩家操控，恢复正常移动
-		var player := ghost.get_player_node()
-		if player != null and player.has_method("set_external_control_frozen"):
-			player.call("set_external_control_frozen", false)
+		# 退出该叶子后按“是否为当前激活槽位”重新同步冻结状态。
+		if ghost.has_method("_set_player_control_frozen"):
+			ghost.call("_set_player_control_frozen", ghost.is_active_control_slot())
 		ghost.velocity = Vector2.ZERO
 	super(actor, blackboard)

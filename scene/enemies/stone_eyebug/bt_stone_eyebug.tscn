@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=11 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -9,12 +9,9 @@
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_mode_is.gd" id="cond_mode_is"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_player_in_detect.gd" id="cond_player"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attack_ready.gd" id="cond_atk_ready"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attacked_flipped.gd" id="cond_attacked_flipped"]
 
 ; === 自定义 Action 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_flipped_loop.gd" id="act_flip_and_struggle"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_escape_split.gd" id="act_escape_split"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_struggle_idle.gd" id="act_struggle_idle"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_shell_flow.gd" id="act_shell"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_attack.gd" id="act_attack"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_wander.gd" id="act_wander"]
@@ -34,10 +31,8 @@ script = ExtResource("bt_tree")
 script = ExtResource("selector_reactive")
 
 ; --- 1. Seq_Flipped（最高优先级）---
-; ActFlipAndStruggle 完成 flip 动画后返回 SUCCESS，交由 InnerSelector 驱动后续
-; InnerSelector:
-;   Seq_EscapeSplit [Cond_AttackedFlipped → Act_EscapeSplit]  ← CondSEBAttackedFlipped 正式接入
-;   Act_StruggleIdle （兜底 RUNNING，保持 struggle_loop 等待被攻击）
+; 新规则：ActFlipAndStruggle 内部完成
+; nomal_to_flip → struggle_loop → (被打一次或5s超时) → flip_to_nomal → idle。
 [node name="Seq_Flipped" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -47,21 +42,6 @@ target_mode = 3
 
 [node name="Act_FlipAndStruggle" type="Node" parent="RootSelector/Seq_Flipped"]
 script = ExtResource("act_flip_and_struggle")
-
-[node name="InnerSelector" type="Node" parent="RootSelector/Seq_Flipped"]
-script = ExtResource("selector_reactive")
-
-[node name="Seq_EscapeSplit" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector"]
-script = ExtResource("sequence_reactive")
-
-[node name="Cond_AttackedFlipped" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector/Seq_EscapeSplit"]
-script = ExtResource("cond_attacked_flipped")
-
-[node name="Act_EscapeSplit" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector/Seq_EscapeSplit"]
-script = ExtResource("act_escape_split")
-
-[node name="Act_StruggleIdle" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector"]
-script = ExtResource("act_struggle_idle")
 
 ; --- 2. Seq_ShellFlow（缩壳中，mode=RETREATING）---
 [node name="Seq_ShellFlow" type="Node" parent="RootSelector"]
