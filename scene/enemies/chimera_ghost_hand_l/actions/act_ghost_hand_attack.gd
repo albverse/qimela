@@ -55,6 +55,7 @@ func _tick_attack(ghost: ChimeraGhostHandL) -> int:
 		# Mock 兜底：若 Spine 未触发 hit_on，在动画结束点执行命中检测
 		if not _hit_resolved:
 			ghost.resolve_hit_on_targets()
+		ghost.attack_requested = false
 		_phase = Phase.DONE
 	return RUNNING
 
