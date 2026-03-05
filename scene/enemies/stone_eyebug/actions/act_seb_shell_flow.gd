@@ -13,6 +13,7 @@ enum Phase { HIT_SHELL, RETREAT_IN, IN_SHELL, EMERGE }
 
 var _phase: int = Phase.RETREAT_IN
 var _retreat_start_ms: int = 0
+var _hit_shell_start_ms: int = 0
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -35,6 +36,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 
 	if thunder:
 		_phase = Phase.HIT_SHELL
+		_hit_shell_start_ms = StoneEyeBug.now_ms()
 		seb.anim_play(&"hit_shell", false, true)
 	else:
 		_start_retreat(seb)
@@ -54,7 +56,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_hit_shell(seb: StoneEyeBug) -> int:
-	if seb.anim_is_finished(&"hit_shell"):
+	var elapsed_ms: int = StoneEyeBug.now_ms() - _hit_shell_start_ms
+	# Fallback：若 hit_shell 事件/时长异常，超时也要进入 retreat_in，避免卡在 RUNNING。
+	if seb.anim_is_finished(&"hit_shell") or elapsed_ms >= 600:
 		_start_retreat(seb)
 	return RUNNING
 
@@ -110,4 +114,5 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 		seb.ev_emerge_done = false
 		seb.force_close_hit_windows()
 	_phase = Phase.RETREAT_IN
+	_hit_shell_start_ms = 0
 	super(actor, blackboard)

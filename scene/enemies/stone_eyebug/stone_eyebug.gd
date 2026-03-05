@@ -183,7 +183,7 @@ func _physics_process(dt: float) -> void:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
 			_restore_from_weak()
-			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
+			if mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
 
 	_update_hurtbox_states()
@@ -381,9 +381,7 @@ func apply_hit(hit: HitData) -> bool:
 		if mode != Mode.RETREATING and mode != Mode.IN_SHELL:
 			is_thunder_pending = true
 			mode = Mode.RETREATING
-		else:
-			# 已在壳内：刷新受攻时间，壳继续保护
-			shell_last_attacked_ms = Time.get_ticks_msec()
+		# 设计确认：已在缩壳/壳内时，雷花命中应无效，不刷新壳内计时。
 		_flash_once()
 		return true
 
@@ -407,7 +405,7 @@ func apply_hit(hit: HitData) -> bool:
 			# 且需等待 2s（attack_cd）后才可进入 ATTACK_FLOW。
 			attack_enabled_after_player_retreat = true
 			next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
-		_flash_once()
+		_play_hit_shell_small_feedback()
 		return true
 
 	# --- 其余武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效 ---
@@ -532,7 +530,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		# 设计确认：只有玩家触发 retreat_in 后，等待 2s 才可攻击
 		attack_enabled_after_player_retreat = true
 		next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
-		_flash_once()
+		_play_hit_shell_small_feedback()
 		return 0
 
 	# 空壳冻结态：不接受任何交互（包括链接）
