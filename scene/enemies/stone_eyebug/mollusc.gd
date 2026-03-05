@@ -97,6 +97,7 @@ func _ready() -> void:
 	escape_remaining = 0.0
 
 	_spine_sprite = get_node_or_null("SpineSprite")
+	_setup_front_rays()
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
@@ -109,6 +110,16 @@ func _ready() -> void:
 		_setup_mock_durations()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+
+func _setup_front_rays() -> void:
+	## 运行时兜底：确保前向检测射线启用（避免场景勾选遗漏导致不掉头）
+	if _wall_ray_front != null:
+		_wall_ray_front.enabled = true
+		_wall_ray_front.collision_mask = 1  # World(1)
+	if _floor_ray_front != null:
+		_floor_ray_front.enabled = true
+		_floor_ray_front.collision_mask = 1  # World(1)
 
 
 func _physics_process(dt: float) -> void:
@@ -244,20 +255,44 @@ func get_player() -> Node2D:
 
 func is_wall_ahead() -> bool:
 	## 检测正前方是否有墙（RayCast2D）
-	if _wall_ray_front == null:
-		return false
-	_wall_ray_front.target_position = Vector2(escape_dir_x * 16.0, 0.0)
-	_wall_ray_front.force_raycast_update()
-	return _wall_ray_front.is_colliding()
+	if _wall_ray_front != null and _wall_ray_front.enabled:
+		_wall_ray_front.target_position = Vector2(escape_dir_x * 16.0, 0.0)
+		_wall_ray_front.force_raycast_update()
+		return _wall_ray_front.is_colliding()
+
+	# fallback：即便 RayCast 节点失效，也用空间射线检测前墙
+	var from: Vector2 = global_position + Vector2(0.0, -8.0)
+	var to: Vector2 = from + Vector2(float(escape_dir_x) * 16.0, 0.0)
+	return _ray_hits_world(from, to)
 
 
 func is_floor_ahead() -> bool:
 	## 检测正前方是否有地面（防止走下断崖）
-	if _floor_ray_front == null:
-		return true  # 没有射线时不检测断崖
-	_floor_ray_front.target_position = Vector2(escape_dir_x * 16.0, 24.0)
-	_floor_ray_front.force_raycast_update()
-	return _floor_ray_front.is_colliding()
+	if _floor_ray_front != null and _floor_ray_front.enabled:
+		_floor_ray_front.target_position = Vector2(escape_dir_x * 16.0, 24.0)
+		_floor_ray_front.force_raycast_update()
+		return _floor_ray_front.is_colliding()
+
+	# fallback：前方探针点向下射线检测地面
+	var probe: Vector2 = global_position + Vector2(float(escape_dir_x) * 16.0, 0.0)
+	var to: Vector2 = probe + Vector2(0.0, 24.0)
+	return _ray_hits_world(probe, to)
+
+
+func _ray_hits_world(from: Vector2, to: Vector2) -> bool:
+	var world2d := get_world_2d()
+	if world2d == null:
+		return false
+	var space: PhysicsDirectSpaceState2D = world2d.direct_space_state
+	if space == null:
+		return false
+	var q := PhysicsRayQueryParameters2D.create(from, to)
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	q.collision_mask = 1  # World(1)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(q)
+	return not hit.is_empty()
 
 
 func plan_escape_if_player_near() -> void:

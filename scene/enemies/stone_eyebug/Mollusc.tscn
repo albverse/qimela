@@ -49,9 +49,13 @@ position = Vector2(6, -25)
 shape = SubResource("hurtbox_shape")
 
 [node name="FloorRayFront" type="RayCast2D" parent="."]
+enabled = true
+collision_mask = 1
 target_position = Vector2(12, 24)
 
 [node name="WallRayFront" type="RayCast2D" parent="."]
+enabled = true
+collision_mask = 1
 target_position = Vector2(101, 0)
 
 [node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
