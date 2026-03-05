@@ -104,6 +104,8 @@ var atk2_window_open: bool = false
 
 ## 本帧下一次 apply_hit() 视为软体命中（由 SoftHurtbox.get_host() 在命中前写入，命中后立即清除）
 var _next_hit_is_soft: bool = false
+## 软体命中标记写入帧号；仅同一 physics 帧内有效，防止陈旧标记污染后续命中
+var _next_hit_soft_frame: int = -1
 
 # ===== Spine 事件标志（_on_spine_event 写入，BT 叶节点读取后立即清除）=====
 ## 攻击1命中窗口开/关（atk1_hit_on / atk1_hit_off）
@@ -339,8 +341,9 @@ func _can_flip_on_hit(hit: HitData) -> bool:
 
 func apply_hit(hit: HitData) -> bool:
 	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在本帧命中前写入）
-	var is_soft_hit: bool = _next_hit_is_soft
+	var is_soft_hit: bool = _next_hit_is_soft and _next_hit_soft_frame == Engine.get_physics_frames()
 	_next_hit_is_soft = false
+	_next_hit_soft_frame = -1
 
 	if hit == null:
 		return false
@@ -463,6 +466,7 @@ func _play_hit_shell_small_feedback() -> void:
 func _mark_next_hit_soft() -> void:
 	## 由 SoftHurtbox.get_host() 在命中前调用，标记本次 apply_hit() 为软体命中
 	_next_hit_is_soft = true
+	_next_hit_soft_frame = Engine.get_physics_frames()
 
 
 func _update_hurtbox_states() -> void:
@@ -544,8 +548,9 @@ func _update_soft_hurtbox_position() -> void:
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在命中前写入）
-	var is_soft_hit: bool = _next_hit_is_soft
+	var is_soft_hit: bool = _next_hit_is_soft and _next_hit_soft_frame == Engine.get_physics_frames()
 	_next_hit_is_soft = false
+	_next_hit_soft_frame = -1
 
 	# FLIPPED + SoftHurtbox 被锁链命中：计入”其它武器”次数，>3 触发 escape_split
 	if mode == Mode.FLIPPED and is_soft_hit and soft_hitbox_active:
