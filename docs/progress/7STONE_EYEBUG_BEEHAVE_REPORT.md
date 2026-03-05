@@ -94,3 +94,43 @@
 - `EMPTY_SHELL` 下：`SoftHurtbox` / `LightReceiver` 均禁用，仅保留 `empty_loop`。
 - `notify_shell_restored()` 后恢复 `IN_SHELL + in_shell_loop`，并重新启用 `LightReceiver`。
 - 攻击触发窗口：每次由缩壳链路打开，`ActSEBAttack` 结束后关闭。
+
+## 10) StoneEyeBug 依赖链编译检查清单（本轮）
+
+> 目标：一次性排查“父子成员冲突、失效 NodePath、动作脚本强依赖”三类高频编译/运行隐患。
+
+### 10.1 父子成员冲突（GDScript Parse Error）
+
+- 检查项：`StoneEyeBug` 是否重复声明父类 `MonsterBase` 已有成员。
+- 结果：
+  - 父类 `MonsterBase` 持有 `@onready var _light_receiver`（通过 `light_receiver_path` 绑定）。
+  - `StoneEyeBug` 当前脚本不再重复声明 `_light_receiver`，冲突项已清除。
+- 结论：该类“同名成员导致全链路编译失败”的问题已消除。
+
+### 10.2 NodePath / 场景节点绑定有效性
+
+- 检查项：`StoneEyeBug.tscn` 中 `light_receiver_path` 是否正确指向 `LightReceiver`。
+- 结果：
+  - `StoneEyeBug` 根节点已配置：`light_receiver_path = NodePath("LightReceiver")`。
+  - 场景内存在 `LightReceiver` 节点。
+- 结论：`_light_receiver` 绑定路径有效，不会退回默认 `Hurtbox` 或空引用。
+
+### 10.3 动作脚本强依赖排查（成员/接口）
+
+- 检查项：StoneEyeBug 相关 `actions/*.gd`、`conditions/*.gd` 是否依赖已删除成员（如 die 字段）或不存在接口。
+- 结果：
+  - 未发现 `"_die_anim_playing"` 等非法依赖残留。
+  - `Mollusc` 路径下亦无 die 字段硬依赖。
+- 结论：动作与条件脚本的已知强依赖冲突项已清理。
+
+### 10.4 资源链完整性（.tscn -> ext_resource path）
+
+- 检查项：`scene/enemies/stone_eyebug` 下 `.tscn` 所引用 `res://` 资源是否存在。
+- 结果：脚本化扫描结果 `missing 0`。
+- 结论：未发现失效外部资源路径。
+
+### 10.5 建议固化（后续）
+
+1. 在 CI 增加“脚本加载冒烟”步骤（逐个 preload StoneEyeBug 行为脚本）以提前暴露 parse error。
+2. 保持“共享组件字段在父类统一声明，子类仅通过 NodePath 配置”的约定，避免重复声明。
+3. 对 BT 关键动作（flip/shell/escape）增加最小化行为回归场景，防止字段改名后动作脚本失配。
