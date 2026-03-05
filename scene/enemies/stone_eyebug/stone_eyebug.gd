@@ -350,7 +350,10 @@ func apply_hit(hit: HitData) -> bool:
 	# 弹翻阶段：ShellHurtbox 已由 _update_hurtbox_states() 禁用，
 	# 本阶段所有命中均来自 SoftHurtbox（soft_hitbox_active=true 时）
 	if mode == Mode.FLIPPED:
-		if soft_hitbox_active:
+		# 仅“真实 SoftHurtbox 命中”才计入 FLIPPED 阶段判定。
+		# 这样可避免非软腹命中/残留标记导致错误计数，严格满足：
+		# 只有翻倒状态下对 SoftHurtbox 的攻击才算有效命中。
+		if soft_hitbox_active and is_soft_hit:
 			# 可触发 normal<->flipped 的来源：ghost_fist / chimera_ghost_hand_l / 面具弹。
 			if _can_flip_on_hit(hit):
 				if not flipped_recover_requested:
