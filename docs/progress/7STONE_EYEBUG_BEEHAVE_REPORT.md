@@ -21,7 +21,7 @@
    - 触发条件：
      - 被 `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet` 命中一次；或
      - 5 秒内未被命中自动超时。
-   - 动画：`flip_to_nomal -> idle`，并**立刻**切 `RETREATING`（进入缩壳流）。
+   - 动画：`flip_to_nomal -> idle`，切回 `NORMAL`，可再次被打翻。
 2. **分裂流（escape_split）**：
    - 触发条件：在 FLIPPED 期间，`SoftHurtbox` 被“非上述三种来源”的武器命中超过 3 次。
    - 动画：`escape_split`（播放期间不可打断）。

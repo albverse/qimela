@@ -456,6 +456,14 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	var is_soft_hit: bool = _next_hit_is_soft
 	_next_hit_is_soft = false
 
+	# FLIPPED + SoftHurtbox 被锁链命中：计入“其它武器”次数，>3 触发 escape_split
+	if mode == Mode.FLIPPED and is_soft_hit and soft_hitbox_active:
+		flipped_escape_hit_count += 1
+		if flipped_escape_hit_count > 3:
+			flipped_escape_requested = true
+		_flash_once()
+		return 0
+
 	# NORMAL + SoftHurtbox 链命中：触发缩壳（非翻倒）
 	if mode == Mode.NORMAL and is_soft_hit:
 		mode = Mode.RETREATING

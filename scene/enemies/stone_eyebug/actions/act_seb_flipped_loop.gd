@@ -3,7 +3,7 @@ class_name ActSEBFlipAndStruggle
 
 ## 石眼虫弹翻流程（新规则）：
 ## nomal_to_flip（一次）→ struggle_loop（等待恢复/分裂触发）
-## - 若被 ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet 命中一次或 5s 超时：flip_to_nomal → idle → RETREATING
+## - 若被 ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet 命中一次或 5s 超时：flip_to_nomal → idle（回 NORMAL）
 ## - 若被其它武器命中 SoftHurtbox 超过 3 次：escape_split（不可打断）→ empty_loop + EMPTY_SHELL
 
 const FLIPPED_TIMEOUT_MS: int = 5000
@@ -115,9 +115,8 @@ func _tick_recover(seb: StoneEyeBug) -> int:
 		seb.flipped_escape_requested = false
 		seb.flipped_escape_hit_count = 0
 		seb.flipped_started_ms = 0
-		# 新增规则：起身回到 idle 后，立刻进入缩壳流程。
+		# 起身后回到 NORMAL+idle，可再次被打翻（支持多次翻转）。
 		seb.anim_play(&"idle", true, true)
-		seb.mode = StoneEyeBug.Mode.RETREATING
 		_phase = Phase.DONE
 		return SUCCESS
 	return RUNNING
