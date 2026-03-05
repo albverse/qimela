@@ -166,14 +166,18 @@ func force_close_hit_windows() -> void:
 func on_damage_received() -> void:
 	## 由攻击命中回调或 EventBus 调用，触发断链重置
 	took_damage = true
+	_request_chain_detach_on_damage()
 	# 受击后若仍链接，先解冻玩家输入，避免在 vanish 期间残留冻结。
 	if control_input_frozen:
 		_set_player_control_frozen(false)
 
 
-func apply_hit(_hit: HitData) -> bool:
+func apply_hit(hit: HitData) -> bool:
 	## 可被怪物/子弹等通过 apply_hit 伤害接口命中。
 	## GhostHand 不走常规 HP 死亡，而是受击后进入 reset 流（vanish -> appear）。
+	# 玩家攻击不可伤害 ChimeraGhostHandL。
+	if _is_player_attack(hit):
+		return false
 	on_damage_received()
 	_flash_once()
 	return true
@@ -185,6 +189,30 @@ func on_light_exposure(remaining_time: float) -> void:
 		return
 	on_damage_received()
 	_flash_once()
+
+
+func _is_player_attack(hit: HitData) -> bool:
+	if hit == null:
+		return false
+	if hit.weapon_id == &"ghost_fist":
+		return true
+	if hit.source != null and is_instance_valid(hit.source) and hit.source.is_in_group("player"):
+		return true
+	return false
+
+
+func _request_chain_detach_on_damage() -> void:
+	if not is_linked():
+		return
+	var p := get_player_node()
+	if p == null or not is_instance_valid(p):
+		return
+	if not ("chain_sys" in p):
+		return
+	var cs = p.chain_sys
+	if cs == null or not cs.has_method("force_dissolve_chain"):
+		return
+	cs.call("force_dissolve_chain", get_linked_slot())
 
 
 # =============================================================================
@@ -330,6 +358,9 @@ func resolve_hit_on_targets() -> void:
 		# 命中 StoneMaskBirdFaceBullet → 反弹（不走 apply_hit）
 		if body is StoneMaskBirdFaceBullet:
 			body.reflect()
+			continue
+		# 防自击：AttackArea 可能重叠到自身 Body（layer=EnemyBody）。
+		if body == self:
 			continue
 		if body.has_method("apply_hit"):
 			body.call("apply_hit", hit)
