@@ -27,6 +27,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	var dt := mollusc.get_physics_process_delta_time()
 
+	if mollusc.should_trigger_forced_breakout():
+		mollusc.trigger_forced_breakout()
+
 	# 重规划（玩家进入威胁距离）
 	var player_near: bool = mollusc.is_player_near_threat()
 	mollusc.plan_escape_if_player_near()
@@ -49,6 +52,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# 更新剩余逃跑距离
 	var moved: float = absf(mollusc.global_position.x - prev_pos.x)
 	mollusc.escape_remaining = max(mollusc.escape_remaining - moved, 0.0)
+	mollusc.update_breakout_post_combo()
 
 	# 播放跑步动画
 	if not mollusc.anim_is_playing(&"run"):
