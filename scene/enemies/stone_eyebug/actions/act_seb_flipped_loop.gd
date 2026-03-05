@@ -2,8 +2,8 @@ extends ActionLeaf
 class_name ActSEBFlipAndStruggle
 
 ## 石眼虫弹翻流程（新规则）：
-## nomal_to_flip（一次）→ struggle_loop（等待恢复/分裂触发）
-## - 若被 ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet 命中一次或 5s 超时：flip_to_nomal → idle（回 NORMAL）
+## normal_to_flip（一次）→ struggle_loop（等待恢复/分裂触发）
+## - 若被 ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet 命中一次或 5s 超时：flip_to_normal → idle → RETREATING
 ## - 若被其它武器命中 SoftHurtbox 超过 3 次：escape_split（不可打断）→ empty_loop + EMPTY_SHELL
 
 const FLIPPED_TIMEOUT_MS: int = 5000
@@ -37,7 +37,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	seb.flipped_escape_requested = false
 	if seb.flipped_started_ms <= 0:
 		seb.flipped_started_ms = StoneEyeBug.now_ms()
-	seb.anim_play(&"nomal_to_flip", false, false)
+	seb.anim_play(&"normal_to_flip", false, false)
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -60,7 +60,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_enter_flip(seb: StoneEyeBug) -> int:
-	if seb.ev_flip_done or seb.anim_is_finished(&"nomal_to_flip"):
+	if seb.ev_flip_done or seb.anim_is_finished(&"normal_to_flip"):
 		seb.ev_flip_done = false
 		seb.soft_hitbox_active = true
 		_phase = Phase.STRUGGLE
@@ -84,7 +84,7 @@ func _tick_struggle(seb: StoneEyeBug) -> int:
 	if seb.flipped_recover_requested or elapsed_ms >= FLIPPED_TIMEOUT_MS:
 		seb.soft_hitbox_active = false
 		_phase = Phase.RECOVER
-		seb.anim_play(&"flip_to_nomal", false, true)
+		seb.anim_play(&"flip_to_normal", false, true)
 	return RUNNING
 
 
@@ -107,7 +107,7 @@ func _tick_escape_split(seb: StoneEyeBug) -> int:
 
 
 func _tick_recover(seb: StoneEyeBug) -> int:
-	if seb.anim_is_finished(&"flip_to_nomal"):
+	if seb.anim_is_finished(&"flip_to_normal"):
 		seb.mode = StoneEyeBug.Mode.NORMAL
 		seb.soft_hitbox_active = false
 		seb.was_attacked_while_flipped = false
@@ -115,8 +115,9 @@ func _tick_recover(seb: StoneEyeBug) -> int:
 		seb.flipped_escape_requested = false
 		seb.flipped_escape_hit_count = 0
 		seb.flipped_started_ms = 0
-		# 起身后回到 NORMAL+idle，可再次被打翻（支持多次翻转）。
+		# 统一规则：无论何种原因从 FLIPPED 恢复，都先回 idle 再立刻进入缩壳。
 		seb.anim_play(&"idle", true, true)
+		seb.mode = StoneEyeBug.Mode.RETREATING
 		_phase = Phase.DONE
 		return SUCCESS
 	return RUNNING

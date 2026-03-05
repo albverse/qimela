@@ -12,7 +12,7 @@ enum Mode {
 	NORMAL = 0,      ## 正常状态：巡走 / 发呆 / 攻击
 	RETREATING = 1,  ## 缩壳中（retreat_in 动画，0.5s）
 	IN_SHELL = 2,    ## 壳内待机（in_shell_loop，5s 不受攻击才出壳）
-	FLIPPED = 3,     ## 被弹翻（nomal_to_flip → struggle_loop → flip_to_nomal）
+	FLIPPED = 3,     ## 被弹翻（normal_to_flip → struggle_loop → flip_to_normal）
 	EMPTY_SHELL = 4, ## 软体逃跑后的空壳（等待软体回来，可被链接）
 }
 
@@ -134,6 +134,7 @@ var _anim_mock: AnimDriverMock = null
 
 var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
 var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
+var _light_receiver: Area2D = null ## 受光盒缓存（LightReceiver 节点）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -151,6 +152,7 @@ func _ready() -> void:
 
 	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
 	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
+	_light_receiver = get_node_or_null("LightReceiver") as Area2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -185,6 +187,12 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
+
+	# 雷击反应：通过光照累计触发（外部事件驱动），命中后立刻进入 hit_shell -> retreat_in 流程。
+	if mode == Mode.NORMAL and light_counter >= light_counter_max:
+		is_thunder_pending = true
+		mode = Mode.RETREATING
+		light_counter = 0.0
 
 	_update_hurtbox_states()
 	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
@@ -340,6 +348,17 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 壳体保护阶段（NORMAL / RETREATING / IN_SHELL）
 
+	# --- RETREATING / IN_SHELL 被三类来源命中：可立刻触发打翻 ---
+	if (mode == Mode.RETREATING or mode == Mode.IN_SHELL) and _can_flip_on_hit(hit):
+		mode = Mode.FLIPPED
+		flipped_started_ms = now_ms()
+		flipped_recover_requested = false
+		flipped_escape_hit_count = 0
+		flipped_escape_requested = false
+		was_attacked_while_flipped = false
+		_flash_once()
+		return true
+
 	# --- 雷花 → 触发缩壳 ---
 	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower":
 		if mode != Mode.RETREATING and mode != Mode.IN_SHELL:
@@ -388,6 +407,20 @@ func _reflect_from_shell(hit: HitData) -> void:
 			facing = -1
 		elif dx < 0.0:
 			facing = 1
+
+	# hit_shell_small：壳体无效受击短反馈。
+	# 若处于关键动作（攻击/缩壳/翻转）则不插播，仅闪白。
+	var in_critical_anim: bool = (
+		anim_is_playing(&"attack_stone")
+		or anim_is_playing(&"attack_lick")
+		or anim_is_playing(&"retreat_in")
+		or anim_is_playing(&"normal_to_flip")
+		or anim_is_playing(&"flip_to_normal")
+		or mode == Mode.FLIPPED
+		or mode == Mode.RETREATING
+	)
+	if not in_critical_anim:
+		anim_play(&"hit_shell_small", false, true)
 	_flash_once()
 
 
@@ -403,7 +436,7 @@ func _mark_next_hit_soft() -> void:
 func _update_hurtbox_states() -> void:
 	## 按当前 mode 和 soft_hitbox_active 开关壳体 / 软腹受击盒的 monitoring
 	## 每帧在 _physics_process 开头调用，保证与状态机同步
-	if _shell_hurtbox == null and _soft_hurtbox == null:
+	if _shell_hurtbox == null and _soft_hurtbox == null and _light_receiver == null:
 		return
 	match mode:
 		Mode.NORMAL:
@@ -412,24 +445,32 @@ func _update_hurtbox_states() -> void:
 				_shell_hurtbox.monitoring = true
 			if _soft_hurtbox:
 				_soft_hurtbox.monitoring = true
+			if _light_receiver:
+				_light_receiver.monitoring = true
 		Mode.RETREATING, Mode.IN_SHELL:
 			# 缩壳 / 壳内：软腹已收起，只留壳体
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = true
 			if _soft_hurtbox:
 				_soft_hurtbox.monitoring = false
+			if _light_receiver:
+				_light_receiver.monitoring = true
 		Mode.FLIPPED:
 			# 翻倒：壳体朝下无法命中，软腹随 soft_hitbox_active 开关
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = false
 			if _soft_hurtbox:
 				_soft_hurtbox.monitoring = soft_hitbox_active
+			if _light_receiver:
+				_light_receiver.monitoring = true
 		Mode.EMPTY_SHELL:
-			# 空壳：只有壳可受击，软腹已逃走
+			# 空壳：完全冻结，禁用软腹和受光盒
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = true
 			if _soft_hurtbox:
 				_soft_hurtbox.monitoring = false
+			if _light_receiver:
+				_light_receiver.monitoring = false
 
 
 func _update_soft_hurtbox_position() -> void:
@@ -514,6 +555,8 @@ func notify_shell_restored() -> void:
 	species_id = &"stone_eyebug"
 	mollusc_spawned = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
+	if _light_receiver:
+		_light_receiver.monitoring = true
 	anim_play(&"in_shell_loop", true, true)
 
 
@@ -572,9 +615,9 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"emerge_out"] = 0.5
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
-	# NOTE: "flip" 为旧名（deprecated），当前入场动画名为 "nomal_to_flip"。
-	_anim_mock._durations[&"nomal_to_flip"] = 0.4
+	# NOTE: "flip" 为旧名（deprecated），当前入场动画名为 "normal_to_flip"。
+	_anim_mock._durations[&"normal_to_flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
-	_anim_mock._durations[&"flip_to_nomal"] = 0.4
+	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"empty_loop"] = 1.0
 	_anim_mock._durations[&"hit_shell_small"] = 0.25

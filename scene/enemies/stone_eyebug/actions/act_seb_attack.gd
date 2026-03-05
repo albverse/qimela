@@ -114,6 +114,8 @@ func _apply_lick_knockback(seb: StoneEyeBug, player: Node2D) -> void:
 
 func _finish_attack(seb: StoneEyeBug) -> void:
 	seb.next_attack_end_ms = StoneEyeBug.now_ms() + int(seb.attack_cd * 1000.0)
+	# 仅在“进入缩壳后解锁”的窗口内触发一次攻击；结束后关闭，避免普通移动态持续攻击。
+	seb.attack_enabled_after_player_retreat = false
 	_phase = Phase.DONE
 
 
