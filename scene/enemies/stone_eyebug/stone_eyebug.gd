@@ -405,7 +405,10 @@ func _reflect_from_shell(hit: HitData) -> void:
 			facing = -1
 		elif dx < 0.0:
 			facing = 1
+	_play_hit_shell_small_feedback()
 
+
+func _play_hit_shell_small_feedback() -> void:
 	# hit_shell_small：壳体无效受击短反馈。
 	# 若处于关键动作（攻击/缩壳/翻转）则不插播，仅闪白。
 	var in_critical_anim: bool = (
@@ -516,6 +519,10 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 空壳冻结态：不接受任何交互（包括链接）
 	if mode == Mode.EMPTY_SHELL:
 		return 0
+
+	# 锁链命中壳体（无效伤害）也应触发 hit_shell_small 反馈。
+	shell_last_attacked_ms = Time.get_ticks_msec()
+	_play_hit_shell_small_feedback()
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
 

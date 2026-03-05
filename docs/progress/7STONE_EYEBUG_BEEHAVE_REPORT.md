@@ -157,3 +157,22 @@
 
 > 注：历史文案中的 `nomal_to_flip / flip_to_nomal` 为旧拼写，
 > 现行实现与文档均统一为 `normal_to_flip / flip_to_normal`。
+
+## 12) `hit_shell_small` 不工作的根因与修复
+
+### 根因
+
+- `hit_shell_small` 之前只挂在 `apply_hit()` 的壳体反弹分支（`_reflect_from_shell`）里。
+- 但锁链武器命中 StoneEyeBug 壳体走的是 `on_chain_hit()` 路径，不会进入 `apply_hit()`。
+- 因此“壳体命中（无效伤害）”这类高频场景里，反馈动画根本没有被调度，表现为 `hit_shell_small` 看起来不工作。
+
+### 修复
+
+- 抽取统一反馈函数 `_play_hit_shell_small_feedback()`（含“关键动画不插播，仅闪白”规则）。
+- `apply_hit()` 的壳体反弹路径继续复用该函数（保持原行为）。
+- 在 `on_chain_hit()` 的“壳体命中且非 EMPTY_SHELL”路径补上同一反馈调用，确保锁链命中也有一致手感。
+
+### 结果
+
+- 无效伤害命中壳体时（包括锁链命中），现在都会尝试触发 `hit_shell_small`；
+  若处于攻击/缩壳/翻转关键阶段，仍按设计只闪白不插播动画。
