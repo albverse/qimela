@@ -194,6 +194,24 @@ func on_player_interact(_player_ref: Player) -> void:
 	request_attack()
 
 
+func on_chain_attached(slot: int) -> void:
+	super.on_chain_attached(slot)
+	var player := get_player_node()
+	if player != null and player.has_method("set_external_control_frozen"):
+		player.call("set_external_control_frozen", true)
+	control_input_frozen = true
+
+
+func on_chain_detached(slot: int) -> void:
+	var was_linked: bool = is_linked() and get_linked_slot() == slot
+	super.on_chain_detached(slot)
+	if was_linked and not is_linked():
+		var player := get_player_node()
+		if player != null and player.has_method("set_external_control_frozen"):
+			player.call("set_external_control_frozen", false)
+		control_input_frozen = false
+
+
 func request_attack() -> void:
 	## 玩家输入层调用：请求攻击
 	attack_requested = true

@@ -18,6 +18,16 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var seb := actor as StoneEyeBug
 	if seb == null:
 		return
+
+	# 根因修复：Seq_Flipped 是 Reactive Sequence，叶节点可能反复 before_run。
+	# 若已进入挣扎阶段（soft_hitbox_active=true），不能重置并重播 flip。
+	if seb.soft_hitbox_active:
+		_phase = Phase.DONE
+		seb.velocity = Vector2.ZERO
+		if not seb.anim_is_playing(&"struggle_loop"):
+			seb.anim_play(&"struggle_loop", true, true)
+		return
+
 	_phase = Phase.FLIP
 	seb.was_attacked_while_flipped = false
 	seb.soft_hitbox_active = false

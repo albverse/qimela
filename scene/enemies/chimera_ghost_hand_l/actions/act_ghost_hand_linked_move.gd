@@ -46,9 +46,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost != null:
-		# 解冻玩家操控，恢复正常移动
-		var player := ghost.get_player_node()
-		if player != null and player.has_method("set_external_control_frozen"):
-			player.call("set_external_control_frozen", false)
+		# 仅在真正断链时解冻；链接态内（如切到 Attack 分支）保持冻结。
+		if not ghost.is_linked():
+			var player := ghost.get_player_node()
+			if player != null and player.has_method("set_external_control_frozen"):
+				player.call("set_external_control_frozen", false)
+			ghost.control_input_frozen = false
 		ghost.velocity = Vector2.ZERO
 	super(actor, blackboard)
