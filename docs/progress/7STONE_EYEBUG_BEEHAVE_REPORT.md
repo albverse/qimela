@@ -1,136 +1,200 @@
-# StoneEyeBug Beehave 行为与动画状态梳理（当前代码）
+# StoneEyeBug 行为与动画逻辑总览（按当前代码）
 
-> 参照文档：`docs/SPINE_GODOT_LATEST_INTEGRATED_STANDARD.md`。
+> 本文为“当前代码已实现逻辑”的自然语言快照，便于对照调试与验收。
 
-## 0) 动画命名与旧名说明
-- `flip` 为旧名（deprecated）。
-- 当前翻倒相关动画：
-  - 入场翻倒：`normal_to_flip`
-  - 起身恢复：`flip_to_normal`
-  - 分裂逃出：`escape_split`
-  - 空壳冻结：`empty_loop`
+## 1. 状态与总流程
 
-## 1) BT 主优先级
-`FLIPPED > RETREATING > IN_SHELL > ATTACK > WANDER`。
+StoneEyeBug 目前有 5 个核心状态：
 
-## 2) 关键行为说明
+- `NORMAL`：正常巡走/待机。
+- `RETREATING`：正在缩壳（进入壳体过程）。
+- `IN_SHELL`：缩壳完成后的壳内阶段。
+- `FLIPPED`：被翻倒阶段。
+- `EMPTY_SHELL`：软体分离后的空壳冻结阶段。
 
-### A. FLIPPED（打翻）
-流程：`normal_to_flip -> struggle_loop`，随后二选一：
-1. **恢复流**：
-   - 触发条件：
-     - 被 `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet` 命中一次；或
-     - 5 秒内未被命中自动超时。
-   - 动画：`flip_to_normal -> idle`，随后立刻切 `RETREATING` 进入缩壳流。
-2. **分裂流（escape_split）**：
-   - 触发条件：在 FLIPPED 期间，`SoftHurtbox` 被“非上述三种来源”的武器命中超过 3 次。
-   - 动画：`escape_split`（播放期间不可打断）。
-   - 在 `escape_spawn` 事件触发时，于 `MolluscSpawnMark` 生成 `Mollusc.tscn`。
-   - 结束后切到 `EMPTY_SHELL`，播放 `empty_loop`。
+Beehave 主优先级为：
 
-### B. EMPTY_SHELL（空壳冻结）
-- 只允许 `empty_loop` 循环。
-- 不再参与其它攻击/交互（包含受击、链接等）。
-- **禁用 `SoftHurtbox` 与 `LightReceiver`**，防止空壳继续受光照影响攻击链路。
-- 仅当 `Mollusc` 的 `Act_ReturnToShell` 触发并调用壳体 `notify_shell_restored()` 时：
-  - 切到 `IN_SHELL`；
-  - 重新启用 `LightReceiver`；
-  - 动画切为 `in_shell_loop`。
+`FLIPPED > RETREATING > ATTACK > IN_SHELL > WANDER`
 
-### C. 进入场景后 idle 阶段卡重力问题
-- 已修正 `ActSEBWander._tick_idle`：idle 阶段每帧也执行重力积分与 `move_and_slide()`，并确保 `idle` 动画持续播放，避免“首次 walk 前重力/动画卡住”。
+含义：
+- 一旦翻倒，优先执行翻倒流程；
+- 其次执行缩壳流程；
+- 再判断是否在壳内可攻击；
+- 然后才是壳内等待出壳；
+- 最后才是走路/待机兜底。
 
-## 3) 调试器可读性
-- Beehave 调试分页项名称改为 `怪物名 (BeehaveTree节点名)`，不再只有通用 `BeehaveTree` 文本，便于定位具体怪物实例。
+---
 
+## 2. 动画命名与旧名
 
-## 4) Mollusc（软体虫）当前约束与行为补充
+当前代码统一使用：
 
-- **无 die 行为**：Mollusc 不应访问或依赖任何 `_die_*` 状态；当前生命终结路径仅为：
-  1) 回壳（`Act_ReturnToShell` 后 `notify_shell_restored()` + `queue_free()`），
-  2) 融合系统回收。
-- `ActMolluscAttack` 当前攻击序列仅受 `is_hurt` 打断，不再检查不存在的 die 字段。
-- 动画行为：
-  - 攻击：`attack_stone -> attack_lick`；
-  - 受击：`hurt`（短硬直）；
-  - 逃跑/回壳移动：`run`；
-  - 待机：`idle`；
-  - 回壳完成：`enter_shell`。
+- `normal_to_flip`
+- `flip_to_normal`
+- `escape_split`
+- `empty_loop`
+- `hit_shell`
+- `hit_shell_small`
 
-## 5) 本轮修复结论（对应线上报错）
+旧拼写 `flip` / `nomal_to_flip` / `flip_to_nomal` 视为历史名，不再作为现行逻辑入口。
 
-- 报错 `Invalid access ... _die_anim_playing` 的根因是 `ActMolluscAttack` 误读了 Mollusc 不存在的 die 字段。
-- 已删除该错误依赖，保持“项目仅 weak / fuse 泯灭，无 die 逻辑”的一致性。
+---
 
+## 3. 翻倒（FLIPPED）完整规则
 
-## 6) 攻击触发窗口约束
+### 3.1 入场
 
-- StoneEyeBug 攻击只在“已进入过缩壳流程后解锁”的窗口内触发。
-- 每次 `ActSEBAttack` 结束会关闭 `attack_enabled_after_player_retreat`，因此不会在普通移动状态下持续反复触发攻击。
-- 下一次攻击需要再次由缩壳触发链路（如 soft 命中触发 retreat）重新解锁。
+进入 `FLIPPED` 后先播：
 
+`normal_to_flip`（一次）→ `struggle_loop`（循环）
 
-## 7) 缩壳态被三类来源命中的翻倒规则
+### 3.2 恢复为缩壳流
 
-- 在 `RETREATING` / `IN_SHELL` 状态下，若命中来源为
-  `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet`，
-  StoneEyeBug 会立刻进入 `FLIPPED`，不再保持缩壳无敌。
-- 该规则与 `NORMAL` 态的翻倒来源保持一致。
-- 即使处于缩壳流过程中（`RETREATING` / `IN_SHELL`），被三类来源命中也会立刻中断缩壳并进入 `FLIPPED`（`normal_to_flip`）。
+`struggle_loop` 期间满足任一条件会进入恢复：
 
+1. 被以下来源命中一次：
+   - `ghost_fist`
+   - `chimera_ghost_hand_l`
+   - `stone_mask_bird_face_bullet`
+2. 或翻倒持续超时 5 秒。
 
-## 8) hit_shell / hit_shell_small 规则
+恢复动画链：
 
-- `hit_shell`：雷击受击反应，不由 BT 主循环主动选择；由外部雷击事件触发后立即进入缩壳流：`hit_shell -> retreat_in`。
-- `hit_shell_small`：壳体无效受击短反馈。
-  - 触发：壳（Hurtbox）被无效伤害命中。
-  - 限制：若正在攻击/缩壳/翻转等关键动画，不插播，仅闪白。
+`flip_to_normal -> idle`，随后立刻切 `RETREATING`（进入缩壳流）。
 
+### 3.3 分裂逃出（escape_split）
 
-## 9) 当前版本逻辑快照（本次同步）
+`struggle_loop` 期间，如果 SoftHurtbox 被“非上面三类来源”命中累计超过 3 次：
 
-- FLIPPED 恢复尾流程固定为：`flip_to_normal -> idle -> RETREATING`。
-- 缩壳流（`RETREATING` / `IN_SHELL`）中被三类来源命中会立刻中断并进入 `FLIPPED`。
-- `EMPTY_SHELL` 下：`SoftHurtbox` / `LightReceiver` 均禁用，仅保留 `empty_loop`。
-- `notify_shell_restored()` 后恢复 `IN_SHELL + in_shell_loop`，并重新启用 `LightReceiver`。
-- 攻击触发窗口：每次由缩壳链路打开，`ActSEBAttack` 结束后关闭。
+- 播放 `escape_split`（不可打断）；
+- 在 `escape_spawn` 事件点生成 `Mollusc`；
+- 壳体进入 `EMPTY_SHELL`，播放 `empty_loop`。
 
-## 10) StoneEyeBug 依赖链编译检查清单（本轮）
+---
 
-> 目标：一次性排查“父子成员冲突、失效 NodePath、动作脚本强依赖”三类高频编译/运行隐患。
+## 4. 缩壳流（RETREATING / IN_SHELL）与攻击窗口
 
-### 10.1 父子成员冲突（GDScript Parse Error）
+### 4.1 缩壳动作链
 
-- 检查项：`StoneEyeBug` 是否重复声明父类 `MonsterBase` 已有成员。
-- 结果：
-  - 父类 `MonsterBase` 持有 `@onready var _light_receiver`（通过 `light_receiver_path` 绑定）。
-  - `StoneEyeBug` 当前脚本不再重复声明 `_light_receiver`，冲突项已清除。
-- 结论：该类“同名成员导致全链路编译失败”的问题已消除。
+缩壳流程动作是：
 
-### 10.2 NodePath / 场景节点绑定有效性
+- 若 `is_thunder_pending == true`：先播 `hit_shell`；
+- 然后播 `retreat_in`；
+- 进入 `IN_SHELL` 后播 `in_shell_loop`；
+- 壳内安全时间到（`shell_safe_time`）后播 `emerge_out`，回 `NORMAL`。
 
-- 检查项：`StoneEyeBug.tscn` 中 `light_receiver_path` 是否正确指向 `LightReceiver`。
-- 结果：
-  - `StoneEyeBug` 根节点已配置：`light_receiver_path = NodePath("LightReceiver")`。
-  - 场景内存在 `LightReceiver` 节点。
-- 结论：`_light_receiver` 绑定路径有效，不会退回默认 `Hurtbox` 或空引用。
+### 4.2 攻击只在壳内触发
 
-### 10.3 动作脚本强依赖排查（成员/接口）
+攻击条件是双门：
 
-- 检查项：StoneEyeBug 相关 `actions/*.gd`、`conditions/*.gd` 是否依赖已删除成员（如 die 字段）或不存在接口。
-- 结果：
-  - 未发现 `"_die_anim_playing"` 等非法依赖残留。
-  - `Mollusc` 路径下亦无 die 字段硬依赖。
-- 结论：动作与条件脚本的已知强依赖冲突项已清理。
+1. `mode == IN_SHELL`；
+2. `attack_enabled_after_player_retreat == true` 且冷却到时。
 
-### 10.4 资源链完整性（.tscn -> ext_resource path）
+因此：
 
-- 检查项：`scene/enemies/stone_eyebug` 下 `.tscn` 所引用 `res://` 资源是否存在。
-- 结果：脚本化扫描结果 `missing 0`。
-- 结论：未发现失效外部资源路径。
+- 行走/idle（`NORMAL`）不会触发攻击；
+- 只有进入壳内后才会做 `attack_stone -> attack_lick`。
 
-### 10.5 建议固化（后续）
+### 4.3 攻击窗口开启/关闭
 
-1. 在 CI 增加“脚本加载冒烟”步骤（逐个 preload StoneEyeBug 行为脚本）以提前暴露 parse error。
-2. 保持“共享组件字段在父类统一声明，子类仅通过 NodePath 配置”的约定，避免重复声明。
-3. 对 BT 关键动作（flip/shell/escape）增加最小化行为回归场景，防止字段改名后动作脚本失配。
+- 缩壳流开始时（`_start_retreat`）会开启攻击窗口并设置冷却起点；
+- 每次攻击动作结束会关闭窗口（避免普通移动态连发）。
+
+---
+
+## 5. LightFlower 触发规则（重点）
+
+当前边界是：
+
+- StoneEyeBug **不直接响应全局 thunder_burst**；
+- StoneEyeBug 只通过 `on_light_exposure()` 响应 LightFlower 光照释放。
+
+触发效果：
+
+- 非缩壳态下：立即进入 `is_thunder_pending + RETREATING`，由壳流动作播放 `hit_shell -> retreat_in`；
+- 已在 `RETREATING/IN_SHELL` 时：LightFlower 触发无效（不刷新壳计时），避免壳流程被反复续时。
+
+---
+
+## 6. 被击中规则（apply_hit）
+
+### 6.1 可触发翻倒的来源
+
+以下来源可触发翻倒：
+
+- `ghost_fist`
+- `chimera_ghost_hand_l`
+- `stone_mask_bird_face_bullet`
+
+并且在 `NORMAL`、`RETREATING`、`IN_SHELL` 下都可使其转入 `FLIPPED`（缩壳中也可被中断翻倒）。
+
+### 6.2 空壳阶段
+
+`EMPTY_SHELL` 下受击交互基本冻结（只等软体回壳通知）。
+
+### 6.3 壳体无效受击反馈
+
+对“无效伤害命中壳体”统一走 `hit_shell_small` 反馈：
+
+- 关键动画/关键状态时不插播，仅闪白；
+- 非关键阶段可插播 `hit_shell_small`。
+
+---
+
+## 7. 锁链命中规则（on_chain_hit）
+
+- `FLIPPED + SoftHurtbox`：计入 escape_split 次数。
+- `NORMAL + SoftHurtbox`：触发缩壳并可打开攻击窗口。
+- `EMPTY_SHELL`：不接受链交互。
+- 链命中壳体无效伤害：也会触发与 `apply_hit` 一致的 `hit_shell_small` 反馈路径。
+
+---
+
+## 8. Hurtbox / LightReceiver 开关逻辑
+
+按状态实时切换：
+
+- `NORMAL`：壳体、软体、LightReceiver 全开。
+- `RETREATING/IN_SHELL`：壳体开，软体关，LightReceiver 开。
+- `FLIPPED`：壳体关，软体按 `soft_hitbox_active`，LightReceiver 开。
+- `EMPTY_SHELL`：壳体开，软体关，LightReceiver 关。
+
+这保证了空壳不会继续吃光照链路，回壳后再恢复。
+
+---
+
+## 9. 空壳与回壳
+
+### 9.1 进入空壳
+
+`notify_become_empty_shell()` 会：
+
+- 设为 `EMPTY_SHELL`；
+- 关闭翻倒/攻击窗口相关标志；
+- 重置弱化/锁血相关状态；
+- 保留空壳等待软体回壳。
+
+### 9.2 软体回壳
+
+`notify_shell_restored()` 会：
+
+- 回到 `IN_SHELL`；
+- 重新启用 `LightReceiver`；
+- 播放 `in_shell_loop`。
+
+---
+
+## 10. 软体（Mollusc）补充
+
+- StoneEyeBug 会在 `escape_spawn` 事件点优先从 `MolluscSpawnMark` 位置生成软体；
+- `ActMolluscAttack` 已去除不存在的 die 字段依赖，仅按受击状态中断。
+
+---
+
+## 11. 本文件用途
+
+该文档只描述“当前代码已经实现的行为事实”，用于：
+
+- 玩法验收对照；
+- 动画联调核对；
+- 回归测试时快速判断“是逻辑变更还是资源事件缺失”。
