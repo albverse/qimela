@@ -103,3 +103,11 @@
 
 1. **RESTING 唤醒条件与需求不一致**：原先仅 `ghost_fist` 可唤醒。已补充 `chimera_ghost_hand_l` 命中也能触发 `WAKING`。
 2. 其余 StoneMaskBird 的行为-动画映射与当前 BT 优先级一致，未发现会导致明显死锁/矛盾的分支。
+
+
+## 4) 当前版本逻辑快照（本次同步）
+
+- RESTING 唤醒来源：`ghost_fist` 与 `chimera_ghost_hand_l` 均可触发 `WAKING`。
+- WAKING 结束后根据 `rest_hunt_requested` 分流到 `HUNTING` 或 `FLYING_ATTACK`。
+- FLYING_ATTACK 内部仍按 `ShootFace > AttackLoopDash > Chase` 选择动作。
+- WAKE_FROM_STUN / RETURN_TO_REST 均以回巢为目标，落巢后回到 `RESTING`。

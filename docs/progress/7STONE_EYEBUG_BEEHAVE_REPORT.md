@@ -85,3 +85,12 @@
 - `hit_shell_small`：壳体无效受击短反馈。
   - 触发：壳（Hurtbox）被无效伤害命中。
   - 限制：若正在攻击/缩壳/翻转等关键动画，不插播，仅闪白。
+
+
+## 9) 当前版本逻辑快照（本次同步）
+
+- FLIPPED 恢复尾流程固定为：`flip_to_normal -> idle -> RETREATING`。
+- 缩壳流（`RETREATING` / `IN_SHELL`）中被三类来源命中会立刻中断并进入 `FLIPPED`。
+- `EMPTY_SHELL` 下：`SoftHurtbox` / `LightReceiver` 均禁用，仅保留 `empty_loop`。
+- `notify_shell_restored()` 后恢复 `IN_SHELL + in_shell_loop`，并重新启用 `LightReceiver`。
+- 攻击触发窗口：每次由缩壳链路打开，`ActSEBAttack` 结束后关闭。
