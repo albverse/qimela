@@ -23,6 +23,9 @@ class_name Mollusc
 @export var attack_range: float = 120.0
 ## 攻击触发范围（px）
 
+@export var attack_cd: float = 2.0
+## 攻击冷却（秒）
+
 @export var player_stone_stun: float = 2.0
 ## attack_stone 命中后玩家僵直时长（秒）
 

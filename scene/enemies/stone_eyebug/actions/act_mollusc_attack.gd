@@ -2,7 +2,7 @@ extends ActionLeaf
 class_name ActMolluscAttack
 
 ## 软体虫攻击序列：停步 → attack_stone（石化）→ 若玩家仍在范围 → attack_lick（击退）。
-## 软体攻击无 2s 冷却（蓝图规格确认）。
+## 每次攻击结束后进入 attack_cd 冷却窗口；冷却中由 BT 走逃跑分支。
 ##
 ## 命中时机依赖 Spine 事件：atk1_hit_on / atk1_hit_off / atk2_hit_on / atk2_hit_off。
 ## Mock 兜底：动画结束点作为命中时机。
@@ -38,6 +38,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Phase.ATTACK_LICK:
 			return _tick_attack_lick(mollusc, player)
 		Phase.DONE:
+			mollusc.next_attack_end_ms = Mollusc.now_ms() + int(mollusc.attack_cd * 1000.0)
 			mollusc.is_attacking = false
 			return SUCCESS
 	return RUNNING

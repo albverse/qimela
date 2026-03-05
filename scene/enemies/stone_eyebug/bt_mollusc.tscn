@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_see_shell.gd" id="cond_see_shell"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_in_range.gd" id="cond_player_attack"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_near.gd" id="cond_player_near"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_attack_ready.gd" id="cond_attack_ready"]
 
 ; === 自定义 Action 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_weak_stun.gd" id="act_weak_stun"]
@@ -58,6 +59,9 @@ script = ExtResource("sequence_reactive")
 
 [node name="Cond_PlayerInAttackRange" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("cond_player_attack")
+
+[node name="Cond_AttackReady" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("cond_attack_ready")
 
 [node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("act_attack")
