@@ -35,6 +35,15 @@ class_name Mollusc
 @export var gravity: float = 800.0
 ## 重力加速度（px/s²）
 
+@export var wall_check_forward: float = 96.0
+## 前向撞墙检测距离（px）
+
+@export var floor_check_forward: float = 16.0
+## 断崖检测的前向探针偏移（px）
+
+@export var floor_check_down: float = 24.0
+## 断崖检测的向下探针长度（px）
+
 # ===== 内部状态 =====
 
 ## 家园空壳节点（由 StoneEyeBug 调用 set_home_shell 设置）
@@ -259,26 +268,26 @@ func get_player() -> Node2D:
 func is_wall_ahead() -> bool:
 	## 检测正前方是否有墙（RayCast2D）
 	if _wall_ray_front != null and _wall_ray_front.enabled:
-		_wall_ray_front.target_position = Vector2(escape_dir_x * 16.0, 0.0)
+		_wall_ray_front.target_position = Vector2(escape_dir_x * wall_check_forward, 0.0)
 		_wall_ray_front.force_raycast_update()
 		return _wall_ray_front.is_colliding()
 
 	# fallback：即便 RayCast 节点失效，也用空间射线检测前墙
 	var from: Vector2 = global_position + Vector2(0.0, -8.0)
-	var to: Vector2 = from + Vector2(float(escape_dir_x) * 16.0, 0.0)
+	var to: Vector2 = from + Vector2(float(escape_dir_x) * wall_check_forward, 0.0)
 	return _ray_hits_world(from, to)
 
 
 func is_floor_ahead() -> bool:
 	## 检测正前方是否有地面（防止走下断崖）
 	if _floor_ray_front != null and _floor_ray_front.enabled:
-		_floor_ray_front.target_position = Vector2(escape_dir_x * 16.0, 24.0)
+		_floor_ray_front.target_position = Vector2(escape_dir_x * floor_check_forward, floor_check_down)
 		_floor_ray_front.force_raycast_update()
 		return _floor_ray_front.is_colliding()
 
 	# fallback：前方探针点向下射线检测地面
-	var probe: Vector2 = global_position + Vector2(float(escape_dir_x) * 16.0, 0.0)
-	var to: Vector2 = probe + Vector2(0.0, 24.0)
+	var probe: Vector2 = global_position + Vector2(float(escape_dir_x) * floor_check_forward, 0.0)
+	var to: Vector2 = probe + Vector2(0.0, floor_check_down)
 	return _ray_hits_world(probe, to)
 
 
