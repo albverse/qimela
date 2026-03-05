@@ -368,4 +368,5 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3
-	_anim_mock._durations[&"weak_stun"] = 5.0  # 虚弱眩晕循环动画（循环播放，时长仅供 Mock 参考）
+	_anim_mock._durations[&"weak_stun"] = 0.35      # 入场眩晕（一次）
+	_anim_mock._durations[&"weak_stun_loop"] = 1.0  # 虚弱眩晕循环
