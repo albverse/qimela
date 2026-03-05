@@ -40,3 +40,22 @@
 
 ## 3) 调试器可读性
 - Beehave 调试分页项名称改为 `怪物名 (BeehaveTree节点名)`，不再只有通用 `BeehaveTree` 文本，便于定位具体怪物实例。
+
+
+## 4) Mollusc（软体虫）当前约束与行为补充
+
+- **无 die 行为**：Mollusc 不应访问或依赖任何 `_die_*` 状态；当前生命终结路径仅为：
+  1) 回壳（`Act_ReturnToShell` 后 `notify_shell_restored()` + `queue_free()`），
+  2) 融合系统回收。
+- `ActMolluscAttack` 当前攻击序列仅受 `is_hurt` 打断，不再检查不存在的 die 字段。
+- 动画行为：
+  - 攻击：`attack_stone -> attack_lick`；
+  - 受击：`hurt`（短硬直）；
+  - 逃跑/回壳移动：`run`；
+  - 待机：`idle`；
+  - 回壳完成：`enter_shell`。
+
+## 5) 本轮修复结论（对应线上报错）
+
+- 报错 `Invalid access ... _die_anim_playing` 的根因是 `ActMolluscAttack` 误读了 Mollusc 不存在的 die 字段。
+- 已删除该错误依赖，保持“项目仅 weak / fuse 泯灭，无 die 逻辑”的一致性。

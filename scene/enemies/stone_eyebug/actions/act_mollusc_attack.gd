@@ -44,7 +44,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 
 func _tick_stop(mollusc: Mollusc, player: Node2D) -> int:
-	if mollusc.is_hurt or mollusc._die_anim_playing:
+	if mollusc.is_hurt:
 		mollusc.is_attacking = false
 		return FAILURE
 	mollusc.velocity = Vector2.ZERO
@@ -59,7 +59,7 @@ func _tick_stop(mollusc: Mollusc, player: Node2D) -> int:
 
 
 func _tick_attack_stone(mollusc: Mollusc, player: Node2D) -> int:
-	if mollusc.is_hurt or mollusc._die_anim_playing:
+	if mollusc.is_hurt:
 		mollusc.force_close_hit_windows()
 		mollusc.is_attacking = false
 		return FAILURE
@@ -89,7 +89,7 @@ func _tick_attack_stone(mollusc: Mollusc, player: Node2D) -> int:
 
 
 func _tick_attack_lick(mollusc: Mollusc, player: Node2D) -> int:
-	if mollusc.is_hurt or mollusc._die_anim_playing:
+	if mollusc.is_hurt:
 		mollusc.force_close_hit_windows()
 		mollusc.is_attacking = false
 		return FAILURE
