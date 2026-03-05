@@ -194,22 +194,25 @@ func on_player_interact(_player_ref: Player) -> void:
 	request_attack()
 
 
-func on_chain_attached(slot: int) -> void:
-	super.on_chain_attached(slot)
+func _set_player_control_frozen(frozen: bool) -> void:
 	var player := get_player_node()
 	if player != null and player.has_method("set_external_control_frozen"):
-		player.call("set_external_control_frozen", true)
-	control_input_frozen = true
+		player.call("set_external_control_frozen", frozen)
+	control_input_frozen = frozen
+
+
+func on_chain_attached(slot: int) -> void:
+	super.on_chain_attached(slot)
+	# 仅当当前切到本奇美拉槽位时冻结玩家移动。
+	_set_player_control_frozen(is_active_control_slot())
 
 
 func on_chain_detached(slot: int) -> void:
 	var was_linked: bool = is_linked() and get_linked_slot() == slot
 	super.on_chain_detached(slot)
-	if was_linked and not is_linked():
-		var player := get_player_node()
-		if player != null and player.has_method("set_external_control_frozen"):
-			player.call("set_external_control_frozen", false)
-		control_input_frozen = false
+	if was_linked:
+		# 断链后恢复；若仍有其他链接但非当前激活槽位，也不应保持冻结。
+		_set_player_control_frozen(is_active_control_slot())
 
 
 func request_attack() -> void:
