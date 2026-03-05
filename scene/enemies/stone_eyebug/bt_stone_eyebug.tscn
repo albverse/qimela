@@ -1,38 +1,24 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=11 format=3 uid="uid://b51cgdabfk23m"]
 
-; === Beehave 内置节点脚本 ===
-[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
-[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
-[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+[ext_resource type="Script" uid="uid://b332pnei4jgr1" path="res://scene/enemies/stone_eyebug/actions/act_seb_attack.gd" id="act_attack"]
+[ext_resource type="Script" uid="uid://bx0feu73350wl" path="res://scene/enemies/stone_eyebug/actions/act_seb_flipped_loop.gd" id="act_flip_and_struggle"]
+[ext_resource type="Script" uid="uid://u4kefx1daitb" path="res://scene/enemies/stone_eyebug/actions/act_seb_shell_flow.gd" id="act_shell"]
+[ext_resource type="Script" uid="uid://dudl0kas8kel" path="res://scene/enemies/stone_eyebug/actions/act_seb_wander.gd" id="act_wander"]
+[ext_resource type="Script" uid="uid://bb0t2ovl7wifo" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" uid="uid://b3wc6j0l0ok3y" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attack_ready.gd" id="cond_atk_ready"]
+[ext_resource type="Script" uid="uid://co3vdo2c72qmg" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_mode_is.gd" id="cond_mode_is"]
+[ext_resource type="Script" uid="uid://dj4min80lfywa" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_player_in_detect.gd" id="cond_player"]
+[ext_resource type="Script" uid="uid://cw22yurt5l74k" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" uid="uid://dcojdhvj8qcw0" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
 
-; === 自定义 Condition 脚本 ===
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_mode_is.gd" id="cond_mode_is"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_player_in_detect.gd" id="cond_player"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attack_ready.gd" id="cond_atk_ready"]
-
-; === 自定义 Action 脚本 ===
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_flipped_loop.gd" id="act_flip_and_struggle"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_shell_flow.gd" id="act_shell"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_attack.gd" id="act_attack"]
-[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_wander.gd" id="act_wander"]
-
-; =============================================================================
-; BeehaveTree 根节点
-; actor 自动取父节点（StoneEyeBug CharacterBody2D）
-; =============================================================================
-[node name="BeehaveTree" type="Node"]
+[node name="BeehaveTree" type="Node" node_paths=PackedStringArray("blackboard", "actor")]
 script = ExtResource("bt_tree")
+blackboard = NodePath("@Node@21049")
+actor = NodePath("..")
 
-; =============================================================================
-; RootSelector: SelectorReactiveComposite
-; 优先级：Flipped > ShellFlow > InShell > Attack > Wander（兜底）
-; =============================================================================
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
 
-; --- 1. Seq_Flipped（最高优先级）---
-; 新规则：ActFlipAndStruggle 内部完成
-; normal_to_flip → struggle_loop → (被打一次或5s超时) → flip_to_normal → idle。
 [node name="Seq_Flipped" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -43,7 +29,6 @@ target_mode = 3
 [node name="Act_FlipAndStruggle" type="Node" parent="RootSelector/Seq_Flipped"]
 script = ExtResource("act_flip_and_struggle")
 
-; --- 2. Seq_ShellFlow（缩壳中，mode=RETREATING）---
 [node name="Seq_ShellFlow" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -54,7 +39,6 @@ target_mode = 1
 [node name="Act_ShellFlow" type="Node" parent="RootSelector/Seq_ShellFlow"]
 script = ExtResource("act_shell")
 
-; --- 3. Seq_Attack（玩家进入检测区且攻击就绪）---
 [node name="Seq_Attack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -67,7 +51,6 @@ script = ExtResource("cond_atk_ready")
 [node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("act_attack")
 
-; --- 2b. Seq_InShell（壳内等待出壳，mode=IN_SHELL）---
 [node name="Seq_InShell" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -78,6 +61,5 @@ target_mode = 2
 [node name="Act_InShellWait" type="Node" parent="RootSelector/Seq_InShell"]
 script = ExtResource("act_shell")
 
-; --- 4. Act_Wander（兜底：idle/walk 循环，永远 RUNNING）---
 [node name="Act_Wander" type="Node" parent="RootSelector"]
 script = ExtResource("act_wander")

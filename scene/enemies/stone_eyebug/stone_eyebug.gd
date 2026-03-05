@@ -134,6 +134,8 @@ var _anim_mock: AnimDriverMock = null
 
 var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
 var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
+var _soft_hurtbox_shape: CollisionShape2D = null  ## SoftHurtbox 内部碰撞形状（禁用时完全移出物理世界）
+var _light_receiver_shape: CollisionShape2D = null  ## LightReceiver 内部碰撞形状（禁用时完全移出物理世界）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -151,6 +153,11 @@ func _ready() -> void:
 
 	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
 	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
+	if _soft_hurtbox:
+		_soft_hurtbox_shape = _soft_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	var lr: Area2D = _light_receiver
+	if lr:
+		_light_receiver_shape = lr.get_node_or_null("CollisionShape2D") as CollisionShape2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -410,8 +417,10 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- 其余武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效 ---
-	_reflect_from_shell(hit)
+	# --- 其余武器命中壳体（非软腹命中）→ 反向行走 + 刷新受攻时间，伤害无效 ---
+	# 问题2修复：只有非软腹命中才播放 hit_shell_small
+	if not is_soft_hit:
+		_reflect_from_shell(hit)
 	return true
 
 
@@ -454,43 +463,61 @@ func _mark_next_hit_soft() -> void:
 
 
 func _update_hurtbox_states() -> void:
-	## 按当前 mode 和 soft_hitbox_active 开关壳体 / 软腹受击盒的 monitoring
-	## 每帧在 _physics_process 开头调用，保证与状态机同步
+	## 按当前 mode 和 soft_hitbox_active 开关壳体 / 软腹受击盒的碰撞检测。
+	## SoftHurtbox 和 LightReceiver 通过禁用 CollisionShape2D 完全移出物理世界，
+	## 确保 Area2D 重叠检测（ghost_fist）和射线检测（chain）均不触发。
+	## 每帧在 _physics_process 开头调用，保证与状态机同步。
 	if _shell_hurtbox == null and _soft_hurtbox == null and _light_receiver == null:
 		return
+
+	var soft_should_active: bool
+	var light_should_active: bool
+
 	match mode:
 		Mode.NORMAL:
-			# 壳体可被命中（反弹），软腹也可被命中（缩壳）
+			# 壳体可被命中（反弹），软腹也可被命中（缩壳），受光盒正常工作
+			soft_should_active = true
+			light_should_active = true
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = true
-			if _soft_hurtbox:
-				_soft_hurtbox.monitoring = true
-			if _light_receiver:
-				_light_receiver.monitoring = true
 		Mode.RETREATING, Mode.IN_SHELL:
-			# 缩壳 / 壳内：软腹已收起，只留壳体
+			# 缩壳 / 壳内：软腹已收起，只留壳体和受光盒
+			soft_should_active = false
+			light_should_active = true
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = true
-			if _soft_hurtbox:
-				_soft_hurtbox.monitoring = false
-			if _light_receiver:
-				_light_receiver.monitoring = true
 		Mode.FLIPPED:
-			# 翻倒：壳体朝下无法命中，软腹随 soft_hitbox_active 开关
+			# 翻倒：壳体朝下无法命中，软腹随 soft_hitbox_active 开关，受光盒正常
+			soft_should_active = soft_hitbox_active
+			light_should_active = true
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = false
-			if _soft_hurtbox:
-				_soft_hurtbox.monitoring = soft_hitbox_active
-			if _light_receiver:
-				_light_receiver.monitoring = true
 		Mode.EMPTY_SHELL:
-			# 空壳：完全冻结，禁用软腹和受光盒
+			# 空壳：完全冻结，禁用软腹和受光盒，直到 notify_shell_restored 恢复
+			soft_should_active = false
+			light_should_active = false
 			if _shell_hurtbox:
 				_shell_hurtbox.monitoring = true
-			if _soft_hurtbox:
-				_soft_hurtbox.monitoring = false
-			if _light_receiver:
-				_light_receiver.monitoring = false
+		_:
+			soft_should_active = false
+			light_should_active = false
+
+	# SoftHurtbox：通过 CollisionShape2D.disabled 控制，完全移出物理世界
+	if _soft_hurtbox:
+		_soft_hurtbox.monitoring = soft_should_active
+		if _soft_hurtbox_shape:
+			_soft_hurtbox_shape.disabled = not soft_should_active
+		else:
+			# 无 shape 缓存时 fallback 到 monitorable（防止 Area2D 重叠检测）
+			_soft_hurtbox.monitorable = soft_should_active
+
+	# LightReceiver：通过 CollisionShape2D.disabled 控制
+	if _light_receiver:
+		_light_receiver.monitoring = light_should_active
+		if _light_receiver_shape:
+			_light_receiver_shape.disabled = not light_should_active
+		else:
+			_light_receiver.monitorable = light_should_active
 
 
 func _update_soft_hurtbox_position() -> void:
@@ -517,7 +544,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	var is_soft_hit: bool = _next_hit_is_soft
 	_next_hit_is_soft = false
 
-	# FLIPPED + SoftHurtbox 被锁链命中：计入“其它武器”次数，>3 触发 escape_split
+	# FLIPPED + SoftHurtbox 被锁链命中：计入”其它武器”次数，>3 触发 escape_split
 	if mode == Mode.FLIPPED and is_soft_hit and soft_hitbox_active:
 		flipped_escape_hit_count += 1
 		if flipped_escape_hit_count > 3:
@@ -540,8 +567,10 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		return 0
 
 	# 锁链命中壳体（无效伤害）也应触发 hit_shell_small 反馈。
-	shell_last_attacked_ms = Time.get_ticks_msec()
-	_play_hit_shell_small_feedback()
+	# 问题2修复：只有非软腹命中才播放 hit_shell_small
+	if not is_soft_hit:
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		_play_hit_shell_small_feedback()
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
 
@@ -579,8 +608,8 @@ func notify_shell_restored() -> void:
 	species_id = &"stone_eyebug"
 	mollusc_spawned = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
-	if _light_receiver:
-		_light_receiver.monitoring = true
+	# 注意：_update_hurtbox_states() 会在下一帧根据 mode=IN_SHELL 恢复 LightReceiver，
+	# 此处无需手动设置 monitoring/disabled，避免与 _update_hurtbox_states 冲突。
 	anim_play(&"in_shell_loop", true, true)
 
 
