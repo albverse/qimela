@@ -54,17 +54,6 @@ target_mode = 1
 [node name="Act_ShellFlow" type="Node" parent="RootSelector/Seq_ShellFlow"]
 script = ExtResource("act_shell")
 
-; --- 2b. Seq_InShell（壳内等待出壳，mode=IN_SHELL）---
-[node name="Seq_InShell" type="Node" parent="RootSelector"]
-script = ExtResource("sequence_reactive")
-
-[node name="Cond_ModeInShell" type="Node" parent="RootSelector/Seq_InShell"]
-script = ExtResource("cond_mode_is")
-target_mode = 2
-
-[node name="Act_InShellWait" type="Node" parent="RootSelector/Seq_InShell"]
-script = ExtResource("act_shell")
-
 ; --- 3. Seq_Attack（玩家进入检测区且攻击就绪）---
 [node name="Seq_Attack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
@@ -77,6 +66,17 @@ script = ExtResource("cond_atk_ready")
 
 [node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("act_attack")
+
+; --- 2b. Seq_InShell（壳内等待出壳，mode=IN_SHELL）---
+[node name="Seq_InShell" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeInShell" type="Node" parent="RootSelector/Seq_InShell"]
+script = ExtResource("cond_mode_is")
+target_mode = 2
+
+[node name="Act_InShellWait" type="Node" parent="RootSelector/Seq_InShell"]
+script = ExtResource("act_shell")
 
 ; --- 4. Act_Wander（兜底：idle/walk 循环，永远 RUNNING）---
 [node name="Act_Wander" type="Node" parent="RootSelector"]

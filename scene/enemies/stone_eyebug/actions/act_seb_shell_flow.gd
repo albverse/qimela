@@ -63,6 +63,9 @@ func _start_retreat(seb: StoneEyeBug) -> void:
 	seb.mode = StoneEyeBug.Mode.RETREATING
 	_retreat_start_ms = StoneEyeBug.now_ms()
 	seb.ev_retreat_done = false
+	# 缩壳后开启攻击窗口（真正执行仍受 CondSEBAttackReady 的 IN_SHELL + 冷却约束）。
+	seb.attack_enabled_after_player_retreat = true
+	seb.next_attack_end_ms = max(seb.next_attack_end_ms, StoneEyeBug.now_ms() + int(seb.attack_cd * 1000.0))
 	seb.anim_play(&"retreat_in", false, false)
 
 

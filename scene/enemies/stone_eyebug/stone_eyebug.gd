@@ -285,11 +285,36 @@ func _extract_spine_event_name(args: Array) -> StringName:
 
 
 func _get_obj_name(obj: Object) -> StringName:
+	if obj == null:
+		return &""
 	if obj.has_method("get_name"):
 		return StringName(obj.get_name())
 	if obj.has_method("getName"):
 		return StringName(obj.getName())
 	return &""
+
+
+func _on_thunder_burst(_add_seconds: float) -> void:
+	# StoneEyeBug 不响应全局 thunder_burst 事件；仅响应 LightFlower 的光照释放逻辑。
+	return
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time > 0.0:
+		_trigger_lightflower_shell_react()
+
+
+func _trigger_lightflower_shell_react() -> void:
+	if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
+		return
+	if mode == Mode.RETREATING or mode == Mode.IN_SHELL:
+		# 设计确认：已经在缩壳流中时，LightFlower 触发应无效，不刷新壳内计时。
+		return
+	is_thunder_pending = true
+	mode = Mode.RETREATING
+	attack_enabled_after_player_retreat = true
+	next_attack_end_ms = max(next_attack_end_ms, Time.get_ticks_msec() + int(attack_cd * 1000.0))
 
 
 # =============================================================================
@@ -407,7 +432,10 @@ func _reflect_from_shell(hit: HitData) -> void:
 			facing = -1
 		elif dx < 0.0:
 			facing = 1
+	_play_hit_shell_small_feedback()
 
+
+func _play_hit_shell_small_feedback() -> void:
 	# hit_shell_small：壳体无效受击短反馈。
 	# 若处于关键动作（攻击/缩壳/翻转）则不插播，仅闪白。
 	var in_critical_anim: bool = (
@@ -518,6 +546,10 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 空壳冻结态：不接受任何交互（包括链接）
 	if mode == Mode.EMPTY_SHELL:
 		return 0
+
+	# 锁链命中壳体（无效伤害）也应触发 hit_shell_small 反馈。
+	shell_last_attacked_ms = Time.get_ticks_msec()
+	_play_hit_shell_small_feedback()
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
 
