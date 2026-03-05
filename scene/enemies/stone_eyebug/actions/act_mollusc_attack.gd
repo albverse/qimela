@@ -28,7 +28,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if mollusc == null:
 		return FAILURE
 
-	var player: Node2D = blackboard.get_value("player") as Node2D
+	var player: Node2D = mollusc.get_player()
 
 	match _phase:
 		Phase.STOP:

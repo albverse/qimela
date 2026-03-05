@@ -16,21 +16,21 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	mollusc.velocity = Vector2.ZERO
 
 
-func tick(actor: Node, blackboard: Blackboard) -> int:
+func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
 
 	match _phase:
 		Phase.MOVE_TO_SHELL:
-			return _tick_move(mollusc, blackboard)
+			return _tick_move(mollusc)
 		Phase.ENTER_SHELL:
-			return _tick_enter(mollusc, blackboard)
+			return _tick_enter(mollusc)
 	return RUNNING
 
 
-func _tick_move(mollusc: Mollusc, blackboard: Blackboard) -> int:
-	var shell: Node2D = blackboard.get_value("empty_shell") as Node2D
+func _tick_move(mollusc: Mollusc) -> int:
+	var shell: Node2D = mollusc.find_empty_shell()
 	if shell == null or not is_instance_valid(shell):
 		return FAILURE
 
@@ -56,10 +56,10 @@ func _tick_move(mollusc: Mollusc, blackboard: Blackboard) -> int:
 	return RUNNING
 
 
-func _tick_enter(mollusc: Mollusc, blackboard: Blackboard) -> int:
+func _tick_enter(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"enter_shell"):
 		# 通知壳体恢复
-		var shell: Node2D = blackboard.get_value("empty_shell") as Node2D
+		var shell: Node2D = mollusc.find_empty_shell()
 		if shell != null and is_instance_valid(shell) and shell.has_method("notify_shell_restored"):
 			shell.call("notify_shell_restored")
 			# 恢复 group
