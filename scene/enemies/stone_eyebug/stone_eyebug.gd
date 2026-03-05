@@ -141,6 +141,7 @@ var _light_receiver_shape: CollisionShape2D = null  ## LightReceiver 内部碰�
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
+var _detected_attack_targets: Array[Node2D] = []
 
 # ===== 生命周期 =====
 
@@ -152,6 +153,7 @@ func _ready() -> void:
 	weak_hp = 1
 	super._ready()
 	add_to_group("stone_eyebug")
+	_setup_detect_area_tracking()
 
 	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
 	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
@@ -638,7 +640,9 @@ func spawn_mollusc_instance() -> Node2D:
 
 
 func is_player_in_detect_area() -> bool:
-	## 自给自足地检测玩家是否在检测范围内
+	## 自给自足地检测攻击目标是否在检测范围内（按先进入 DetectArea 的顺序优先）
+	if _get_detected_priority_target() != null:
+		return true
 	if _detect_area == null:
 		var p := get_priority_attack_target()
 		if p == null:
@@ -648,7 +652,83 @@ func is_player_in_detect_area() -> bool:
 
 
 func get_player() -> Node2D:
+	var detected := _get_detected_priority_target()
+	if detected != null:
+		return detected
 	return get_priority_attack_target()
+
+
+func _setup_detect_area_tracking() -> void:
+	if _detect_area == null:
+		return
+	if not _detect_area.body_entered.is_connected(_on_detect_area_entered):
+		_detect_area.body_entered.connect(_on_detect_area_entered)
+	if not _detect_area.area_entered.is_connected(_on_detect_area_entered):
+		_detect_area.area_entered.connect(_on_detect_area_entered)
+	if not _detect_area.body_exited.is_connected(_on_detect_area_exited):
+		_detect_area.body_exited.connect(_on_detect_area_exited)
+	if not _detect_area.area_exited.is_connected(_on_detect_area_exited):
+		_detect_area.area_exited.connect(_on_detect_area_exited)
+	_refresh_detected_targets()
+
+
+func _on_detect_area_entered(node: Node) -> void:
+	var target := _resolve_attack_target(node)
+	if target == null:
+		return
+	if _detected_attack_targets.has(target):
+		return
+	_detected_attack_targets.append(target)
+
+
+func _on_detect_area_exited(node: Node) -> void:
+	var target := _resolve_attack_target(node)
+	if target == null:
+		return
+	_detected_attack_targets.erase(target)
+
+
+func _refresh_detected_targets() -> void:
+	_detected_attack_targets.clear()
+	if _detect_area == null:
+		return
+	for body in _detect_area.get_overlapping_bodies():
+		_on_detect_area_entered(body)
+	for area in _detect_area.get_overlapping_areas():
+		_on_detect_area_entered(area)
+
+
+func _resolve_attack_target(node: Node) -> Node2D:
+	var cur: Node = node
+	while cur != null:
+		var n2d := cur as Node2D
+		if n2d != null and n2d.is_in_group(ATTACK_TARGET_GROUP):
+			return n2d
+		cur = cur.get_parent()
+	return null
+
+
+func _get_detected_priority_target() -> Node2D:
+	var i := 0
+	while i < _detected_attack_targets.size():
+		var t := _detected_attack_targets[i]
+		if t == null or not is_instance_valid(t):
+			_detected_attack_targets.remove_at(i)
+			continue
+		if not t.is_in_group(ATTACK_TARGET_GROUP):
+			_detected_attack_targets.remove_at(i)
+			continue
+		if _detect_area != null:
+			var still_overlapping := false
+			if t is PhysicsBody2D:
+				still_overlapping = _detect_area.overlaps_body(t as PhysicsBody2D)
+			elif t is Area2D:
+				still_overlapping = _detect_area.overlaps_area(t as Area2D)
+			if not still_overlapping:
+				_detected_attack_targets.remove_at(i)
+				continue
+		return t
+	return null
 
 
 static func now_ms() -> int:
