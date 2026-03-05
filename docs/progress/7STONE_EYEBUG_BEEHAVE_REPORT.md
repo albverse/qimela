@@ -2,7 +2,14 @@
 
 > 参照文档：`docs/SPINE_GODOT_LATEST_INTEGRATED_STANDARD.md`（叶节点统一通过 `anim_play()` 驱动，不在玩法层直连 Spine 细节）。
 
-## 1. 行为树总结构（优先级从高到低）
+## 0) 动画命名更新说明
+
+- `flip` 为**旧名（deprecated）**，当前已改为：
+  - 入场翻倒：`nomal_to_flip`
+  - 起身恢复：`flip_to_nomal`
+- 本文以下描述均使用新动画名。
+
+## 1) 行为树总结构（优先级从高到低）
 
 `bt_stone_eyebug.tscn` 的 Root 是 `SelectorReactive`，顺序如下：
 
@@ -16,24 +23,22 @@
 
 ---
 
-## 2. 各行为逻辑与对应动画
+## 2) 各行为逻辑与对应动画
 
 ### A) Flipped 分支（被打翻后）
 
 - 入口条件：`mode == FLIPPED`。
-- 第一段动作：`ActSEBFlipAndStruggle`
-  - 播放 `flip`（非循环）。
-  - 收到 `flip_done` 事件（或 `anim_is_finished("flip")`）后：
-    - 打开软腹判定 `soft_hitbox_active=true`；
-    - 切到 `struggle_loop`（循环）；
-    - 返回 `SUCCESS`。
-- 第二段（InnerSelector）：
-  - 若 `was_attacked_while_flipped=true`：执行 `ActSEBEscapeSplit`
-    - 播放 `escape_split`（非循环）；
-    - `escape_spawn` 事件（或 350ms 兜底）时生成 Mollusc；
-    - 动画结束后切空壳并播放 `in_shell_loop`。
-  - 否则执行 `ActSEBStruggleIdle`
-    - 持续播放 `struggle_loop`（循环），持续 `RUNNING` 等待被攻击触发分裂。
+- 动作：`ActSEBFlipAndStruggle`（单动作内完成整个翻倒周期）。
+- 动画流程：
+  1. `nomal_to_flip`（非循环，入场翻倒）；
+  2. `struggle_loop`（循环，倒地挣扎）；
+  3. 满足恢复条件后播放 `flip_to_nomal`（非循环，起身恢复）；
+  4. 结束后切回 `mode=NORMAL` 并播放 `idle`（循环）。
+- 恢复触发条件（任一满足）：
+  - FLIPPED 期间被攻击一次（只触发一次恢复请求，不会反复触发）；
+  - FLIPPED 持续 5 秒仍未被攻击（自动恢复）。
+
+> 旧流程“被攻击后 `escape_split` 分裂”已从 StoneEyeBug 的当前 BT 主路径移除。
 
 ### B) ShellFlow 分支（缩壳流程）
 
@@ -78,19 +83,16 @@
 
 ---
 
-## 3. 受击逻辑与行为切换关系（简述）
+## 3) 受击逻辑与行为切换关系（简述）
 
-- `NORMAL` 状态被 `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet` 命中会进入 `FLIPPED`（走上面的翻倒分支）。
+- `NORMAL` 状态被 `ghost_fist / chimera_ghost_hand_l / stone_mask_bird_face_bullet` 命中会进入 `FLIPPED`（走翻倒分支）。
 - 雷花命中会进入 `RETREATING`（走缩壳分支）。
-- `FLIPPED` 期间被打只标记 `was_attacked_while_flipped`，由 BT 切到 `escape_split`，不会在 `apply_hit` 里直接切动画。
+- `FLIPPED` 期间：被攻击不会再走分裂流，只触发一次“恢复请求”；若一直没被攻击，5 秒自动恢复。
 - `EMPTY_SHELL` 受击走空壳受击反馈 `hit_shell_small`，并可进入弱化/可链接流程。
 
 ---
 
-## 4. 本次发现并修正的明显矛盾
+## 4) 本次发现并修正的明显矛盾
 
-### 问题
-`stone_eyebug.gd` 注释写着 `detect_area_radius` 要与场景 DetectArea 半径保持一致，但默认值是 `150.0`，而 `StoneEyeBug.tscn` 中 DetectArea 圆形半径是约 `129`，二者不一致。
-
-### 修复
-将 `stone_eyebug.gd` 的 `detect_area_radius` 默认值改为 `129.0`，与当前场景配置对齐，避免“文档/参数说明一致但实际数值不一致”的维护风险。
+1. **动画名已更新但旧名仍残留风险**：已将 Flipped 主流程改为使用 `nomal_to_flip` / `flip_to_nomal`，并在代码注释中标注 `flip` 为旧名。
+2. **Flipped 反复触发问题**：已改为“单次触发恢复 + 5s 超时自动恢复”，避免在打翻状态下被持续攻击导致重复触发流程。

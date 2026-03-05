@@ -12,7 +12,7 @@ enum Mode {
 	NORMAL = 0,      ## 正常状态：巡走 / 发呆 / 攻击
 	RETREATING = 1,  ## 缩壳中（retreat_in 动画，0.5s）
 	IN_SHELL = 2,    ## 壳内待机（in_shell_loop，5s 不受攻击才出壳）
-	FLIPPED = 3,     ## 被弹翻（flip → struggle_loop，软体易伤）
+	FLIPPED = 3,     ## 被弹翻（nomal_to_flip → struggle_loop → flip_to_nomal）
 	EMPTY_SHELL = 4, ## 软体逃跑后的空壳（等待软体回来，可被链接）
 }
 
@@ -73,8 +73,14 @@ var is_thunder_pending: bool = false
 ## 软体伤害盒是否激活（弹翻阶段）
 var soft_hitbox_active: bool = false
 
-## 弹翻中是否被攻击（→ 触发分裂逃跑）
+## 旧字段（兼容保留）：历史上用于“被攻击触发 escape_split”。当前逻辑已弃用该流。
 var was_attacked_while_flipped: bool = false
+
+## FLIPPED 阶段恢复请求：被攻击一次或超时都会触发恢复到 NORMAL
+var flipped_recover_requested: bool = false
+
+## 进入 FLIPPED 的起始时间戳（ms），用于 5s 无攻击自动恢复
+var flipped_started_ms: int = 0
 
 ## 最后一次壳被攻击的时间戳（ms），用于 5s 出壳计时
 var shell_last_attacked_ms: int = 0
@@ -309,8 +315,10 @@ func apply_hit(hit: HitData) -> bool:
 	# 本阶段所有命中均来自 SoftHurtbox（soft_hitbox_active=true 时）
 	if mode == Mode.FLIPPED:
 		if soft_hitbox_active:
-			# 软体易伤：标记 was_attacked_while_flipped → BT 触发分裂
-			was_attacked_while_flipped = true
+			# 新规则：FLIPPED 下被攻击仅触发一次“恢复请求”，不再进入分裂流。
+			if not flipped_recover_requested:
+				flipped_recover_requested = true
+			was_attacked_while_flipped = true  # 兼容标记：保留供历史调试观察
 			_flash_once()
 			return true
 		return false
@@ -344,6 +352,9 @@ func apply_hit(hit: HitData) -> bool:
 	# --- NORMAL 态可翻转命中（ghost_fist / chimera_ghost_hand_l / 面具弹）---
 	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
 		mode = Mode.FLIPPED
+		flipped_started_ms = now_ms()
+		flipped_recover_requested = false
+		was_attacked_while_flipped = false
 		_flash_once()
 		return true
 
@@ -544,7 +555,8 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"emerge_out"] = 0.5
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
-	_anim_mock._durations[&"flip"] = 0.4
+	# NOTE: "flip" 为旧名（deprecated），当前入场动画名为 "nomal_to_flip"。
+	_anim_mock._durations[&"nomal_to_flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
-	_anim_mock._durations[&"escape_split"] = 0.6
+	_anim_mock._durations[&"flip_to_nomal"] = 0.4
 	_anim_mock._durations[&"hit_shell_small"] = 0.25

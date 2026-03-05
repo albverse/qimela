@@ -1,17 +1,21 @@
 extends ActionLeaf
 class_name ActSEBFlipAndStruggle
 
-## 石眼虫弹翻入场：flip 动画 → 开启软腹伤害盒 → 播 struggle_loop → 返回 SUCCESS。
-## 后续挣扎/逃跑分裂逻辑由 BT 内层 Selector 负责：
-##   InnerSelector:
-##     Seq_EscapeSplit: [CondSEBAttackedFlipped] → [ActSEBEscapeSplit]
-##     ActSEBStruggleIdle (RUNNING 兜底)
+## 石眼虫弹翻流程（新规则）：
+## nomal_to_flip（一次）→ struggle_loop（等待恢复触发）→ flip_to_nomal → idle。
+## 恢复触发条件：
+## 1) FLIPPED 下被攻击一次（触发 flipped_recover_requested）
+## 2) FLIPPED 持续 5s 未被攻击（自动恢复）
 ##
-## Spine flip_done 事件优先；Fallback：轮询 anim_is_finished("flip")。
+## 说明：
+## - 旧流程（被攻击后 escape_split 分裂）已废弃。
+## - 旧动画名 "flip" 已废弃（deprecated），改用 "nomal_to_flip"。
 
-enum Phase { FLIP, DONE }
+const FLIPPED_TIMEOUT_MS: int = 5000
 
-var _phase: int = Phase.FLIP
+enum Phase { ENTER_FLIP, STRUGGLE, RECOVER, DONE }
+
+var _phase: int = Phase.ENTER_FLIP
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -19,22 +23,23 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	if seb == null:
 		return
 
-	# 根因修复：Seq_Flipped 是 Reactive Sequence，叶节点可能反复 before_run。
-	# 若已进入挣扎阶段（soft_hitbox_active=true），不能重置并重播 flip。
+	# Reactive 重入保护：若已在挣扎阶段，不重播入场动画。
 	if seb.soft_hitbox_active:
-		_phase = Phase.DONE
+		_phase = Phase.STRUGGLE
 		seb.velocity = Vector2.ZERO
 		if not seb.anim_is_playing(&"struggle_loop"):
 			seb.anim_play(&"struggle_loop", true, true)
 		return
 
-	_phase = Phase.FLIP
-	seb.was_attacked_while_flipped = false
+	_phase = Phase.ENTER_FLIP
 	seb.soft_hitbox_active = false
-	seb.mollusc_spawned = false
 	seb.ev_flip_done = false
 	seb.velocity = Vector2.ZERO
-	seb.anim_play(&"flip", false, false)
+	seb.was_attacked_while_flipped = false
+	seb.flipped_recover_requested = false
+	if seb.flipped_started_ms <= 0:
+		seb.flipped_started_ms = StoneEyeBug.now_ms()
+	seb.anim_play(&"nomal_to_flip", false, false)
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -42,17 +47,54 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if seb == null:
 		return FAILURE
 
-	if _phase == Phase.DONE:
-		return SUCCESS
+	match _phase:
+		Phase.ENTER_FLIP:
+			return _tick_enter_flip(seb)
+		Phase.STRUGGLE:
+			return _tick_struggle(seb)
+		Phase.RECOVER:
+			return _tick_recover(seb)
+		Phase.DONE:
+			return SUCCESS
+	return RUNNING
 
-	# 优先 Spine flip_done 事件；Fallback 轮询动画结束
-	if seb.ev_flip_done or seb.anim_is_finished(&"flip"):
+
+func _tick_enter_flip(seb: StoneEyeBug) -> int:
+	if seb.ev_flip_done or seb.anim_is_finished(&"nomal_to_flip"):
 		seb.ev_flip_done = false
 		seb.soft_hitbox_active = true
+		_phase = Phase.STRUGGLE
 		seb.anim_play(&"struggle_loop", true, true)
+	return RUNNING
+
+
+func _tick_struggle(seb: StoneEyeBug) -> int:
+	seb.velocity = Vector2.ZERO
+	if not seb.anim_is_playing(&"struggle_loop"):
+		seb.anim_play(&"struggle_loop", true, true)
+
+	var elapsed_ms: int = StoneEyeBug.now_ms() - seb.flipped_started_ms
+	if seb.flipped_recover_requested or elapsed_ms >= FLIPPED_TIMEOUT_MS:
+		seb.soft_hitbox_active = false
+		phase_to_recover(seb)
+	return RUNNING
+
+
+func phase_to_recover(seb: StoneEyeBug) -> void:
+	_phase = Phase.RECOVER
+	seb.anim_play(&"flip_to_nomal", false, true)
+
+
+func _tick_recover(seb: StoneEyeBug) -> int:
+	if seb.anim_is_finished(&"flip_to_nomal"):
+		seb.mode = StoneEyeBug.Mode.NORMAL
+		seb.soft_hitbox_active = false
+		seb.was_attacked_while_flipped = false
+		seb.flipped_recover_requested = false
+		seb.flipped_started_ms = 0
+		seb.anim_play(&"idle", true, true)
 		_phase = Phase.DONE
 		return SUCCESS
-
 	return RUNNING
 
 
@@ -63,5 +105,5 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 		seb.velocity = Vector2.ZERO
 		seb.ev_flip_done = false
 		seb.force_close_hit_windows()
-	_phase = Phase.FLIP
+	_phase = Phase.ENTER_FLIP
 	super(actor, blackboard)
