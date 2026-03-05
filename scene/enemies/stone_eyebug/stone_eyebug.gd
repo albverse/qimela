@@ -134,6 +134,7 @@ var _anim_mock: AnimDriverMock = null
 
 var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
 var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
+var _light_receiver: Area2D = null ## 受光盒缓存（LightReceiver 节点）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -151,6 +152,7 @@ func _ready() -> void:
 
 	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
 	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
+	_light_receiver = get_node_or_null("LightReceiver") as Area2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
