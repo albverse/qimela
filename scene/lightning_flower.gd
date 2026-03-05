@@ -172,9 +172,9 @@ func _notify_monsters_in_range(light_time: float) -> void:
 	
 	for area in areas:
 		if area.has_method("get_host"):
-			var monster = area.call("get_host") as MonsterBase
-			if monster:
-				monster.on_light_exposure(light_time)
+			var host: Node = area.call("get_host") as Node
+			if host != null and host.has_method("on_light_exposure"):
+				host.call("on_light_exposure", light_time)
 
 func _flash_glow(pre_glow: float) -> void:
 	if _glow == null:
@@ -222,6 +222,11 @@ func _damage_targets_in_hurt_area() -> void:
 
 			# 其他怪物：掉血
 			m.take_damage(1)
+			continue
+
+		# 奇美拉（如 ChimeraGhostHandL）：受光伤后走自身受击流程（vanish/appear reset）。
+		if b.has_method("on_damage_received"):
+			b.call("on_damage_received")
 			continue
 
 func _on_light_started(source_id: int, _remaining_time: float, source_light_area: Area2D) -> void:

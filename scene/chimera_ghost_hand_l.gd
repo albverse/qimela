@@ -166,6 +166,25 @@ func force_close_hit_windows() -> void:
 func on_damage_received() -> void:
 	## 由攻击命中回调或 EventBus 调用，触发断链重置
 	took_damage = true
+	# 受击后若仍链接，先解冻玩家输入，避免在 vanish 期间残留冻结。
+	if control_input_frozen:
+		_set_player_control_frozen(false)
+
+
+func apply_hit(_hit: HitData) -> bool:
+	## 可被怪物/子弹等通过 apply_hit 伤害接口命中。
+	## GhostHand 不走常规 HP 死亡，而是受击后进入 reset 流（vanish -> appear）。
+	on_damage_received()
+	_flash_once()
+	return true
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	## 受 LightFlower 光照影响：触发同样的受击重置流。
+	if remaining_time <= 0.0:
+		return
+	on_damage_received()
+	_flash_once()
 
 
 # =============================================================================
