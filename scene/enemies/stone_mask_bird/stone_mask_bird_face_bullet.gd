@@ -8,12 +8,13 @@ class_name StoneMaskBirdFaceBullet
 @export var speed: float = 720.0
 
 ## 存在时间（s）；超过后自动销毁
-@export var life_sec: float = 3.0
+@export var life_sec: float = 10.0
 
 ## 追踪持续时间（s）；在此时间内持续转向目标；超过后变直线弹
 @export var homing_duration_sec: float = 2.5
 
 var _alive_sec: float = 0.0
+var _bounce_count: int = 0
 var _target: Node2D = null
 var _owner_bird: Node2D = null
 var _reflected: bool = false
@@ -72,16 +73,15 @@ func _physics_process(dt: float) -> void:
 
 	# 碰撞处理（取第一个有效碰撞）
 	for i: int in get_slide_collision_count():
-		if _done:
-			break
 		var col := get_slide_collision(i)
 		if col == null:
 			continue
-		_on_collide(col.get_collider())
+		_on_collide(col)
+		break
 
 
-func _on_collide(collider: Node) -> void:
-	if collider == null or _done:
+func _on_collide(collision: KinematicCollision2D) -> void:
+	if collision == null or _done:
 		return
 	if _owner_bird != null and collider == _owner_bird:
 		return
