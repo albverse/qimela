@@ -1,0 +1,59 @@
+[gd_scene load_steps=8 format=3 uid="uid://dddljitegjj4w"]
+
+[ext_resource type="Script" uid="uid://b13n4fpeblshy" path="res://scene/enemies/stone_eyebug/mollusc.gd" id="1_script"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://cbq3hmo8cjnnp" path="res://scene/enemies/stone_eyebug/spine_art/Mollusc/mollusc.tres" id="2_4tirv"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/stone_eyebug/bt_mollusc.tscn" id="4_bt"]
+
+[sub_resource type="CapsuleShape2D" id="body_shape"]
+radius = 25.0
+height = 52.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 43.737854
+
+[node name="Mollusc" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("1_script")
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(8, 12)
+scale = Vector2(0.5, 0.5)
+skeleton_data_res = ExtResource("2_4tirv")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(5, -18)
+shape = SubResource("body_shape")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(6, -25)
+shape = SubResource("hurtbox_shape")
+
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+position = Vector2(6, -25)
+shape = SubResource("hurtbox_shape")
+
+[node name="FloorRayFront" type="RayCast2D" parent="."]
+target_position = Vector2(12, 24)
+
+[node name="WallRayFront" type="RayCast2D" parent="."]
+target_position = Vector2(101, 0)
+
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+blackboard = NodePath("@Node@27181")
+actor = NodePath("..")

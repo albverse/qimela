@@ -1,0 +1,8 @@
+[gd_resource type="SpineSkeletonDataResource" load_steps=3 format=3 uid="uid://dcv7bd0bwv5qv"]
+
+[ext_resource type="SpineAtlasResource" uid="uid://ccmjnkwbv4m03" path="res://scene/enemies/chimera_ghost_hand_l/spine_art/skeleton.atlas" id="1_xscc0"]
+[ext_resource type="SpineSkeletonFileResource" uid="uid://rwflbbro55do" path="res://scene/enemies/chimera_ghost_hand_l/spine_art/skeleton.skel" id="2_0xqu6"]
+
+[resource]
+atlas_res = ExtResource("1_xscc0")
+skeleton_file_res = ExtResource("2_0xqu6")

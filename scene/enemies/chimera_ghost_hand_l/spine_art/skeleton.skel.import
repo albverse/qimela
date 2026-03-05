@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://rwflbbro55do"
+path="res://.godot/imported/skeleton.skel-771661c79de71123b65fc2f6f4b679f5.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/chimera_ghost_hand_l/spine_art/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-771661c79de71123b65fc2f6f4b679f5.spskel"]
+
+[params]
+

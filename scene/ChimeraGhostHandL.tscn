@@ -1,0 +1,49 @@
+[gd_scene load_steps=8 format=3 uid="uid://7ld7eo05w8ra"]
+
+[ext_resource type="Script" uid="uid://cu0msfk4gch2y" path="res://scene/chimera_ghost_hand_l.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://dcv7bd0bwv5qv" path="res://scene/enemies/chimera_ghost_hand_l/spine_art/chimera_ghost_hand_l.tres" id="2_lc6pd"]
+[ext_resource type="PackedScene" uid="uid://bl4vroeac5wc2" path="res://scene/enemies/chimera_ghost_hand_l/bt_chimera_ghost_hand_l.tscn" id="3_bt"]
+
+[sub_resource type="CircleShape2D" id="body_shape"]
+radius = 18.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 22.0
+
+[sub_resource type="CircleShape2D" id="attack_shape"]
+radius = 40.0
+
+[node name="ChimeraGhostHandL" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_script")
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(21, -3)
+skeleton_data_res = ExtResource("2_lc6pd")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("hurtbox_shape")
+
+[node name="AttackArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea"]
+shape = SubResource("attack_shape")
+
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard") instance=ExtResource("3_bt")]
+blackboard = NodePath("@Node@44704")

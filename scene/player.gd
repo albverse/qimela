@@ -23,6 +23,7 @@ extends CharacterBody2D
 @export var action_chain_cancel: StringName = &"cancel_chains"
 @export var action_fuse: StringName = &"fuse"
 @export var action_healing_burst: StringName = &"healing_burst"
+@export var action_chain_switch_slot: StringName = &"switch_chain_slot"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
@@ -72,6 +73,7 @@ const DEFAULT_CHAIN_SHADER_PATH: String = "res://shaders/chain_sand_dissolve.gds
 var facing: int = 1
 var jump_request: bool = false
 var _player_locked: bool = false
+var _external_control_frozen: bool = false  # 由奇美拉等外部实体控制时冻结玩家输入
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
 
@@ -270,7 +272,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# W / jump → LocomotionFSM
 	if _is_action_just_pressed(event, action_jump, KEY_W):
+		# 外部实体接管控制（如激活槽位的 ChimeraGhostHandL）时，禁止玩家自身 jump
+		if is_external_control_frozen():
+			return
 		loco_fsm.on_w_pressed()
+		return
+	# Tab / switch chain slot
+	if _is_action_just_pressed(event, action_chain_switch_slot, KEY_TAB):
+		var is_chain: bool = (
+			weapon_controller != null
+			and weapon_controller.current_weapon == weapon_controller.WeaponType.CHAIN
+		)
+		if is_chain and chain_sys != null and chain_sys.has_method("switch_slot"):
+			chain_sys.switch_slot()
+			log_msg("INPUT", "Tab_pressed: manual chain slot switch")
 		return
 
 	# === HANDOFF 推荐方案：Chain 绕过 ActionFSM，作为 overlay ===
@@ -466,7 +481,7 @@ func get_action_state() -> StringName:
 	return action_fsm.state_name() if action_fsm != null else &"None"
 
 func is_horizontal_input_locked() -> bool:
-	if _player_locked:
+	if _player_locked or _external_control_frozen:
 		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
@@ -478,7 +493,7 @@ func is_horizontal_input_locked() -> bool:
 	return false
 
 func is_player_locked() -> bool:
-	if _player_locked:
+	if _player_locked or _external_control_frozen:
 		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return true
@@ -486,6 +501,16 @@ func is_player_locked() -> bool:
 
 func set_player_locked(locked: bool) -> void:
 	_player_locked = locked
+
+
+func set_external_control_frozen(frozen: bool) -> void:
+	_external_control_frozen = frozen
+	if frozen:
+		jump_request = false
+
+
+func is_external_control_frozen() -> bool:
+	return _external_control_frozen
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	if health != null:

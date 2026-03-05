@@ -480,6 +480,13 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		flower.on_chain_hit(player, 0)
 		return
 
+	# 命中 StoneMaskBirdFaceBullet → 反弹（BulletHurtbox/hazards 层触发 area_entered）
+	var bullet := _resolve_bullet(area)
+	if bullet != null:
+		_hit_this_swing[rid] = true
+		bullet.reflect()
+		return
+
 
 # ════════════════════════════════════════
 # z_index 切换
@@ -585,6 +592,18 @@ func _resolve_lightning_flower(area_or_body: Node) -> LightningFlower:
 			return null
 		if cur is LightningFlower:
 			return cur as LightningFlower
+		cur = cur.get_parent()
+	return null
+
+
+func _resolve_bullet(area_or_body: Node) -> StoneMaskBirdFaceBullet:
+	## 从 BulletHurtbox Area2D（hazards 层）向上查找 StoneMaskBirdFaceBullet 父节点
+	var cur: Node = area_or_body
+	for _i: int in range(4):
+		if cur == null:
+			return null
+		if cur is StoneMaskBirdFaceBullet:
+			return cur as StoneMaskBirdFaceBullet
 		cur = cur.get_parent()
 	return null
 

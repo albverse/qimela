@@ -1,0 +1,103 @@
+[gd_scene load_steps=14 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_mode_is.gd" id="cond_mode_is"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_player_in_detect.gd" id="cond_player"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attack_ready.gd" id="cond_atk_ready"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attacked_flipped.gd" id="cond_attacked_flipped"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_flipped_loop.gd" id="act_flip_and_struggle"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_escape_split.gd" id="act_escape_split"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_struggle_idle.gd" id="act_struggle_idle"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_shell_flow.gd" id="act_shell"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_attack.gd" id="act_attack"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_wander.gd" id="act_wander"]
+
+; =============================================================================
+; BeehaveTree 根节点
+; actor 自动取父节点（StoneEyeBug CharacterBody2D）
+; =============================================================================
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级：Flipped > ShellFlow > InShell > Attack > Wander（兜底）
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 1. Seq_Flipped（最高优先级）---
+; ActFlipAndStruggle 完成 flip 动画后返回 SUCCESS，交由 InnerSelector 驱动后续
+; InnerSelector:
+;   Seq_EscapeSplit [Cond_AttackedFlipped → Act_EscapeSplit]  ← CondSEBAttackedFlipped 正式接入
+;   Act_StruggleIdle （兜底 RUNNING，保持 struggle_loop 等待被攻击）
+[node name="Seq_Flipped" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeFlipped" type="Node" parent="RootSelector/Seq_Flipped"]
+script = ExtResource("cond_mode_is")
+target_mode = 3
+
+[node name="Act_FlipAndStruggle" type="Node" parent="RootSelector/Seq_Flipped"]
+script = ExtResource("act_flip_and_struggle")
+
+[node name="InnerSelector" type="Node" parent="RootSelector/Seq_Flipped"]
+script = ExtResource("selector_reactive")
+
+[node name="Seq_EscapeSplit" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_AttackedFlipped" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector/Seq_EscapeSplit"]
+script = ExtResource("cond_attacked_flipped")
+
+[node name="Act_EscapeSplit" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector/Seq_EscapeSplit"]
+script = ExtResource("act_escape_split")
+
+[node name="Act_StruggleIdle" type="Node" parent="RootSelector/Seq_Flipped/InnerSelector"]
+script = ExtResource("act_struggle_idle")
+
+; --- 2. Seq_ShellFlow（缩壳中，mode=RETREATING）---
+[node name="Seq_ShellFlow" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeShell" type="Node" parent="RootSelector/Seq_ShellFlow"]
+script = ExtResource("cond_mode_is")
+target_mode = 1
+
+[node name="Act_ShellFlow" type="Node" parent="RootSelector/Seq_ShellFlow"]
+script = ExtResource("act_shell")
+
+; --- 2b. Seq_InShell（壳内等待出壳，mode=IN_SHELL）---
+[node name="Seq_InShell" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeInShell" type="Node" parent="RootSelector/Seq_InShell"]
+script = ExtResource("cond_mode_is")
+target_mode = 2
+
+[node name="Act_InShellWait" type="Node" parent="RootSelector/Seq_InShell"]
+script = ExtResource("act_shell")
+
+; --- 3. Seq_Attack（玩家进入检测区且攻击就绪）---
+[node name="Seq_Attack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerInDetect" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("cond_player")
+
+[node name="Cond_AttackReady" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("cond_atk_ready")
+
+[node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("act_attack")
+
+; --- 4. Act_Wander（兜底：idle/walk 循环，永远 RUNNING）---
+[node name="Act_Wander" type="Node" parent="RootSelector"]
+script = ExtResource("act_wander")

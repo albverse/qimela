@@ -1,0 +1,77 @@
+[gd_scene load_steps=16 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_weak.gd" id="cond_weak"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_see_shell.gd" id="cond_see_shell"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_in_range.gd" id="cond_player_attack"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_near.gd" id="cond_player_near"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_weak_stun.gd" id="act_weak_stun"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_return_shell.gd" id="act_return"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_attack.gd" id="act_attack"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_escape.gd" id="act_escape"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_mollusc_idle.gd" id="act_idle"]
+
+; =============================================================================
+; BeehaveTree 根节点
+; actor 自动取父节点（Mollusc CharacterBody2D）
+; =============================================================================
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级：虚弱眩晕 > 回壳 > 攻击 > 逃跑 > 待机（兜底）
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 0. Seq_WeakStun（最高优先级：虚弱时原地眩晕）---
+[node name="Seq_WeakStun" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsWeak" type="Node" parent="RootSelector/Seq_WeakStun"]
+script = ExtResource("cond_weak")
+
+[node name="Act_WeakStun" type="Node" parent="RootSelector/Seq_WeakStun"]
+script = ExtResource("act_weak_stun")
+
+; --- 1. Seq_ReturnShell（回壳优先）---
+[node name="Seq_ReturnShell" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_SeeEmptyShell" type="Node" parent="RootSelector/Seq_ReturnShell"]
+script = ExtResource("cond_see_shell")
+
+[node name="Act_ReturnToShell" type="Node" parent="RootSelector/Seq_ReturnShell"]
+script = ExtResource("act_return")
+
+; --- 2. Seq_Attack（玩家进入攻击范围）---
+[node name="Seq_Attack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerInAttackRange" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("cond_player_attack")
+
+[node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("act_attack")
+
+; --- 3. Seq_Escape（玩家在威胁距离内 → 逃跑）---
+[node name="Seq_Escape" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerNear" type="Node" parent="RootSelector/Seq_Escape"]
+script = ExtResource("cond_player_near")
+
+[node name="Act_Escape" type="Node" parent="RootSelector/Seq_Escape"]
+script = ExtResource("act_escape")
+
+; --- 4. Act_Idle（兜底：玩家不在附近，待机）---
+[node name="Act_Idle" type="Node" parent="RootSelector"]
+script = ExtResource("act_idle")
