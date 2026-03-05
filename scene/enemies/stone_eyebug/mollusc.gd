@@ -367,6 +367,10 @@ func _ray_hits_world(from: Vector2, to: Vector2) -> bool:
 func plan_escape_if_player_near() -> void:
 	## 若威胁范围内存在攻击目标则重新规划逃跑路线
 	if forced_breakout_active:
+		if breakout_post_combo_active:
+			if escape_remaining <= 0.0:
+				escape_remaining = escape_dist
+			return
 		var forced_player := get_primary_player_in_range(threat_dist * 1.5)
 		if forced_player != null:
 			escape_dir_x = 1 if forced_player.global_position.x >= global_position.x else -1
@@ -383,6 +387,25 @@ func plan_escape_if_player_near() -> void:
 	if escape_remaining <= 0.0:
 		escape_remaining = escape_dist
 
+
+
+
+func should_flip_on_wall() -> bool:
+	if not breakout_post_combo_active:
+		return true
+	if breakout_target_player == null or not is_instance_valid(breakout_target_player):
+		return true
+	# 破局越位阶段：默认不因前墙掉头，除非玩家后方同向也有墙（确认已无法越位）
+	return _is_wall_behind_breakout_player()
+
+
+func _is_wall_behind_breakout_player() -> bool:
+	if breakout_target_player == null or not is_instance_valid(breakout_target_player):
+		return false
+	var from: Vector2 = breakout_target_player.global_position + Vector2(0.0, -8.0)
+	var check_dist: float = maxf(wall_check_forward, breakout_overtake_px + 8.0)
+	var to: Vector2 = from + Vector2(float(escape_dir_x) * check_dist, 0.0)
+	return _ray_hits_world(from, to)
 
 func should_trigger_forced_breakout() -> bool:
 	if forced_breakout_active:

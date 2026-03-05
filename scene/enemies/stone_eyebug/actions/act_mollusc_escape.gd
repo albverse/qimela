@@ -40,7 +40,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 
 	# 死路/断崖检测 → 掉头
-	if mollusc.is_wall_ahead() or not mollusc.is_floor_ahead():
+	# 破局越位阶段优先越位：仅当“玩家后方同向也有墙”时才允许因前墙掉头。
+	if (mollusc.is_wall_ahead() and mollusc.should_flip_on_wall()) or not mollusc.is_floor_ahead():
 		mollusc.escape_dir_x = -mollusc.escape_dir_x
 
 	var prev_pos: Vector2 = mollusc.global_position
