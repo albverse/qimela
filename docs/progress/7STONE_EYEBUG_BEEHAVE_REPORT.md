@@ -215,10 +215,33 @@
   `_trigger_lightflower_shell_react()`：
   - 若当前可进入缩壳，立即置 `is_thunder_pending=true` + `mode=RETREATING`；
   - `ActSEBShellFlow.before_run()` 读到该标记后先播 `hit_shell` 再播 `retreat_in`；
-  - 若已在壳内则刷新 `shell_last_attacked_ms`。
+  - 若已在壳内（`RETREATING / IN_SHELL`）则忽略触发，不刷新壳计时。
 - 移除 StoneEyeBug 里“通过 `light_counter >= light_counter_max` 轮询触发缩壳”的路径，避免再次与全局雷击计数耦合。
 
 结果：
 
 - `hit_shell` 成为 **LightFlower 光照释放驱动的外部事件反应**，而非 BT 主循环主动挑选。
 - StoneEyeBug 不再与全局 `thunder_burst` 事件直接耦合，符合需求边界。
+
+## 14) LightFlower 触发后长期停留在 Act_ShellFlow(RUNNING) 的修正
+
+### 现象
+
+- LightFlower 成功触发后，StoneEyeBug 会进入 `Act_ShellFlow`，并长期处于 `RUNNING`，表现为缩壳流程被持续“续时”。
+
+### 根因
+
+- `on_light_exposure()` 会进入 `_trigger_lightflower_shell_react()`。
+- 旧实现在 `mode == RETREATING / IN_SHELL` 时会刷新 `shell_last_attacked_ms`。
+- 这会不断延长 `IN_SHELL` 的安全计时窗口，导致 `Act_ShellFlow` 长时间保持 `RUNNING`。
+
+### 修复
+
+- 调整 `_trigger_lightflower_shell_react()`：
+  - 当已处于 `RETREATING / IN_SHELL` 时，LightFlower 触发直接无效返回；
+  - 不再刷新 `shell_last_attacked_ms`。
+
+### 结果
+
+- LightFlower 在非缩壳态可正常触发 `hit_shell -> retreat_in` 进入缩壳流；
+- 一旦已在缩壳态，后续 LightFlower 触发不再干扰当前壳流程（符合“缩壳状态下雷花无效”）。

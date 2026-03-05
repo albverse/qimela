@@ -301,7 +301,7 @@ func _trigger_lightflower_shell_react() -> void:
 	if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 		return
 	if mode == Mode.RETREATING or mode == Mode.IN_SHELL:
-		shell_last_attacked_ms = Time.get_ticks_msec()
+		# 设计确认：已经在缩壳流中时，LightFlower 触发应无效，不刷新壳内计时。
 		return
 	is_thunder_pending = true
 	mode = Mode.RETREATING
