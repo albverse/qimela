@@ -93,6 +93,8 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	_sync_player_control_freeze()
+
 	# 链距超限检测
 	if is_linked() and _player != null and is_instance_valid(_player):
 		var dist := global_position.distance_to(_player.global_position)
@@ -105,6 +107,13 @@ func _physics_process(dt: float) -> void:
 
 	# 移动和 BT 逻辑由叶节点（+ BeehaveTree tick）驱动
 	# 基类 _physics_process 不调用（is_flying=true，gravity 由 BT 管理）
+
+
+func _sync_player_control_freeze() -> void:
+	## 规格：链接 ChimeraGhostHandL 后，玩家移动输入全程禁用；仅断链后恢复。
+	var player := get_player_node()
+	if player != null and player.has_method("set_external_control_frozen"):
+		player.call("set_external_control_frozen", is_linked())
 
 
 # =============================================================================

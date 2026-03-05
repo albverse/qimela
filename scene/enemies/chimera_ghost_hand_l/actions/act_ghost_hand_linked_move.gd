@@ -46,9 +46,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost != null:
-		# 解冻玩家操控，恢复正常移动
-		var player := ghost.get_player_node()
-		if player != null and player.has_method("set_external_control_frozen"):
-			player.call("set_external_control_frozen", false)
+		# 切走本动作时，冻结策略由 ghost 链接状态统一决定。
+		ghost.call("_sync_player_control_freeze")
 		ghost.velocity = Vector2.ZERO
 	super(actor, blackboard)

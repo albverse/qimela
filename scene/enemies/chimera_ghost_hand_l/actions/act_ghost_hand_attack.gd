@@ -71,10 +71,9 @@ func _tick_attack(ghost: ChimeraGhostHandL) -> int:
 
 
 func _tick_unfreeze(ghost: ChimeraGhostHandL) -> int:
-	# 解冻玩家操控
-	var player := ghost.get_player_node()
-	if player != null and player.has_method("set_external_control_frozen"):
-		player.call("set_external_control_frozen", false)
+	# 攻击结束后保持与链接状态一致的冻结策略：
+	# 仍链接则继续冻结，断链才解冻。
+	ghost.call("_sync_player_control_freeze")
 	ghost.control_input_frozen = false
 	ghost.attack_requested = false
 	_phase = Phase.DONE
@@ -84,10 +83,8 @@ func _tick_unfreeze(ghost: ChimeraGhostHandL) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var ghost := actor as ChimeraGhostHandL
 	if ghost != null:
-		# 解冻确保不留下冻结状态
-		var player := ghost.get_player_node()
-		if player != null and player.has_method("set_external_control_frozen"):
-			player.call("set_external_control_frozen", false)
+		# 打断时同样按当前链接状态同步冻结。
+		ghost.call("_sync_player_control_freeze")
 		ghost.control_input_frozen = false
 		ghost.velocity = Vector2.ZERO
 		ghost.force_close_hit_windows()  # 强制关命中窗口（受伤重置打断攻击时）
