@@ -1,13 +1,17 @@
 extends ActionLeaf
 class_name ActSEBShellFlow
 
-## 石眼虫缩壳流程：（可选 hit_shell）→ retreat_in → in_shell_loop → emerge_out → NORMAL。
+## 石眼虫缩壳流程：（可选 hit_shell）→ retreat_in → IN_SHELL（SUCCESS 交还控制权）。
+## 同时用于 Seq_InShell 分支的 Act_InShellWait：in_shell_loop → emerge_out → NORMAL。
 ##
-## 阶段：
+## 在 Seq_ShellFlow（mode=RETREATING）中的阶段路径：
 ##   HIT_SHELL  → 播 hit_shell（仅雷花触发）→ RETREAT_IN
-##   RETREAT_IN → 播 retreat_in；Spine retreat_done 事件 OR 计时 OR anim_finished → IN_SHELL
+##   RETREAT_IN → 播 retreat_in；retreat_done 事件 OR 计时 OR anim_finished → mode=IN_SHELL → SUCCESS
+##
+## 在 Seq_InShell（mode=IN_SHELL）中的阶段路径（Act_InShellWait）：
+##   before_run 检测 mode==IN_SHELL → _phase=IN_SHELL
 ##   IN_SHELL   → 播 in_shell_loop；5s 无攻击 → EMERGE
-##   EMERGE     → 播 emerge_out；Spine emerge_done 事件 OR anim_finished → SUCCESS → mode=NORMAL
+##   EMERGE     → 播 emerge_out；emerge_done 事件 OR anim_finished → mode=NORMAL → SUCCESS
 
 enum Phase { HIT_SHELL, RETREAT_IN, IN_SHELL, EMERGE }
 
@@ -55,6 +59,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 func _tick_hit_shell(seb: StoneEyeBug) -> int:
 	if seb.anim_is_finished(&"hit_shell"):
+		_phase = Phase.RETREAT_IN
 		_start_retreat(seb)
 	return RUNNING
 
@@ -79,6 +84,9 @@ func _tick_retreat(seb: StoneEyeBug) -> int:
 		seb.shell_last_attacked_ms = StoneEyeBug.now_ms()
 		_phase = Phase.IN_SHELL
 		seb.anim_play(&"in_shell_loop", true, true)
+		# 问题3修复：进入IN_SHELL后返回SUCCESS，让Seq_ShellFlow完成，
+		# 下一帧Seq_InShell会接管（因为mode现在是IN_SHELL）
+		return SUCCESS
 	return RUNNING
 
 
