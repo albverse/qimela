@@ -1,7 +1,7 @@
 extends CharacterBody2D
 class_name StoneMaskBirdFaceBullet
 
-## 伤害值（命中玩家或怪物时扣除的 HP）
+## 伤害值（命中玩家时扣除的 HP）
 @export var damage: int = 1
 
 ## 飞行速度（px/s）
@@ -15,24 +15,26 @@ class_name StoneMaskBirdFaceBullet
 
 var _alive_sec: float = 0.0
 var _target: Node2D = null
+var _owner_bird: Node2D = null
 var _reflected: bool = false
 var _done: bool = false  # 防止同帧多次命中
 
 
-func setup(dir: Vector2, bullet_speed: float, target: Node2D = null) -> void:
+func setup(dir: Vector2, bullet_speed: float, target: Node2D = null, owner_bird: Node2D = null) -> void:
 	velocity = dir.normalized() * max(1.0, bullet_speed)
 	speed = bullet_speed
 	_target = target
+	_owner_bird = owner_bird
 
 
 func _ready() -> void:
 	# 物理层设置：
 	#   collision_layer = 32（hazards/Layer6）
 	#     → ghost_fist 的 hitbox（mask=40含32）可通过 area_entered 检测 BulletHurtbox 子节点
-	#   collision_mask  = 7（World=1 + PlayerBody=2 + EnemyBody=4）
-	#     → move_and_slide() 与地形/玩家/怪物发生物理碰撞，触发 _on_collide
+	#   collision_mask  = 3（World=1 + PlayerBody=2）
+	#     → move_and_slide() 与地形/玩家发生物理碰撞，触发 _on_collide
 	collision_layer = 32  # hazards(Layer6)
-	collision_mask = 1 | 2 | 4  # World(1) + PlayerBody(2) + EnemyBody(4)
+	collision_mask = 1 | 2  # World(1) + PlayerBody(2)
 
 	# BulletHurtbox：Area2D 子节点，同置于 hazards(32) 层
 	# ghost_fist 的 Area2D hitbox（mask=40）通过 area_entered 检测此节点，
@@ -81,9 +83,11 @@ func _physics_process(dt: float) -> void:
 func _on_collide(collider: Node) -> void:
 	if collider == null or _done:
 		return
+	if _owner_bird != null and collider == _owner_bird:
+		return
 	_done = true
-	# 命中玩家或怪物 → apply_hit；命中地形等 → 直接消失
-	if collider.is_in_group("player") or collider is MonsterBase:
+	# 命中玩家 → apply_hit；命中地形等 → 直接消失
+	if collider.is_in_group("player"):
 		if collider.has_method("apply_hit"):
 			var hit := HitData.create(damage, null, &"stone_mask_bird_face_bullet")
 			collider.call("apply_hit", hit)

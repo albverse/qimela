@@ -178,13 +178,14 @@ func force_close_hit_windows() -> void:
 
 
 func apply_hit(hit: HitData) -> bool:
-	## 受击处理：命中 → 播 hurt；hp 降到 weak_hp 进入虚弱眩晕（hp_locked=true）。
-	## Mollusc 无 die 状态，生命终结由 BT（回壳融合）或 FusionRegistry 的 queue_free() 处理。
-	var applied := super.apply_hit(hit)
-	if not applied:
+	## 受击处理：仅受击反馈，不走 HP 死亡语义。
+	## 设计确认：Mollusc 生命终结路径为回壳/融合回收，不因常规受击直接死亡。
+	if hit == null:
 		return false
 	if hurt_lock_t <= 0.0:
 		_do_hurt()
+	else:
+		_flash_once()
 	return true
 
 
