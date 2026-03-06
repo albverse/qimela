@@ -99,6 +99,30 @@ func on_chain_hit(_player_ref: Node, slot: int) -> int:
 	return 1
 
 # ========== 修复问题2：确保再次链接时_player被正确设置 ==========
+func _auto_switch_to_idle_slot_after_chimera_link(linked_slot: int) -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	if not ("chain_sys" in _player):
+		return
+	var cs = _player.chain_sys
+	if cs == null:
+		return
+	if not ("chains" in cs) or not ("active_slot" in cs):
+		return
+	var other_slot: int = 1 - linked_slot
+	if other_slot < 0 or other_slot >= cs.chains.size():
+		return
+	if int(cs.active_slot) != linked_slot:
+		return
+	var other_chain = cs.chains[other_slot]
+	if other_chain == null:
+		return
+	if int(other_chain.state) != 0:  # ChainState.IDLE
+		return
+	if cs.has_method("switch_slot"):
+		cs.call("switch_slot")
+
+
 func on_chain_attached(slot: int) -> void:
 	super.on_chain_attached(slot)
 	_update_enemy_target_group()
@@ -113,6 +137,9 @@ func on_chain_attached(slot: int) -> void:
 			if not players.is_empty():
 				_player = players[0] as Node2D
 				_linked_player = _player
+
+	# 链接奇美拉后若另一槽位空闲，自动切换到空槽（对所有 Chimera 生效，如 ChimeraA/幽灵手）。
+	call_deferred("_auto_switch_to_idle_slot_after_chimera_link", slot)
 
 func on_chain_detached(slot: int) -> void:
 	var was_linked: bool = is_linked() and get_linked_slot() == slot

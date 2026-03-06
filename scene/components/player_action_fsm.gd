@@ -270,7 +270,7 @@ func on_weapon_switched() -> void:
 	# === CRITICAL FIX: 切换武器时dissolve所有链（包括LINKED）===
 	# 这符合 Q3:选项A，相当于自动按X
 	if _player.chain_sys != null and _player.chain_sys.has_method("force_dissolve_all_chains"):
-		_player.chain_sys.force_dissolve_all_chains()
+		_player.chain_sys.force_dissolve_all_chains(&"weapon_switch")
 		if _player.has_method("log_msg"):
 			_player.log_msg("ACTION", "weapon_switched: dissolved all chains")
 

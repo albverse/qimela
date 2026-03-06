@@ -728,12 +728,14 @@ func _attach_link(slot: int, target: Node2D, hit_pos: Vector2) -> void:
 	_switch_to_available_slot(slot)
 
 
-func _detach_link_if_needed(slot: int) -> void:
+func _detach_link_if_needed(slot: int, release_reason: StringName = &"detached") -> void:
 	if slot < 0 or slot >= chains.size():
 		return
 	var c: ChainSlot = chains[slot]
 	if c.linked_target != null and is_instance_valid(c.linked_target):
-		if c.linked_target.has_method("on_chain_detached"):
+		if c.linked_target.has_method("on_chain_detached_with_reason"):
+			c.linked_target.call("on_chain_detached_with_reason", slot, release_reason)
+		elif c.linked_target.has_method("on_chain_detached"):
 			c.linked_target.call("on_chain_detached", slot)
 	c.linked_target = null
 	c.linked_offset = Vector2.ZERO
@@ -742,10 +744,10 @@ func _detach_link_if_needed(slot: int) -> void:
 
 	if c.state == ChainState.LINKED:
 		if EventBus != null and EventBus.has_method("emit_chain_released"):
-			EventBus.emit_chain_released(slot, &"detached")
+			EventBus.emit_chain_released(slot, release_reason)
 
 
-func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false) -> void:
+func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = false, release_reason: StringName = &"dissolve") -> void:
 	if i < 0 or i >= chains.size():
 		return
 	var c: ChainSlot = chains[i]
@@ -754,7 +756,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	if c.state == ChainState.DISSOLVING and not force:
 		return
 
-	_detach_link_if_needed(i)
+	_detach_link_if_needed(i, release_reason)
 
 	if c.burn_mat == null:
 		if player.chain_shader_path == "" or player.chain_shader_path == null:
@@ -773,7 +775,7 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 	c.state = ChainState.DISSOLVING
 
 	if EventBus != null and EventBus.has_method("emit_chain_released"):
-		EventBus.emit_chain_released(i, &"dissolve")
+		EventBus.emit_chain_released(i, release_reason)
 
 	var t: float = player.burn_time if dissolve_time <= 0.0 else dissolve_time
 
@@ -791,17 +793,17 @@ func _begin_burn_dissolve(i: int, dissolve_time: float = -1.0, force: bool = fal
 
 
 ## R2合并：force_dissolve_all_chains 直接包含逻辑
-func force_dissolve_all_chains() -> void:
+func force_dissolve_all_chains(reason: StringName = &"dissolve") -> void:
 	for i: int in range(chains.size()):
 		var c: ChainSlot = chains[i]
 		if c.state == ChainState.IDLE or c.state == ChainState.DISSOLVING:
 			continue
 		c.wave_amp = 0.0
 		c.wave_phase = 0.0
-		_begin_burn_dissolve(i, player.cancel_dissolve_time, true)
+		_begin_burn_dissolve(i, player.cancel_dissolve_time, true, reason)
 
 
-func force_dissolve_chain(slot: int) -> void:
+func force_dissolve_chain(slot: int, reason: StringName = &"dissolve") -> void:
 	if slot < 0 or slot >= chains.size():
 		return
 	var c: ChainSlot = chains[slot]
@@ -809,7 +811,7 @@ func force_dissolve_chain(slot: int) -> void:
 		return
 	c.wave_amp = 0.0
 	c.wave_phase = 0.0
-	_begin_burn_dissolve(slot, player.cancel_dissolve_time, true)
+	_begin_burn_dissolve(slot, player.cancel_dissolve_time, true, reason)
 
 
 ## hard_clear_all_chains(reason): 立即清空所有链条（用于死亡/场景重置）
@@ -832,7 +834,7 @@ func _hard_reset_slot(i: int) -> void:
 	if c.burn_tw != null:
 		c.burn_tw.kill()
 		c.burn_tw = null
-	_detach_link_if_needed(i)
+	_detach_link_if_needed(i, &"hard_clear")
 	c.state = ChainState.IDLE
 	c.line.visible = false
 	c.line.material = null
@@ -852,7 +854,7 @@ func _finish_chain(i: int) -> void:
 		c.burn_tw = null
 
 	if c.state == ChainState.LINKED:
-		_detach_link_if_needed(i)
+		_detach_link_if_needed(i, &"finish")
 
 	c.state = ChainState.IDLE
 	c.line.visible = false
@@ -863,7 +865,7 @@ func _finish_chain(i: int) -> void:
 	c.interacted.clear()
 
 	var other_slot: int = 1 - i
-	if chains[other_slot].state == ChainState.LINKED and not chains[other_slot].is_chimera:
+	if chains[other_slot].state == ChainState.LINKED:
 		if active_slot != i:
 			switch_slot()
 

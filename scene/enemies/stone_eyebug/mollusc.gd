@@ -102,6 +102,9 @@ var _spawn_elapsed_sec: float = 0.0
 ## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
 var spawn_enter_active: bool = true
 
+## 回壳承诺：开始回壳后，屏蔽“玩家威胁触发逃跑”分支，直到回壳成功或判定路阻。
+var shell_return_committed: bool = false
+
 
 # ===== 动画状态追踪 =====
 
@@ -182,14 +185,14 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	var weak_channel_active: bool = weak or lightflower_weak_stun_active
+	var weak_channel_active: bool = _is_weak_stun_channel_active()
 	if weak_channel_active and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
-		if weak_stun_t <= 0.0:
-			if weak:
-				_restore_from_weak()
-			else:
-				lightflower_weak_stun_active = false
+	if weak_channel_active and weak_stun_t <= 0.0:
+		if weak:
+			_restore_from_weak()
+		# 与 weak 恢复同步清理 lightflower 通道，避免“weak 已恢复但弱眩晕通道残留”导致长时间 act_weakstun。
+		lightflower_weak_stun_active = false
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
@@ -217,6 +220,20 @@ func _physics_process(dt: float) -> void:
 
 func _do_move(_dt: float) -> void:
 	pass
+
+
+func _is_weak_stun_channel_active() -> bool:
+	return weak or lightflower_weak_stun_active
+
+
+func is_stunned() -> bool:
+	## Mollusc 统一眩晕语义：普通 stunned_t + weak_stun 通道都视为可链接/不可行动。
+	return stunned_t > 0.0 or _is_weak_stun_channel_active()
+
+
+func get_weak_state() -> bool:
+	## 给 ChainSystem 的“目标是否不可动”判定使用：LightFlower weak 通道也算弱态。
+	return _is_weak_stun_channel_active()
 
 
 # =============================================================================
@@ -269,6 +286,43 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 	_register_idle_hit_escape(hit)
 	return true
+
+
+func on_chain_hit(player_ref: Node, _slot: int) -> int:
+	## Mollusc 特例：LightFlower weak 通道也允许被链接，避免“看起来眩晕却不能链”。
+	if weak or lightflower_weak_stun_active or stunned_t > 0.0:
+		_linked_player = player_ref
+		return 1
+
+	# 与 apply_hit 路径统一受击演出：玩家链命中在不可链接时也应触发 hurt 动画。
+	take_damage(1)
+	if hurt_lock_t <= 0.0:
+		_do_hurt()
+	else:
+		_flash_once()
+	return 0
+
+
+func on_chain_attached(slot: int) -> void:
+	## Mollusc 特例：同一槽位重复 attach 时不重复延长眩晕。
+	## 仅收敛本体虫链路，避免影响其它怪物的通用链路时序。
+	if _linked_slots.is_empty():
+		if _hurtbox != null:
+			_hurtbox_original_layer = _hurtbox.collision_layer
+			_hurtbox.collision_layer = 0
+
+	var is_new_slot: bool = not _linked_slots.has(slot)
+	if is_new_slot:
+		_linked_slots.append(slot)
+	_linked_slot = slot
+
+	if is_new_slot:
+		if weak or lightflower_weak_stun_active:
+			weak_stun_t += weak_stun_extend_time
+		elif stunned_t > 0.0:
+			stunned_t += weak_stun_extend_time
+
+	_flash_once()
 
 
 func _do_hurt() -> void:
@@ -365,6 +419,28 @@ func find_new_shell() -> Node2D:
 			nearest_dist = d
 			nearest = sn
 	return nearest
+
+
+func set_shell_return_committed(active: bool) -> void:
+	shell_return_committed = active
+
+
+func is_shell_return_committed() -> bool:
+	return shell_return_committed
+
+
+func is_shell_return_path_blocked(target_shell: Node2D) -> bool:
+	if target_shell == null or not is_instance_valid(target_shell):
+		return true
+	var dx: float = target_shell.global_position.x - global_position.x
+	if absf(dx) <= 2.0:
+		return false
+	escape_dir_x = 1 if dx >= 0.0 else -1
+	if is_wall_ahead():
+		return true
+	if not is_floor_ahead():
+		return true
+	return false
 
 
 func is_player_in_attack_range() -> bool:
@@ -684,6 +760,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6
+	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3
