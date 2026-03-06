@@ -82,6 +82,9 @@ RootSelector (SelectorReactive)
 > 在 `SequenceReactive` 下该请求会保持到这段逃跑完成（`escape_remaining <= 0`）后再清除，避免“首帧触发、次帧被条件失败打断”。
 > 起跑方向为“相对攻击来源反方向”，至少跑完一段 `escape_dist`。
 
+> LightFlower 电击补充：`Mollusc.on_light_exposure()` 现在会调用 `apply_stun(stun_duration)`；
+> 眩晕期间 `Act_Escape/Act_Attack` 会冻结移动，避免出现“被电到仍可行动”。
+
 ### 1.6 进退两难破局（新增）
 
 当 Mollusc 同时检测到**左右两侧都有压力源**（例如：墙+玩家、玩家+已链接奇美拉）时，进入“强制破局”流程：

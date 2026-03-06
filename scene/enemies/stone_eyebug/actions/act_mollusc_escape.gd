@@ -20,9 +20,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if mollusc == null:
 		return FAILURE
 
-	# 受击硬直中：冻结移动，等待 hurt 动画和 hurt_lock_t 结束
-	if mollusc.is_hurt:
+	# 受击硬直/眩晕中：冻结移动
+	if mollusc.is_hurt or mollusc.is_stunned():
 		mollusc.velocity = Vector2.ZERO
+		if mollusc.is_stunned() and not mollusc.anim_is_playing(&"weak_stun"):
+			mollusc.anim_play(&"weak_stun", true, false)
 		return RUNNING
 
 	var dt := mollusc.get_physics_process_delta_time()

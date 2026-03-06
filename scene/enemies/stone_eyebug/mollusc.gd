@@ -167,6 +167,12 @@ func _physics_process(dt: float) -> void:
 		if hurt_lock_t <= 0.0:
 			is_hurt = false
 
+	# 眩晕计时（MonsterBase 默认逻辑在此子类中手动维持）
+	if stunned_t > 0.0:
+		stunned_t = maxf(stunned_t - dt, 0.0)
+		if stunned_t <= 0.0:
+			_release_linked_chains()
+
 	# 移动由 BT 叶节点控制；apply_gravity 在 Act_MolluscEscape 内处理
 
 
@@ -248,12 +254,11 @@ func clear_idle_hit_escape_request() -> void:
 func _register_idle_hit_escape(hit: HitData) -> void:
 	if not _idle_state_active:
 		return
-	if hit == null or hit.source == null or not is_instance_valid(hit.source):
-		return
-	var src := hit.source as Node2D
-	if src == null:
-		return
-	var attack_dir_x := signf(src.global_position.x - global_position.x)
+	var attack_dir_x := 0.0
+	if hit != null and hit.source != null and is_instance_valid(hit.source):
+		var src := hit.source as Node2D
+		if src != null:
+			attack_dir_x = signf(src.global_position.x - global_position.x)
 	if attack_dir_x == 0.0:
 		attack_dir_x = float(escape_dir_x)
 	escape_dir_x = -1 if attack_dir_x > 0.0 else 1
@@ -534,6 +539,14 @@ func _has_target_on_side(side: int) -> bool:
 		if signf(dx) == float(dir):
 			return true
 	return false
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time <= 0.0:
+		return
+	# LightFlower 电击命中：Mollusc 立即进入眩晕，期间冻结位移。
+	apply_stun(stun_duration, true)
 
 
 static func now_ms() -> int:
