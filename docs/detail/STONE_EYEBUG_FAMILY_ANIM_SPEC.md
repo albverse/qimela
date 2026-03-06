@@ -82,8 +82,8 @@ RootSelector (SelectorReactive)
 > 在 `SequenceReactive` 下该请求会保持到这段逃跑完成（`escape_remaining <= 0`）后再清除，避免“首帧触发、次帧被条件失败打断”。
 > 起跑方向为“相对攻击来源反方向”，至少跑完一段 `escape_dist`。
 
-> LightFlower 电击补充：`Mollusc.on_light_exposure()` 现在会调用 `apply_stun(stun_duration)`；
-> 眩晕期间 `Act_Escape/Act_Attack` 会冻结移动，避免出现“被电到仍可行动”。
+> LightFlower 电击补充：`Mollusc.on_light_exposure()` 现改为复用 `weak_stun` 通道（`weak_stun_t = weak_stun_time`）；
+> 因此时长与常规 weak_stun 一致，且动画流程统一为 `weak_stun` → `weak_stun_loop`。
 
 ### 1.6 进退两难破局（新增）
 

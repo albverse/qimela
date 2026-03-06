@@ -78,6 +78,9 @@ var ev_atk2_hit_off: bool = false
 var is_hurt: bool = false
 var hurt_lock_t: float = 0.0
 
+## LightFlower 触发的“弱眩晕”通道（与 weak_stun 动画/时序统一）
+var lightflower_weak_stun_active: bool = false
+
 ## 破局状态：左右受压卡死时触发（强制朝玩家侧移动并立即可攻击）
 var forced_breakout_active: bool = false
 var breakout_post_combo_active: bool = false
@@ -156,10 +159,13 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	if weak and weak_stun_t > 0.0:
+	if (weak or lightflower_weak_stun_active) and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
-			_restore_from_weak()
+			if weak:
+				_restore_from_weak()
+			else:
+				lightflower_weak_stun_active = false
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
@@ -545,8 +551,11 @@ func on_light_exposure(remaining_time: float) -> void:
 	super.on_light_exposure(remaining_time)
 	if remaining_time <= 0.0:
 		return
-	# LightFlower 电击命中：Mollusc 立即进入眩晕，期间冻结位移。
-	apply_stun(stun_duration, true)
+	# LightFlower 命中后走“弱眩晕”通道：时长与动画流程统一到 weak_stun 体系。
+	lightflower_weak_stun_active = true
+	weak_stun_t = max(weak_stun_t, weak_stun_time)
+	# 若此前处于普通眩晕，清空其计时，避免两套眩晕并行造成表现不一致。
+	stunned_t = 0.0
 
 
 static func now_ms() -> int:
