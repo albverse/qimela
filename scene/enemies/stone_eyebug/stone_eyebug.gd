@@ -164,7 +164,7 @@ func _ready() -> void:
 		_light_receiver_shape = lr.get_node_or_null("CollisionShape2D") as CollisionShape2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
-	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
+	if _is_spine_sprite_compatible(_spine_sprite):
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
@@ -176,6 +176,15 @@ func _ready() -> void:
 		_setup_mock_durations()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+
+func _is_spine_sprite_compatible(node: Node) -> bool:
+	if node == null:
+		return false
+	if String(node.get_class()) == "SpineSprite":
+		return true
+	# 兜底：某些运行时/封装层 class 名不稳定，改按能力探测。
+	return node.has_method("get_animation_state")
 
 
 func _physics_process(dt: float) -> void:
@@ -599,6 +608,8 @@ func notify_become_empty_shell() -> void:
 	## 软体逃跑后，将壳变为空壳冻结状态（仅播放 empty_loop，等待回壳通知）
 	mode = Mode.EMPTY_SHELL
 	species_id = &"stone_eyebug_shell"
+	if not is_in_group("stoneeyebug_shell_empty"):
+		add_to_group("stoneeyebug_shell_empty")
 	soft_hitbox_active = false
 	mollusc_spawned = true
 	attack_enabled_after_player_retreat = false
@@ -616,6 +627,8 @@ func notify_shell_restored() -> void:
 	## 软体归来：壳恢复为缩壳待机状态
 	mode = Mode.IN_SHELL
 	species_id = &"stone_eyebug"
+	if is_in_group("stoneeyebug_shell_empty"):
+		remove_from_group("stoneeyebug_shell_empty")
 	mollusc_spawned = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
 	# 注意：_update_hurtbox_states() 会在下一帧根据 mode=IN_SHELL 恢复 LightReceiver，

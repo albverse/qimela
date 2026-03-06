@@ -69,12 +69,34 @@
 
 ```
 RootSelector (SelectorReactive)
-├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun     ← 最高：虚弱时原地眩晕
-├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell← 回壳优先
+├─ Seq_SpawnEnter [Cond_SpawnEntering]   → Act_SpawnEnter    ← 生成入场：先播 enter，结束后才进入常规行为
+├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun      ← 虚弱/光花弱眩晕
+├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell ← 生成>10s 且 Idle>5s 后检测到空壳才回壳
+├─ Seq_IdleHitEscape [Cond_IdleHitEscapeRequested] → Act_Escape ← Idle 受击后立刻反向逃跑一段（escape_dist）
 ├─ Seq_Attack     [Cond_PlayerInRange]   → Act_AttackSequence← 玩家在 120px 内
 ├─ Seq_Escape     [Cond_PlayerNear]      → Act_Escape        ← 玩家在 200px 内逃跑
 └─ Act_Idle                                                   ← 兜底：玩家不在附近
 ```
+
+
+> Idle 受击反应规则：仅当 Mollusc 处于 `Act_Idle` 时收到 `apply_hit()`，才会登记一次应激逃跑请求；
+> 在 `SequenceReactive` 下该请求会保持到这段逃跑完成（`escape_remaining <= 0`）后再清除，避免“首帧触发、次帧被条件失败打断”。
+> 起跑方向为“相对攻击来源反方向”，至少跑完一段 `escape_dist`。
+
+> LightFlower 电击补充：`Mollusc.on_light_exposure()` 现改为复用 `weak_stun` 通道（`weak_stun_t = weak_stun_time`）；
+> 因此时长与常规 weak_stun 一致，且动画流程统一为 `weak_stun` → `weak_stun_loop`。
+
+> Hurt 动画补充：Idle/Escape 分支在 `is_hurt` 时不再强制覆盖为 `idle/run`，会优先保持/补播 `hurt`，避免受击无反馈。
+
+> Idle 受击立即逃跑补充：`Act_Escape` 已加入例外，若存在 Idle 受击应激请求，不会被 `is_hurt` 的冻结分支吞掉。
+
+> 回壳闭环补充：StoneEyeBug 进入空壳态时会加入组 `stoneeyebug_shell_empty`，Mollusc 才能稳定命中 `Cond_SeeEmptyShell -> Act_ReturnToShell`。
+
+> 生成入场补充：Mollusc 生成后先执行 `enter` 入场动画，结束后再解锁常规行为分支。
+
+> 回壳时机补充：Mollusc 不会在刚生成时立刻回壳；仅当“生成时长达到 `shell_return_spawn_delay`（默认 10s）”且“连续 Idle 达到 `shell_return_idle_delay`（默认 5s）”后，才开放空壳检测并进入回壳分支。
+
+> 眩晕恢复补充：weak/光花 weak_stun 通道激活期间会屏蔽 `stunned_t` 倒计时，避免在 weak_stun 仍 RUNNING 时误触发 `_release_linked_chains()`。
 
 ### 1.6 进退两难破局（新增）
 

@@ -47,6 +47,12 @@ class_name Mollusc
 @export var breakout_overtake_px: float = 50.0
 ## 破局连段后继续前冲的越位距离（相对玩家，px）
 
+@export var shell_return_idle_delay: float = 5.0
+## Idle 连续超过该时长后，才允许进入“检测空壳并回壳”分支（秒）
+
+@export var shell_return_spawn_delay: float = 10.0
+## 生成后至少经过该时长，才允许回壳检测（秒）
+
 # ===== 内部状态 =====
 
 ## 家园空壳节点（由 StoneEyeBug 调用 set_home_shell 设置）
@@ -78,11 +84,23 @@ var ev_atk2_hit_off: bool = false
 var is_hurt: bool = false
 var hurt_lock_t: float = 0.0
 
+## LightFlower 触发的“弱眩晕”通道（与 weak_stun 动画/时序统一）
+var lightflower_weak_stun_active: bool = false
+
 ## 破局状态：左右受压卡死时触发（强制朝玩家侧移动并立即可攻击）
 var forced_breakout_active: bool = false
 var breakout_post_combo_active: bool = false
 var breakout_target_player: Node2D = null
 var breakout_target_x: float = 0.0
+
+## Idle 受击应激逃跑（一次性请求）
+var _idle_state_active: bool = false
+var _idle_hit_escape_requested: bool = false
+var _idle_elapsed_sec: float = 0.0
+var _spawn_elapsed_sec: float = 0.0
+
+## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
+var spawn_enter_active: bool = true
 
 
 # ===== 动画状态追踪 =====
@@ -119,7 +137,7 @@ func _ready() -> void:
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	_setup_front_rays()
-	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
+	if _is_spine_sprite_compatible(_spine_sprite):
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
@@ -132,6 +150,9 @@ func _ready() -> void:
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
 
+	spawn_enter_active = true
+	anim_play(&"enter", false, false)
+
 
 func _setup_front_rays() -> void:
 	## 运行时兜底：确保前向检测射线启用（避免场景勾选遗漏导致不掉头）
@@ -143,6 +164,15 @@ func _setup_front_rays() -> void:
 		_floor_ray_front.collision_mask = 1  # World(1)
 
 
+func _is_spine_sprite_compatible(node: Node) -> bool:
+	if node == null:
+		return false
+	if String(node.get_class()) == "SpineSprite":
+		return true
+	# 兜底：某些运行时/封装层 class 名不稳定，改按能力探测。
+	return node.has_method("get_animation_state")
+
+
 func _physics_process(dt: float) -> void:
 	if light_counter > 0.0:
 		light_counter -= dt
@@ -152,16 +182,35 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	if weak and weak_stun_t > 0.0:
+	var weak_channel_active: bool = weak or lightflower_weak_stun_active
+	if weak_channel_active and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
-			_restore_from_weak()
+			if weak:
+				_restore_from_weak()
+			else:
+				lightflower_weak_stun_active = false
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
 		hurt_lock_t = max(hurt_lock_t - dt, 0.0)
 		if hurt_lock_t <= 0.0:
 			is_hurt = false
+
+	# 眩晕计时：弱眩晕通道激活时不再倒计时 stunned_t，避免链被误释放。
+	if weak_channel_active:
+		stunned_t = 0.0
+	elif stunned_t > 0.0:
+		stunned_t = maxf(stunned_t - dt, 0.0)
+		if stunned_t <= 0.0:
+			_release_linked_chains()
+
+	# 时间计时
+	_spawn_elapsed_sec += dt
+	if _idle_state_active:
+		_idle_elapsed_sec += dt
+	else:
+		_idle_elapsed_sec = 0.0
 
 	# 移动由 BT 叶节点控制；apply_gravity 在 Act_MolluscEscape 内处理
 
@@ -218,6 +267,7 @@ func apply_hit(hit: HitData) -> bool:
 		_do_hurt()
 	else:
 		_flash_once()
+	_register_idle_hit_escape(hit)
 	return true
 
 
@@ -226,6 +276,47 @@ func _do_hurt() -> void:
 	is_hurt = true
 	hurt_lock_t = 0.3  # 300ms 防抽搐
 	anim_play(&"hurt", false, false)
+
+
+func set_idle_state_active(active: bool) -> void:
+	_idle_state_active = active
+
+
+func has_idle_hit_escape_request() -> bool:
+	return _idle_hit_escape_requested
+
+
+func clear_idle_hit_escape_request() -> void:
+	_idle_hit_escape_requested = false
+
+
+func finish_spawn_enter() -> void:
+	if not spawn_enter_active:
+		return
+	spawn_enter_active = false
+	if not is_hurt and not anim_is_playing(&"idle"):
+		anim_play(&"idle", true, true)
+
+
+func _register_idle_hit_escape(hit: HitData) -> void:
+	if not _idle_state_active:
+		return
+	var attack_dir_x := 0.0
+	if hit != null and hit.source != null and is_instance_valid(hit.source):
+		var src := hit.source as Node2D
+		if src != null:
+			attack_dir_x = signf(src.global_position.x - global_position.x)
+	if attack_dir_x == 0.0:
+		attack_dir_x = float(escape_dir_x)
+	escape_dir_x = -1 if attack_dir_x > 0.0 else 1
+	escape_remaining = max(escape_remaining, escape_dist)
+	_idle_hit_escape_requested = true
+
+
+func is_shell_return_window_open() -> bool:
+	var spawn_ok: bool = shell_return_spawn_delay <= 0.0 or _spawn_elapsed_sec >= shell_return_spawn_delay
+	var idle_ok: bool = shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
+	return spawn_ok and idle_ok
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -503,6 +594,17 @@ func _has_target_on_side(side: int) -> bool:
 	return false
 
 
+func on_light_exposure(remaining_time: float) -> void:
+	super.on_light_exposure(remaining_time)
+	if remaining_time <= 0.0:
+		return
+	# LightFlower 命中后走“弱眩晕”通道：时长与动画流程统一到 weak_stun 体系。
+	lightflower_weak_stun_active = true
+	weak_stun_t = max(weak_stun_t, weak_stun_time)
+	# 若此前处于普通眩晕，清空其计时，避免两套眩晕并行造成表现不一致。
+	stunned_t = 0.0
+
+
 static func now_ms() -> int:
 	return Time.get_ticks_msec()
 
@@ -555,6 +657,7 @@ func _get_obj_name(obj: Object) -> StringName:
 # =============================================================================
 
 func _setup_mock_durations() -> void:
+	_anim_mock._durations[&"enter"] = 0.45
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6

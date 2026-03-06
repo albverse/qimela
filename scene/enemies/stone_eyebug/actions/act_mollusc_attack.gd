@@ -27,6 +27,10 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
+	if mollusc.is_stunned():
+		mollusc.velocity = Vector2.ZERO
+		mollusc.is_attacking = false
+		return FAILURE
 
 	var player: Node2D = mollusc.get_player()
 

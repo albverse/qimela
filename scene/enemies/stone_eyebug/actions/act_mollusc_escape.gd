@@ -20,9 +20,15 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if mollusc == null:
 		return FAILURE
 
-	# 受击硬直中：冻结移动，等待 hurt 动画和 hurt_lock_t 结束
-	if mollusc.is_hurt:
+	# 受击硬直/眩晕中：冻结移动
+	# 例外：Idle受击应激逃跑请求生效时，不被 hurt 冻结吞掉“立即逃跑”体感。
+	var bypass_hurt_freeze: bool = mollusc.is_hurt and mollusc.has_idle_hit_escape_request()
+	if (mollusc.is_hurt and not bypass_hurt_freeze) or mollusc.is_stunned():
 		mollusc.velocity = Vector2.ZERO
+		if mollusc.is_hurt and not mollusc.anim_is_playing(&"hurt"):
+			mollusc.anim_play(&"hurt", false, false)
+		elif mollusc.is_stunned() and not mollusc.anim_is_playing(&"weak_stun"):
+			mollusc.anim_play(&"weak_stun", true, false)
 		return RUNNING
 
 	var dt := mollusc.get_physics_process_delta_time()
@@ -36,6 +42,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	# 若玩家已不在威胁范围，且本轮逃跑距离已消耗完，则退出本分支（交给 Idle）。
 	if not player_near and mollusc.escape_remaining <= 0.0:
+		mollusc.clear_idle_hit_escape_request()
 		mollusc.velocity = Vector2.ZERO
 		return FAILURE
 
