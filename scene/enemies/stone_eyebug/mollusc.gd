@@ -185,14 +185,14 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	var weak_channel_active: bool = weak or lightflower_weak_stun_active
+	var weak_channel_active: bool = _is_weak_stun_channel_active()
 	if weak_channel_active and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
-		if weak_stun_t <= 0.0:
-			if weak:
-				_restore_from_weak()
-			else:
-				lightflower_weak_stun_active = false
+	if weak_channel_active and weak_stun_t <= 0.0:
+		if weak:
+			_restore_from_weak()
+		# 与 weak 恢复同步清理 lightflower 通道，避免“weak 已恢复但弱眩晕通道残留”导致长时间 act_weakstun。
+		lightflower_weak_stun_active = false
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
@@ -220,6 +220,20 @@ func _physics_process(dt: float) -> void:
 
 func _do_move(_dt: float) -> void:
 	pass
+
+
+func _is_weak_stun_channel_active() -> bool:
+	return weak or lightflower_weak_stun_active
+
+
+func is_stunned() -> bool:
+	## Mollusc 统一眩晕语义：普通 stunned_t + weak_stun 通道都视为可链接/不可行动。
+	return stunned_t > 0.0 or _is_weak_stun_channel_active()
+
+
+func get_weak_state() -> bool:
+	## 给 ChainSystem 的“目标是否不可动”判定使用：LightFlower weak 通道也算弱态。
+	return _is_weak_stun_channel_active()
 
 
 # =============================================================================
@@ -272,6 +286,15 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 	_register_idle_hit_escape(hit)
 	return true
+
+
+func on_chain_hit(player_ref: Node, _slot: int) -> int:
+	## Mollusc 特例：LightFlower weak 通道也允许被链接，避免“看起来眩晕却不能链”。
+	if weak or lightflower_weak_stun_active or stunned_t > 0.0:
+		_linked_player = player_ref
+		return 1
+	take_damage(1)
+	return 0
 
 
 func on_chain_attached(slot: int) -> void:
@@ -731,6 +754,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6
+	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3

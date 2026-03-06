@@ -3,20 +3,17 @@ class_name ActMolluscReturnShell
 
 ## 软体虫回壳闭环：播 enter_shell 动画 → 通知壳体恢复 → 销毁自身。
 
-enum Phase { MOVE_TO_SHELL, ENTER_SHELL }
+enum Phase { MOVE_TO_SHELL, ENTER_SHELL, FLIP_TO_NORMAL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
 var _stuck_time: float = 0.0
 var _last_dist_to_shell: float = INF
-
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return
 	_phase = Phase.MOVE_TO_SHELL
-	_stuck_time = 0.0
-	_last_dist_to_shell = INF
 	mollusc.set_shell_return_committed(true)
 	mollusc.velocity = Vector2.ZERO
 
@@ -31,6 +28,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return _tick_move(mollusc)
 		Phase.ENTER_SHELL:
 			return _tick_enter(mollusc)
+		Phase.FLIP_TO_NORMAL:
+			return _tick_flip_to_normal(mollusc)
 	return RUNNING
 
 
@@ -58,16 +57,6 @@ func _tick_move(mollusc: Mollusc) -> int:
 		mollusc.velocity = Vector2.ZERO
 		return FAILURE
 
-	# 兜底卡死检测：距离长时间不缩短，视为“路过不去”。
-	if dist >= _last_dist_to_shell - 1.0:
-		_stuck_time += dt
-	else:
-		_stuck_time = 0.0
-	_last_dist_to_shell = dist
-	if _stuck_time >= 0.6:
-		mollusc.set_shell_return_committed(false)
-		mollusc.velocity = Vector2.ZERO
-		return FAILURE
 
 	# 移动向壳
 	var dir := Vector2(dx, dy).normalized()
@@ -81,6 +70,13 @@ func _tick_move(mollusc: Mollusc) -> int:
 
 func _tick_enter(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"enter_shell"):
+		_phase = Phase.FLIP_TO_NORMAL
+		mollusc.anim_play(&"flip_to_normal", false, false)
+	return RUNNING
+
+
+func _tick_flip_to_normal(mollusc: Mollusc) -> int:
+	if mollusc.anim_is_finished(&"flip_to_normal"):
 		mollusc.set_shell_return_committed(false)
 		# 通知壳体恢复
 		var shell: Node2D = mollusc.find_empty_shell()
