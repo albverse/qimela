@@ -7,12 +7,12 @@ enum Phase { MOVE_TO_SHELL, ENTER_SHELL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
 
-
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return
 	_phase = Phase.MOVE_TO_SHELL
+	mollusc.set_shell_return_committed(true)
 	mollusc.velocity = Vector2.ZERO
 
 
@@ -32,6 +32,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 func _tick_move(mollusc: Mollusc) -> int:
 	var shell: Node2D = mollusc.find_empty_shell()
 	if shell == null or not is_instance_valid(shell):
+		mollusc.set_shell_return_committed(false)
 		return FAILURE
 
 	var dt := mollusc.get_physics_process_delta_time()
@@ -46,6 +47,13 @@ func _tick_move(mollusc: Mollusc) -> int:
 		mollusc.anim_play(&"enter_shell", false, false)
 		return RUNNING
 
+	# 回壳期间若遇到正向墙/断崖（路阻），撤销回壳承诺，允许行为树切回逃跑分支重规划。
+	if mollusc.is_shell_return_path_blocked(shell):
+		mollusc.set_shell_return_committed(false)
+		mollusc.velocity = Vector2.ZERO
+		return FAILURE
+
+
 	# 移动向壳
 	var dir := Vector2(dx, dy).normalized()
 	mollusc.velocity = dir * mollusc.escape_speed
@@ -58,6 +66,7 @@ func _tick_move(mollusc: Mollusc) -> int:
 
 func _tick_enter(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"enter_shell"):
+		mollusc.set_shell_return_committed(false)
 		# 通知壳体恢复
 		var shell: Node2D = mollusc.find_empty_shell()
 		if shell != null and is_instance_valid(shell) and shell.has_method("notify_shell_restored"):
@@ -74,6 +83,7 @@ func _tick_enter(mollusc: Mollusc) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
 	if mollusc != null:
+		mollusc.set_shell_return_committed(false)
 		mollusc.velocity = Vector2.ZERO
 	_phase = Phase.MOVE_TO_SHELL
 	super(actor, blackboard)

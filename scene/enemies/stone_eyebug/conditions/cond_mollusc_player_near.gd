@@ -8,6 +8,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
+	# 回壳承诺期间：忽略玩家威胁触发的逃跑分支，优先完成回壳。
+	if mollusc.is_shell_return_committed():
+		return FAILURE
 	# 玩家在威胁半径内：立刻逃跑。
 	if mollusc.is_player_near_threat():
 		return SUCCESS

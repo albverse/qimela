@@ -336,13 +336,18 @@ func on_chain_attached(slot: int) -> void:
 	_set_player_control_frozen(is_active_control_slot())
 
 
-func on_chain_detached(slot: int) -> void:
+func on_chain_detached_with_reason(slot: int, reason: StringName) -> void:
 	var was_linked: bool = is_linked() and get_linked_slot() == slot
 	super.on_chain_detached(slot)
 	if was_linked:
 		# 断链后恢复；若仍有其他链接但非当前激活槽位，也不应保持冻结。
 		_set_player_control_frozen(is_active_control_slot())
-		detached_reset_pending = true
+		# 玩家主动 X 取消不触发 vanish 回归；其它断链原因保持原有 reset 流程。
+		detached_reset_pending = (reason != &"manual_cancel")
+
+
+func on_chain_detached(slot: int) -> void:
+	on_chain_detached_with_reason(slot, &"detached")
 
 
 func request_attack() -> void:

@@ -32,7 +32,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	if bird.anim_is_finished(&"wake_up"):
 		var now := StoneMaskBird.now_sec()
-		if bird.rest_hunt_requested and bird.hunt_target != null and is_instance_valid(bird.hunt_target) and bird.can_start_hunt(now):
+		if (not bird.has_face) and bird.rest_hunt_requested and bird.hunt_target != null and is_instance_valid(bird.hunt_target) and bird.can_start_hunt(now):
 			bird.mode = StoneMaskBird.Mode.HUNTING
 			bird.rest_hunt_requested = false
 		else:
