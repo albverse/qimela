@@ -730,7 +730,11 @@ _physics_process(dt):
 |------|----------|
 | `emit_chain_fired(slot)` | 链条发射时 |
 | `emit_chain_bound(slot, target, attr_type, icon_id, is_chimera, show_anim)` | 链条连接到实体时 |
-| `emit_chain_released(slot, reason)` | 链条断开时（reason: `"detached"` / `"dissolve"`） |
+| `emit_chain_released(slot, reason)` | 链条断开时（reason: `"detached"` / `"dissolve"` / `"manual_cancel"` / `"weapon_switch"` / `"finish"` / `"hard_clear"`） |
 | `emit_chain_struggle_progress(slot, progress)` | 非奇美拉挣脱进度更新 |
 | `emit_slot_switched(active_slot)` | 活跃槽位切换时 |
 | `fusion_rejected.emit()` | 融合请求被拒绝时 |
+
+> 说明：
+> - 当一个槽位链条结束（`_finish_chain`）且另一槽位仍为 `LINKED` 时，会自动 `switch_slot()`，不区分普通怪/奇美拉。
+> - 因此链接到奇美拉（如 `chimera_ghost_hand_l`、`ChimeraA`）后，也会与普通怪一致自动切到空闲槽位。
