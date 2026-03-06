@@ -572,9 +572,10 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		return 0
 
 	# NORMAL + SoftHurtbox 链命中：触发缩壳（非翻倒）
+	# shell_last_attacked_ms 不在此设置：_tick_retreat 进入 IN_SHELL 时统一重置，
+	# 避免链击时间戳污染 IN_SHELL 的 5s 安全计时。
 	if mode == Mode.NORMAL and is_soft_hit:
 		mode = Mode.RETREATING
-		shell_last_attacked_ms = Time.get_ticks_msec()
 		# 设计确认：只有玩家触发 retreat_in 后，等待 2s 才可攻击
 		attack_enabled_after_player_retreat = true
 		next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
@@ -585,10 +586,10 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	if mode == Mode.EMPTY_SHELL:
 		return 0
 
-	# 锁链命中壳体（无效伤害）也应触发 hit_shell_small 反馈。
-	# 问题2修复：只有非软腹命中才播放 hit_shell_small
+	# 锁链命中壳体：播放反馈音效/动画，但不刷新 shell_last_attacked_ms。
+	# 设计规则：锁链不算"攻击壳体"，不延迟 IN_SHELL 的出壳计时；
+	#           只有常规武器（apply_hit 路径）才计入安全计时器。
 	if not is_soft_hit:
-		shell_last_attacked_ms = Time.get_ticks_msec()
 		_play_hit_shell_small_feedback()
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
@@ -769,3 +770,4 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"empty_loop"] = 1.0
 	_anim_mock._durations[&"hit_shell_small"] = 0.25
+	_anim_mock._durations[&"escape_split"] = 0.8  # FLIPPED 4次链击后逃出动画

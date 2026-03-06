@@ -314,9 +314,11 @@ func _register_idle_hit_escape(hit: HitData) -> void:
 
 
 func is_shell_return_window_open() -> bool:
-	## Idle 超过门控时长后允许回任意空壳（含 home_shell）。
-	## 生成后立即可回新壳的逻辑由 find_new_shell() + CondMolluscSeeNewShell 独立处理。
-	return shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
+	## 同时满足 spawn 延迟（10s）和 idle 延迟（5s）后允许回任意空壳（含 home_shell）。
+	## "新壳"（非 home_shell）无延迟门控，由 find_new_shell() + CondMolluscSeeNewShell 处理。
+	var spawn_ok: bool = shell_return_spawn_delay <= 0.0 or _spawn_elapsed_sec >= shell_return_spawn_delay
+	var idle_ok: bool = shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
+	return spawn_ok and idle_ok
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -619,11 +621,38 @@ func on_light_exposure(remaining_time: float) -> void:
 	super.on_light_exposure(remaining_time)
 	if remaining_time <= 0.0:
 		return
-	# LightFlower 命中后走“弱眩晕”通道：时长与动画流程统一到 weak_stun 体系。
+	# LightFlower 命中后走”弱眩晕”通道：时长与动画流程统一到 weak_stun 体系。
 	lightflower_weak_stun_active = true
 	weak_stun_t = max(weak_stun_t, weak_stun_time)
 	# 若此前处于普通眩晕，清空其计时，避免两套眩晕并行造成表现不一致。
 	stunned_t = 0.0
+
+
+# =============================================================================
+# 锁链交互重写（覆盖 MonsterBase 基类）
+# =============================================================================
+
+func is_chain_holdable() -> bool:
+	## Mollusc 特有：lightflower_weak_stun_active 通道也视为”可钳制”状态，
+	## 使 struggle_timer 在弱眩晕期间暂停，链条不自行消失。
+	return weak or lightflower_weak_stun_active or stunned_t > 0.0
+
+
+func on_chain_hit(player: Node, slot: int) -> int:
+	## lightflower 弱眩晕通道（weak=false, stunned_t=0）时 MonsterBase 无法判定链接；
+	## 此处显式返回 1（可链接），并记录 _linked_player，与 weak 路径行为统一。
+	if weak or lightflower_weak_stun_active:
+		_linked_player = player
+		return 1
+	return super.on_chain_hit(player, slot)
+
+
+func on_chain_attached(slot: int) -> void:
+	## 调用基类后，补充 lightflower 弱眩晕通道的延长逻辑。
+	## 基类仅在 weak=true 时延长 weak_stun_t，light 通道需在此覆写。
+	super.on_chain_attached(slot)
+	if lightflower_weak_stun_active and not weak:
+		weak_stun_t += weak_stun_extend_time
 
 
 static func now_ms() -> int:
