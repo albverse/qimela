@@ -6,8 +6,6 @@ class_name ActMolluscReturnShell
 enum Phase { MOVE_TO_SHELL, ENTER_SHELL, FLIP_TO_NORMAL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
-var _stuck_time: float = 0.0
-var _last_dist_to_shell: float = INF
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
