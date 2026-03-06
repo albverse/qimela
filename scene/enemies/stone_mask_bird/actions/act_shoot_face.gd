@@ -27,6 +27,7 @@ var _hover_started_sec: float = -1.0
 var _last_hover_dist: float = INF
 var _hover_stall_sec: float = 0.0
 var _bullet_spawned: bool = false
+var _last_mode_in_shooting: int = -1
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -36,10 +37,17 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_last_hover_dist = INF
 	_hover_stall_sec = 0.0
 	_bullet_spawned = false
+	_last_mode_in_shooting = -1
 	var bird := actor as StoneMaskBird
 	if bird:
 		bird.face_shoot_event_fired = false
 		bird.shoot_face_committed = true  # 锁定：BT 条件节点在此期间始终通过
+
+
+func _shoot_debug_log(bird: StoneMaskBird, msg: String) -> void:
+	if bird == null or not bird.debug_shoot_face_mode_log:
+		return
+	print("[StoneMaskBird][ShootFace][DEBUG] %s" % msg)
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -54,8 +62,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			var player := bird._get_player()
 			if player == null:
 				# 目标消失，无法计算悬停位置，中止并回巢
-				_clear_committed(bird)
+				_clear_committed(bird, "hover_target_missing")
 				bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+				_shoot_debug_log(bird, "set mode: RETURN_TO_REST (hover target missing)")
 				return SUCCESS
 			return _tick_hovering(bird, now, player)
 
@@ -67,8 +76,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	return RUNNING
 
 
-func _clear_committed(bird: StoneMaskBird) -> void:
+func _clear_committed(bird: StoneMaskBird, reason: String) -> void:
 	if bird:
+		_shoot_debug_log(bird, "clear committed: %s" % reason)
 		bird.shoot_face_committed = false
 
 
@@ -119,11 +129,20 @@ func _tick_hovering(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 	bird.face_shoot_event_fired = false
 	_phase = Phase.SHOOTING
 	_shoot_started_sec = now
+	_last_mode_in_shooting = bird.mode
 	bird.anim_play(&"shoot_face", false, false)
+	_shoot_debug_log(bird, "enter SHOOTING mode=%s" % StoneMaskBird.Mode.keys()[bird.mode])
 	return RUNNING
 
 
 func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
+	if _last_mode_in_shooting != bird.mode:
+		_shoot_debug_log(bird, "mode changed in SHOOTING: %s -> %s" % [
+			StoneMaskBird.Mode.keys()[_last_mode_in_shooting] if _last_mode_in_shooting >= 0 else "<unset>",
+			StoneMaskBird.Mode.keys()[bird.mode],
+		])
+		_last_mode_in_shooting = bird.mode
+
 	# Spine 事件触发发射
 	if bird.face_shoot_event_fired and not _bullet_spawned:
 		bird.spawn_face_bullet(player)
@@ -140,8 +159,9 @@ func _tick_shooting(bird: StoneMaskBird, now: float, player: Node2D) -> int:
 
 	# 等待 shoot_face 动画完整播完再离开（不因 has_face=false 提前退出）
 	if bird.anim_is_finished(&"shoot_face"):
-		_clear_committed(bird)
+		_clear_committed(bird, "shoot_face_anim_finished")
 		bird.mode = StoneMaskBird.Mode.RETURN_TO_REST
+		_shoot_debug_log(bird, "set mode: RETURN_TO_REST (shoot_face finished)")
 		bird.next_attack_sec = now + bird.dash_cooldown
 		return SUCCESS
 
@@ -153,11 +173,15 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if bird:
 		bird.velocity = Vector2.ZERO
 		bird.face_shoot_event_fired = false
-		_clear_committed(bird)
+		if bird.mode == StoneMaskBird.Mode.STUNNED or bird.mode == StoneMaskBird.Mode.WAKE_FROM_STUN or bird.mode == StoneMaskBird.Mode.RETURN_TO_REST:
+			_clear_committed(bird, "interrupt_expected_mode=%s" % StoneMaskBird.Mode.keys()[bird.mode])
+		else:
+			_shoot_debug_log(bird, "skip clear committed on unexpected interrupt mode=%s" % StoneMaskBird.Mode.keys()[bird.mode])
 	_phase = Phase.HOVERING
 	_shoot_started_sec = -1.0
 	_hover_started_sec = -1.0
 	_last_hover_dist = INF
 	_hover_stall_sec = 0.0
 	_bullet_spawned = false
+	_last_mode_in_shooting = -1
 	super(actor, blackboard)

@@ -86,6 +86,9 @@ enum Mode {
 @export var face_bullet_texture: Texture2D = preload("res://icon.svg")
 ## 面具弹贴图（可在 Inspector 中替换材质/图片）。
 
+@export var debug_shoot_face_mode_log: bool = false
+## ActShootFace 调试日志开关：记录 SHOOTING 阶段 mode 变化与 committed 清理来源。
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.RESTING
@@ -475,6 +478,12 @@ func apply_hit(hit: HitData) -> bool:
 		hp = max(hp, 1)
 		return true
 
+
+	# --- shoot_face 自发射保护：忽略同一只 StoneMaskBird 在发射阶段吃到自己的面具弹 ---
+	if hit.weapon_id == &"stone_mask_bird_face_bullet" and mode == Mode.FLYING_ATTACK and _current_anim == &"shoot_face" and shoot_face_committed:
+		if debug_shoot_face_mode_log:
+			print("[StoneMaskBird][ShootFace][DEBUG] ignore self face bullet while committed")
+		return false
 
 	# --- Act_ShootFace 进行中：允许被普通受击打断(HURT)；weak/雷花可打断进 STUNNED，并保留 has_face ---
 	if mode == Mode.FLYING_ATTACK and _current_anim == &"shoot_face":
