@@ -102,6 +102,9 @@ var _spawn_elapsed_sec: float = 0.0
 ## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
 var spawn_enter_active: bool = true
 
+## 回壳承诺：开始回壳后，屏蔽“玩家威胁触发逃跑”分支，直到回壳成功或判定路阻。
+var shell_return_committed: bool = false
+
 
 # ===== 动画状态追踪 =====
 
@@ -387,6 +390,28 @@ func find_new_shell() -> Node2D:
 			nearest_dist = d
 			nearest = sn
 	return nearest
+
+
+func set_shell_return_committed(active: bool) -> void:
+	shell_return_committed = active
+
+
+func is_shell_return_committed() -> bool:
+	return shell_return_committed
+
+
+func is_shell_return_path_blocked(target_shell: Node2D) -> bool:
+	if target_shell == null or not is_instance_valid(target_shell):
+		return true
+	var dx: float = target_shell.global_position.x - global_position.x
+	if absf(dx) <= 2.0:
+		return false
+	escape_dir_x = 1 if dx >= 0.0 else -1
+	if is_wall_ahead():
+		return true
+	if not is_floor_ahead():
+		return true
+	return false
 
 
 func is_player_in_attack_range() -> bool:
