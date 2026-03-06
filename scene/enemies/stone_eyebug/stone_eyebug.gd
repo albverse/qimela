@@ -164,7 +164,7 @@ func _ready() -> void:
 		_light_receiver_shape = lr.get_node_or_null("CollisionShape2D") as CollisionShape2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
-	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
+	if _is_spine_sprite_compatible(_spine_sprite):
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
@@ -176,6 +176,15 @@ func _ready() -> void:
 		_setup_mock_durations()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+
+func _is_spine_sprite_compatible(node: Node) -> bool:
+	if node == null:
+		return false
+	if String(node.get_class()) == "SpineSprite":
+		return true
+	# 兜底：某些运行时/封装层 class 名不稳定，改按能力探测。
+	return node.has_method("get_animation_state")
 
 
 func _physics_process(dt: float) -> void:

@@ -85,6 +85,8 @@ RootSelector (SelectorReactive)
 > LightFlower 电击补充：`Mollusc.on_light_exposure()` 现改为复用 `weak_stun` 通道（`weak_stun_t = weak_stun_time`）；
 > 因此时长与常规 weak_stun 一致，且动画流程统一为 `weak_stun` → `weak_stun_loop`。
 
+> Hurt 动画补充：Idle/Escape 分支在 `is_hurt` 时不再强制覆盖为 `idle/run`，会优先保持/补播 `hurt`，避免受击无反馈。
+
 ### 1.6 进退两难破局（新增）
 
 当 Mollusc 同时检测到**左右两侧都有压力源**（例如：墙+玩家、玩家+已链接奇美拉）时，进入“强制破局”流程：

@@ -17,6 +17,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 	mollusc.set_idle_state_active(true)
 	mollusc.velocity = Vector2.ZERO
+	if mollusc.is_hurt:
+		if not mollusc.anim_is_playing(&"hurt"):
+			mollusc.anim_play(&"hurt", false, false)
+		return RUNNING
 	if not mollusc.anim_is_playing(&"idle"):
 		mollusc.anim_play(&"idle", true, true)
 	return RUNNING

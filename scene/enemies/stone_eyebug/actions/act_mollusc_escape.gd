@@ -23,7 +23,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# 受击硬直/眩晕中：冻结移动
 	if mollusc.is_hurt or mollusc.is_stunned():
 		mollusc.velocity = Vector2.ZERO
-		if mollusc.is_stunned() and not mollusc.anim_is_playing(&"weak_stun"):
+		if mollusc.is_hurt and not mollusc.anim_is_playing(&"hurt"):
+			mollusc.anim_play(&"hurt", false, false)
+		elif mollusc.is_stunned() and not mollusc.anim_is_playing(&"weak_stun"):
 			mollusc.anim_play(&"weak_stun", true, false)
 		return RUNNING
 
