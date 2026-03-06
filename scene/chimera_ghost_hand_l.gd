@@ -330,19 +330,51 @@ func _set_player_control_frozen(frozen: bool) -> void:
 	control_input_frozen = frozen
 
 
+func _auto_switch_to_idle_slot_after_chimera_link(linked_slot: int) -> void:
+	var p := get_player_node()
+	if p == null or not is_instance_valid(p):
+		return
+	if not ("chain_sys" in p):
+		return
+	var cs = p.chain_sys
+	if cs == null:
+		return
+	if not ("chains" in cs) or not ("active_slot" in cs):
+		return
+	var other_slot: int = 1 - linked_slot
+	if other_slot < 0 or other_slot >= cs.chains.size():
+		return
+	if int(cs.active_slot) != linked_slot:
+		return
+	var other_chain = cs.chains[other_slot]
+	if other_chain == null:
+		return
+	if int(other_chain.state) != 0:  # ChainState.IDLE
+		return
+	if cs.has_method("switch_slot"):
+		cs.call("switch_slot")
+
+
 func on_chain_attached(slot: int) -> void:
 	super.on_chain_attached(slot)
+	# 链接奇美拉后，若另一个槽位空闲，自动切到空槽以便继续发链（与普通怪体验一致）。
+	call_deferred("_auto_switch_to_idle_slot_after_chimera_link", slot)
 	# 仅当当前切到本奇美拉槽位时冻结玩家移动。
 	_set_player_control_frozen(is_active_control_slot())
 
 
-func on_chain_detached(slot: int) -> void:
+func on_chain_detached_with_reason(slot: int, reason: StringName) -> void:
 	var was_linked: bool = is_linked() and get_linked_slot() == slot
 	super.on_chain_detached(slot)
 	if was_linked:
 		# 断链后恢复；若仍有其他链接但非当前激活槽位，也不应保持冻结。
 		_set_player_control_frozen(is_active_control_slot())
-		detached_reset_pending = true
+		# 玩家主动 X 取消不触发 vanish 回归；其它断链原因保持原有 reset 流程。
+		detached_reset_pending = (reason != &"manual_cancel")
+
+
+func on_chain_detached(slot: int) -> void:
+	on_chain_detached_with_reason(slot, &"detached")
 
 
 func request_attack() -> void:

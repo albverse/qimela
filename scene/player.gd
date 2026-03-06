@@ -372,7 +372,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				tw.tween_interval(0.25)  # 取消动画时长
 				tw.tween_callback(func() -> void:
 					if chain_sys != null:
-						chain_sys.force_dissolve_all_chains()
+						chain_sys.force_dissolve_all_chains(&"manual_cancel")
 				)
 				
 				log_msg("INPUT", "X_pressed: Chain cancel with animation")
