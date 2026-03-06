@@ -39,6 +39,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			return _tick_attack_lick(mollusc, player)
 		Phase.DONE:
 			mollusc.next_attack_end_ms = Mollusc.now_ms() + int(mollusc.attack_cd * 1000.0)
+			if mollusc.forced_breakout_active:
+				mollusc.begin_breakout_post_combo(player)
 			mollusc.is_attacking = false
 			return SUCCESS
 	return RUNNING

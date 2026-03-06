@@ -27,6 +27,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	var dt := mollusc.get_physics_process_delta_time()
 
+	if mollusc.should_trigger_forced_breakout():
+		mollusc.trigger_forced_breakout()
+
 	# 重规划（玩家进入威胁距离）
 	var player_near: bool = mollusc.is_player_near_threat()
 	mollusc.plan_escape_if_player_near()
@@ -37,7 +40,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 
 	# 死路/断崖检测 → 掉头
-	if mollusc.is_wall_ahead() or not mollusc.is_floor_ahead():
+	# 破局越位阶段优先越位：仅当“玩家后方同向也有墙”时才允许因前墙掉头。
+	if (mollusc.is_wall_ahead() and mollusc.should_flip_on_wall()) or not mollusc.is_floor_ahead():
 		mollusc.escape_dir_x = -mollusc.escape_dir_x
 
 	var prev_pos: Vector2 = mollusc.global_position
@@ -49,6 +53,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# 更新剩余逃跑距离
 	var moved: float = absf(mollusc.global_position.x - prev_pos.x)
 	mollusc.escape_remaining = max(mollusc.escape_remaining - moved, 0.0)
+	mollusc.update_breakout_post_combo()
 
 	# 播放跑步动画
 	if not mollusc.anim_is_playing(&"run"):

@@ -44,6 +44,9 @@ class_name Mollusc
 @export var floor_check_down: float = 24.0
 ## 断崖检测的向下探针长度（px）
 
+@export var breakout_overtake_px: float = 50.0
+## 破局连段后继续前冲的越位距离（相对玩家，px）
+
 # ===== 内部状态 =====
 
 ## 家园空壳节点（由 StoneEyeBug 调用 set_home_shell 设置）
@@ -74,6 +77,16 @@ var ev_atk2_hit_off: bool = false
 ## 受击硬直标记（防止受击打断攻击时判定残留）
 var is_hurt: bool = false
 var hurt_lock_t: float = 0.0
+
+## 破局状态：左右受压卡死时触发（强制朝玩家侧移动并立即可攻击）
+var forced_breakout_active: bool = false
+var breakout_post_combo_active: bool = false
+var breakout_target_player: Node2D = null
+var breakout_target_x: float = 0.0
+
+## Idle 受击应激逃跑（一次性请求）
+var _idle_state_active: bool = false
+var _idle_hit_escape_requested: bool = false
 
 
 # ===== 动画状态追踪 =====
@@ -209,6 +222,7 @@ func apply_hit(hit: HitData) -> bool:
 		_do_hurt()
 	else:
 		_flash_once()
+	_register_idle_hit_escape(hit)
 	return true
 
 
@@ -217,6 +231,33 @@ func _do_hurt() -> void:
 	is_hurt = true
 	hurt_lock_t = 0.3  # 300ms 防抽搐
 	anim_play(&"hurt", false, false)
+
+
+func set_idle_state_active(active: bool) -> void:
+	_idle_state_active = active
+
+
+func consume_idle_hit_escape_request() -> bool:
+	if not _idle_hit_escape_requested:
+		return false
+	_idle_hit_escape_requested = false
+	return true
+
+
+func _register_idle_hit_escape(hit: HitData) -> void:
+	if not _idle_state_active:
+		return
+	if hit == null or hit.source == null or not is_instance_valid(hit.source):
+		return
+	var src := hit.source as Node2D
+	if src == null:
+		return
+	var attack_dir_x := signf(src.global_position.x - global_position.x)
+	if attack_dir_x == 0.0:
+		attack_dir_x = float(escape_dir_x)
+	escape_dir_x = -1 if attack_dir_x > 0.0 else 1
+	escape_remaining = max(escape_remaining, escape_dist)
+	_idle_hit_escape_requested = true
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -245,6 +286,8 @@ func find_empty_shell() -> Node2D:
 
 
 func is_player_in_attack_range() -> bool:
+	if forced_breakout_active:
+		return get_primary_player_in_range(attack_range) != null
 	return _get_attack_target_in_range(attack_range) != null
 
 
@@ -255,7 +298,34 @@ func is_player_near_threat() -> bool:
 func get_player() -> Node2D:
 	## Beehave 优先：仅在“攻击分支已判定进入攻击范围”时再取攻击目标。
 	## 这里严格限制为 attack_range 内目标，避免主动寻敌改变行为树语义。
+	if forced_breakout_active:
+		var primary := get_primary_player_in_range(attack_range)
+		if primary != null:
+			return primary
 	return _get_attack_target_in_range(attack_range)
+
+
+func get_primary_player_in_range(range_limit: float) -> Node2D:
+	if range_limit <= 0.0:
+		return null
+	var players := get_tree().get_nodes_in_group("player")
+	if players.is_empty():
+		return null
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for p in players:
+		if not is_instance_valid(p):
+			continue
+		var node := p as Node2D
+		if node == null:
+			continue
+		var d := global_position.distance_to(node.global_position)
+		if d > range_limit:
+			continue
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = node
+	return nearest
 
 
 func _get_attack_target_in_range(range_limit: float) -> Node2D:
@@ -328,6 +398,17 @@ func _ray_hits_world(from: Vector2, to: Vector2) -> bool:
 
 func plan_escape_if_player_near() -> void:
 	## 若威胁范围内存在攻击目标则重新规划逃跑路线
+	if forced_breakout_active:
+		if breakout_post_combo_active:
+			if escape_remaining <= 0.0:
+				escape_remaining = escape_dist
+			return
+		var forced_player := get_primary_player_in_range(threat_dist * 1.5)
+		if forced_player != null:
+			escape_dir_x = 1 if forced_player.global_position.x >= global_position.x else -1
+			if escape_remaining <= 0.0:
+				escape_remaining = escape_dist
+		return
 	var player := _get_attack_target_in_range(threat_dist)
 	if player == null:
 		return
@@ -337,6 +418,121 @@ func plan_escape_if_player_near() -> void:
 	# 仅在未处于“逃跑段”时装填距离，避免每帧重置导致 escape_dist 永远跑不完。
 	if escape_remaining <= 0.0:
 		escape_remaining = escape_dist
+
+
+
+
+func should_flip_on_wall() -> bool:
+	if not breakout_post_combo_active:
+		return true
+	if breakout_target_player == null or not is_instance_valid(breakout_target_player):
+		return true
+	# 破局越位阶段：默认不因前墙掉头，除非玩家后方同向也有墙（确认已无法越位）
+	return _is_wall_behind_breakout_player()
+
+
+func _is_wall_behind_breakout_player() -> bool:
+	if breakout_target_player == null or not is_instance_valid(breakout_target_player):
+		return false
+	var from: Vector2 = breakout_target_player.global_position + Vector2(0.0, -8.0)
+	var check_dist: float = maxf(wall_check_forward, breakout_overtake_px + 8.0)
+	var to: Vector2 = from + Vector2(float(escape_dir_x) * check_dist, 0.0)
+	return _ray_hits_world(from, to)
+
+func should_trigger_forced_breakout() -> bool:
+	if forced_breakout_active:
+		return false
+	var player := get_primary_player_in_range(threat_dist * 1.5)
+	if player == null:
+		return false
+	if not _has_pressure_on_side(-1):
+		return false
+	if not _has_pressure_on_side(1):
+		return false
+	return true
+
+
+func trigger_forced_breakout() -> void:
+	var player := get_primary_player_in_range(threat_dist * 1.5)
+	if player == null:
+		return
+	forced_breakout_active = true
+	breakout_post_combo_active = false
+	breakout_target_player = player
+	next_attack_end_ms = 0
+	escape_dir_x = 1 if player.global_position.x >= global_position.x else -1
+	escape_remaining = max(escape_remaining, escape_dist)
+
+
+func begin_breakout_post_combo(player: Node2D) -> void:
+	if not forced_breakout_active:
+		return
+	if player == null or not is_instance_valid(player):
+		player = get_primary_player_in_range(threat_dist * 2.0)
+	if player == null:
+		clear_forced_breakout()
+		return
+	breakout_target_player = player
+	breakout_post_combo_active = true
+	escape_dir_x = 1 if breakout_target_player.global_position.x >= global_position.x else -1
+	breakout_target_x = breakout_target_player.global_position.x + float(escape_dir_x) * breakout_overtake_px
+
+
+func update_breakout_post_combo() -> void:
+	if not breakout_post_combo_active:
+		return
+	if breakout_target_player == null or not is_instance_valid(breakout_target_player):
+		clear_forced_breakout()
+		return
+	if escape_dir_x > 0 and global_position.x >= breakout_target_x:
+		clear_forced_breakout()
+	elif escape_dir_x < 0 and global_position.x <= breakout_target_x:
+		clear_forced_breakout()
+
+
+func clear_forced_breakout() -> void:
+	forced_breakout_active = false
+	breakout_post_combo_active = false
+	breakout_target_player = null
+	breakout_target_x = 0.0
+
+
+func _has_pressure_on_side(side: int) -> bool:
+	if _is_world_blocked_on_side(side):
+		return true
+	return _has_target_on_side(side)
+
+
+func _is_world_blocked_on_side(side: int) -> bool:
+	if side == 0:
+		return false
+	var dir := 1 if side > 0 else -1
+	var from: Vector2 = global_position + Vector2(0.0, -8.0)
+	var to: Vector2 = from + Vector2(float(dir) * wall_check_forward, 0.0)
+	return _ray_hits_world(from, to)
+
+
+func _has_target_on_side(side: int) -> bool:
+	if side == 0:
+		return false
+	var dir := 1 if side > 0 else -1
+	var targets := get_tree().get_nodes_in_group(ATTACK_TARGET_GROUP)
+	if targets.is_empty():
+		targets = get_tree().get_nodes_in_group("player")
+	for t in targets:
+		if not is_instance_valid(t):
+			continue
+		var n := t as Node2D
+		if n == null:
+			continue
+		var dx := n.global_position.x - global_position.x
+		if absf(dx) > threat_dist * 1.5:
+			continue
+		if dx == 0.0:
+			continue
+		if signf(dx) == float(dir):
+			return true
+	return false
 
 
 static func now_ms() -> int:

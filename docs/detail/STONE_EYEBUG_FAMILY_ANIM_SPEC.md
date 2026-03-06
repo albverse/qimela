@@ -72,9 +72,29 @@ RootSelector (SelectorReactive)
 ├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun     ← 最高：虚弱时原地眩晕
 ├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell← 回壳优先
 ├─ Seq_Attack     [Cond_PlayerInRange]   → Act_AttackSequence← 玩家在 120px 内
+├─ Seq_IdleHitEscape [Cond_IdleHitEscapeRequested] → Act_Escape ← Idle 受击后立刻反向逃跑一段（escape_dist）
 ├─ Seq_Escape     [Cond_PlayerNear]      → Act_Escape        ← 玩家在 200px 内逃跑
 └─ Act_Idle                                                   ← 兜底：玩家不在附近
 ```
+
+
+> Idle 受击反应规则：仅当 Mollusc 处于 `Act_Idle` 时收到 `apply_hit()`，才会登记一次应激逃跑请求；
+> 下一帧由 `Seq_IdleHitEscape` 消费该请求，并按“相对攻击来源反方向”起跑，至少跑完一段 `escape_dist`。
+
+### 1.6 进退两难破局（新增）
+
+当 Mollusc 同时检测到**左右两侧都有压力源**（例如：墙+玩家、玩家+已链接奇美拉）时，进入“强制破局”流程：
+
+1. **立即刷新攻击 CD**（`next_attack_end_ms = 0`），不等待原冷却。
+2. **优先朝玩家方向移动**（玩家优先级高于链接奇美拉）。
+3. 玩家进入攻击范围时，立刻执行固定连段：`attack_stone` → `attack_lick`。
+4. 连段结束后继续朝当前方向前冲，直到相对玩家**越位约 50px**（`breakout_overtake_px`）。
+   - 越位阶段默认**不因前方单墙立即掉头**；仅在检测到“玩家后方同向也有墙”（确认无法越位）时才允许掉头。
+5. 完成越位后清除强制状态，恢复常规“检测并逃跑”流程。
+
+说明：
+- 该逻辑只在“破局状态”下强制玩家优先，避免链接奇美拉干扰导致左右抖动卡死。
+- 常规模式仍遵循 Beehave 结构，不主动改写分支优先级。
 
 ---
 
