@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://ve4pu5rdmy2d"
+path="res://.godot/imported/skeleton.skel-de6323b8e01b30b6f1b6af70f18e2a89.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/stone_eyebug/spine_art/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-de6323b8e01b30b6f1b6af70f18e2a89.spskel"]
+
+[params]
+

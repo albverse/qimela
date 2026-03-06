@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=26 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -12,8 +12,9 @@
 [ext_resource type="PackedScene" uid="uid://csr6ywph1si8b" path="res://scene/HealingSprite.tscn" id="5_00cx3"]
 [ext_resource type="PackedScene" uid="uid://cu5h6g7s8iaj0" path="res://ui/game_ui.tscn" id="6_ui"]
 [ext_resource type="PackedScene" path="res://scene/MonsterNeutral.tscn" id="7_neutral"]
-[ext_resource type="Texture2D" uid="uid://c22sjfo401dhu" path="res://yaoshi.png" id="8_pe88y"]
+[ext_resource type="PackedScene" uid="uid://7ld7eo05w8ra" path="res://scene/ChimeraGhostHandL.tscn" id="8_bgr6l"]
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
+[ext_resource type="PackedScene" uid="uid://c2b8gjfqbjoca" path="res://scene/enemies/stone_eyebug/StoneEyeBug.tscn" id="9_4rqvp"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
 [ext_resource type="PackedScene" uid="uid://cndsohm8mmjw7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.tscn" id="16_gteh2"]
@@ -110,13 +111,10 @@ scale = Vector2(0.39867842, 0.43098384)
 texture = ExtResource("2_55hp2")
 
 [node name="LightningFlower" parent="WeatherController" instance=ExtResource("3_acqgf")]
-position = Vector2(911, 596)
+position = Vector2(987, 596)
 
 [node name="LightningFlower2" parent="WeatherController" instance=ExtResource("3_acqgf")]
-position = Vector2(733, 514)
-
-[node name="LightningFlower3" parent="WeatherController" instance=ExtResource("3_acqgf")]
-position = Vector2(1077, 599)
+position = Vector2(726, 508)
 
 [node name="World" type="Node2D" parent="."]
 
@@ -158,21 +156,22 @@ shape = SubResource("RectangleShape2D_7qdox")
 position = Vector2(508, 522)
 
 [node name="HealingSprite2" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
-position = Vector2(763, 546)
+position = Vector2(476, 277)
 
 [node name="HealingSprite3" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
 position = Vector2(396, 362)
+
+[node name="ChimeraGhostHandL" parent="World/Floor (StaticBody2D)" instance=ExtResource("8_bgr6l")]
+position = Vector2(132, 476)
+
+[node name="StoneEyeBug" parent="World/Floor (StaticBody2D)" instance=ExtResource("9_4rqvp")]
+position = Vector2(720, 583)
 
 [node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
 position = Vector2(270, 461)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
 position = Vector2(-7, -36)
-
-[node name="Walk1" parent="World" instance=ExtResource("3_7qdox")]
-position = Vector2(780, 586)
-size_tier = 2
-ui_icon = ExtResource("8_pe88y")
 
 [node name="Fly1" parent="World" instance=ExtResource("4_ngg7y")]
 position = Vector2(490, 397)

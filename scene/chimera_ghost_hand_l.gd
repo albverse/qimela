@@ -40,6 +40,13 @@ var attack_requested: bool = false
 ## 攻击期间冻结玩家操控输入
 var control_input_frozen: bool = false
 
+## 幽灵攻击命中检测窗口（hit_on/off 等效，供 ForceCloseHitWindows 使用）
+var atk_hit_window_open: bool = false
+
+## Spine 事件标志（_on_spine_event 置位，BT 叶节点读取后清零）
+var ev_hit_on: bool = false
+var ev_attack_done: bool = false
+
 # ===== 动画状态追踪 =====
 
 var _current_anim: StringName = &""
@@ -66,12 +73,18 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("chimera_ghost_hand_l")
 
+	# AttackArea 检测 EnemyBody(3) + enemy_hurtbox(4) + hazards(6)，不含 PlayerBody 防止误伤玩家
+	if _attack_area != null:
+		_attack_area.collision_mask = 4 | 8 | 32  # EnemyBody(3) + enemy_hurtbox(4) + hazards(6)
+
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
 		_anim_driver = AnimDriverSpine.new()
 		add_child(_anim_driver)
 		_anim_driver.setup(_spine_sprite)
 		_anim_driver.anim_completed.connect(_on_anim_completed)
+		if _spine_sprite.has_signal("animation_event"):
+			_spine_sprite.animation_event.connect(_on_spine_event)
 	else:
 		_anim_mock = AnimDriverMock.new()
 		_setup_mock_durations()
@@ -127,6 +140,11 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 # 伤害接口（受到任意伤害 → 触发重置）
 # =============================================================================
 
+func force_close_hit_windows() -> void:
+	## 强制关闭幽灵攻击命中检测窗口（见 0.1 节）
+	atk_hit_window_open = false
+
+
 func on_damage_received() -> void:
 	## 由攻击命中回调或 EventBus 调用，触发断链重置
 	took_damage = true
@@ -154,6 +172,28 @@ func teleport_to_player_side() -> void:
 	global_position = p.global_position + Vector2(-player_side_offset, -40.0)
 
 
+func is_active_control_slot() -> bool:
+	## 仅当本奇美拉占用当前 active_slot 时，才允许移动操控/攻击。
+	if not is_linked():
+		return false
+	var p := get_player_node()
+	if p == null or not is_instance_valid(p):
+		return false
+	if not ("chain_sys" in p):
+		return false
+	var cs = p.chain_sys
+	if cs == null or not ("active_slot" in cs):
+		return false
+	return int(cs.active_slot) == int(get_linked_slot())
+
+
+func on_player_interact(_player_ref: Player) -> void:
+	## 激活槽位上的 M 键交互：请求攻击。
+	if not is_active_control_slot():
+		return
+	request_attack()
+
+
 func request_attack() -> void:
 	## 玩家输入层调用：请求攻击
 	attack_requested = true
@@ -163,30 +203,109 @@ func resolve_hit_on_targets() -> void:
 	## 检测攻击区域内的目标并处理命中效果
 	if _attack_area == null:
 		return
+	var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
+	var seen: Dictionary = {}
+
 	var bodies := _attack_area.get_overlapping_bodies()
 	for body in bodies:
 		if not is_instance_valid(body):
 			continue
-		# 命中 StoneMaskBirdFaceBullet → Y 轴速度翻转
-		if body.get_class() == "CharacterBody2D" and body.has_method("get_script"):
-			var sc = body.get_script()
-			if sc != null and "StoneMaskBirdFaceBullet" in sc.get_path():
-				if "velocity" in body:
-					body.set("velocity", Vector2(body.get("velocity").x, -body.get("velocity").y))
-		# 命中 StoneEyeBug（带壳态）→ 触发弹翻
-		if body is StoneEyeBug:
-			var seb := body as StoneEyeBug
-			if seb.mode == StoneEyeBug.Mode.NORMAL:
-				seb.mode = StoneEyeBug.Mode.FLIPPED
-				seb._flash_once()
-		# 命中其他实体 → 普通伤害
+		var rid_b: RID = body.get_rid()
+		if seen.has(rid_b):
+			continue
+		seen[rid_b] = true
+		# 命中 StoneMaskBirdFaceBullet → 反弹（不走 apply_hit）
+		if body is StoneMaskBirdFaceBullet:
+			body.reflect()
+			continue
 		if body.has_method("apply_hit"):
-			var hit := HitData.create(attack_damage, get_player_node(), &"chimera_ghost_hand_l")
 			body.call("apply_hit", hit)
+
+	var areas := _attack_area.get_overlapping_areas()
+	for area in areas:
+		if not is_instance_valid(area):
+			continue
+		var rid_a: RID = area.get_rid()
+		if seen.has(rid_a):
+			continue
+		seen[rid_a] = true
+		var bullet := _resolve_bullet(area)
+		if bullet != null:
+			bullet.reflect()
+			continue
+		var target := _resolve_monster(area)
+		if target != null:
+			target.apply_hit(hit)
+
+
+func _resolve_monster(area_or_body: Node) -> MonsterBase:
+	var cur: Node = area_or_body
+	if cur != null and cur.has_method("get_host"):
+		cur = cur.call("get_host")
+	for _i: int in range(6):
+		if cur == null:
+			return null
+		if cur is MonsterBase:
+			return cur as MonsterBase
+		cur = cur.get_parent()
+	return null
+
+
+func _resolve_bullet(area_or_body: Node) -> StoneMaskBirdFaceBullet:
+	var cur: Node = area_or_body
+	for _i: int in range(4):
+		if cur == null:
+			return null
+		if cur is StoneMaskBirdFaceBullet:
+			return cur as StoneMaskBirdFaceBullet
+		cur = cur.get_parent()
+	return null
 
 
 static func now_ms() -> int:
 	return Time.get_ticks_msec()
+
+
+# =============================================================================
+# Spine 事件
+# =============================================================================
+
+func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
+	var event_name: StringName = _extract_spine_event_name([_a1, _a2, _a3, _a4])
+	if event_name == &"":
+		return
+	match event_name:
+		&"hit_on":       ev_hit_on = true;      atk_hit_window_open = true
+		&"hit_off":      atk_hit_window_open = false
+		&"attack_done":  ev_attack_done = true
+
+
+func _extract_spine_event_name(args: Array) -> StringName:
+	for arg in args:
+		if arg == null:
+			continue
+		if arg is StringName:
+			return arg
+		if arg is String:
+			return StringName(arg)
+		if arg.has_method("get_data"):
+			var d: Variant = arg.get_data()
+			if d != null:
+				var n: StringName = _get_obj_name(d)
+				if n != &"":
+					return n
+		var n: StringName = _get_obj_name(arg)
+		if n != &"":
+			return n
+	return &""
+
+
+func _get_obj_name(obj: Object) -> StringName:
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
 
 
 # =============================================================================

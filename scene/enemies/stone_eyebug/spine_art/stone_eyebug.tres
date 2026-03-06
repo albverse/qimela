@@ -1,0 +1,8 @@
+[gd_resource type="SpineSkeletonDataResource" load_steps=3 format=3 uid="uid://cp31slnedta7r"]
+
+[ext_resource type="SpineAtlasResource" uid="uid://bwuon3hcuuecd" path="res://scene/enemies/stone_eyebug/spine_art/skeleton.atlas" id="1_akiie"]
+[ext_resource type="SpineSkeletonFileResource" uid="uid://ve4pu5rdmy2d" path="res://scene/enemies/stone_eyebug/spine_art/skeleton.skel" id="2_suew6"]
+
+[resource]
+atlas_res = ExtResource("1_akiie")
+skeleton_file_res = ExtResource("2_suew6")

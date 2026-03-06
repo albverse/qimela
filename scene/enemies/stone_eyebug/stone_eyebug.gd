@@ -48,6 +48,12 @@ enum Mode {
 @export var mollusc_scene: PackedScene = null
 ## 软体虫实例场景，运行时 spawn
 
+@export var soft_body_bone: String = "Mollusc"
+## SoftHurtbox 追踪的 Spine 骨骼名；骨骼必须在 Spine 骨架中存在（蓝图规定命名：Mollusc）
+
+@export var soft_body_fallback_offset: Vector2 = Vector2(0.0, 14.0)
+## Mock 模式（无 Spine）或骨骼查询失败时 SoftHurtbox 的本地坐标偏移（px，相对根节点）
+
 # ===== 内部状态（BT 叶节点直接读写）=====
 
 var mode: int = Mode.NORMAL
@@ -76,8 +82,34 @@ var shell_last_attacked_ms: int = 0
 ## 攻击冷却截止时间戳（ms）
 var next_attack_end_ms: int = 0
 
+## 仅当玩家触发 retreat_in 后才允许攻击（并进入 2s 冷却窗口）
+var attack_enabled_after_player_retreat: bool = false
+
 ## FLIPPED 阶段是否已生成软体实例（防止重复 spawn）
 var mollusc_spawned: bool = false
+
+## 攻击命中检测窗口（供 ForceCloseHitWindows 安全机制使用，见 0.1 节）
+var atk1_window_open: bool = false
+var atk2_window_open: bool = false
+
+## 本帧下一次 apply_hit() 视为软体命中（由 SoftHurtbox.get_host() 在命中前写入，命中后立即清除）
+var _next_hit_is_soft: bool = false
+
+# ===== Spine 事件标志（_on_spine_event 写入，BT 叶节点读取后立即清除）=====
+## 攻击1命中窗口开/关（atk1_hit_on / atk1_hit_off）
+var ev_atk1_hit_on: bool = false
+var ev_atk1_hit_off: bool = false
+## 攻击2命中窗口开/关（atk2_hit_on / atk2_hit_off）
+var ev_atk2_hit_on: bool = false
+var ev_atk2_hit_off: bool = false
+## 缩壳动画完成（retreat_done）
+var ev_retreat_done: bool = false
+## 出壳动画完成（emerge_done）
+var ev_emerge_done: bool = false
+## 弹翻动画完成（flip_done）
+var ev_flip_done: bool = false
+## 软体生成精确帧（escape_spawn）
+var ev_escape_spawn: bool = false
 
 # ===== 动画状态追踪 =====
 
@@ -89,6 +121,9 @@ var _current_anim_loop: bool = false
 
 var _anim_driver: AnimDriverSpine = null
 var _anim_mock: AnimDriverMock = null
+
+var _shell_hurtbox: Area2D = null  ## 壳体受击盒缓存（Hurtbox 节点）
+var _soft_hurtbox: Area2D = null   ## 软腹受击盒缓存（SoftHurtbox 节点）
 
 @onready var _spine_sprite: Node = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea")
@@ -103,6 +138,9 @@ func _ready() -> void:
 	weak_hp = 1
 	super._ready()
 	add_to_group("stone_eyebug")
+
+	_shell_hurtbox = get_node_or_null("Hurtbox") as Area2D
+	_soft_hurtbox = get_node_or_null("SoftHurtbox") as Area2D
 
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _spine_sprite and _spine_sprite.get_class() == "SpineSprite":
@@ -137,6 +175,12 @@ func _physics_process(dt: float) -> void:
 			_restore_from_weak()
 			if mode == Mode.EMPTY_SHELL or mode == Mode.FLIPPED:
 				mode = Mode.NORMAL
+
+	_update_hurtbox_states()
+	# SoftHurtbox 位置追踪（Spine 骨骼或 Mock 偏移）
+	# 注：AnimDriverSpine 是子节点，其 _physics_process 在本节点之后执行，存在 1 帧位置滞后，
+	#     对游戏玩法判定无显著影响。
+	_update_soft_hurtbox_position()
 
 	# 移动和 BT 逻辑由叶节点（+ BeehaveTree tick）驱动，_physics_process 不再调用 super
 
@@ -184,22 +228,85 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_finished = true
 
 
-func _on_spine_event(_a1, _a2, _a3, _a4) -> void:
-	## Spine 事件回调（escape_spawn 等事件由 BT 动作轮询计时，不依赖此信号）
-	pass
+func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
+	## Spine 动画事件回调（事件名解析后写入 ev_* 标志，BT 叶节点读取并驱动状态转移）
+	var event_name: StringName = _extract_spine_event_name([_a1, _a2, _a3, _a4])
+	if event_name == &"":
+		return
+	match event_name:
+		&"atk1_hit_on":   ev_atk1_hit_on = true;  atk1_window_open = true
+		&"atk1_hit_off":  ev_atk1_hit_off = true; atk1_window_open = false
+		&"atk2_hit_on":   ev_atk2_hit_on = true;  atk2_window_open = true
+		&"atk2_hit_off":  ev_atk2_hit_off = true; atk2_window_open = false
+		&"retreat_done":  ev_retreat_done = true
+		&"emerge_done":   ev_emerge_done = true
+		&"flip_done":     ev_flip_done = true
+		&"escape_spawn":  ev_escape_spawn = true
+
+
+func _extract_spine_event_name(args: Array) -> StringName:
+	## 从 Spine animation_event 信号的不定参数中提取事件名（兼容多版本 spine-godot 运行时）
+	for arg in args:
+		if arg == null:
+			continue
+		if arg is StringName:
+			return arg
+		if arg is String:
+			return StringName(arg)
+		# SpineTrackEntry.get_data() → SpineEventData.get_name()
+		if arg.has_method("get_data"):
+			var d: Variant = arg.get_data()
+			if d != null:
+				var n: StringName = _get_obj_name(d)
+				if n != &"":
+					return n
+		var n: StringName = _get_obj_name(arg)
+		if n != &"":
+			return n
+	return &""
+
+
+func _get_obj_name(obj: Object) -> StringName:
+	if obj.has_method("get_name"):
+		return StringName(obj.get_name())
+	if obj.has_method("getName"):
+		return StringName(obj.getName())
+	return &""
 
 
 # =============================================================================
 # 受击规则
 # =============================================================================
 
+func _is_player_attack(hit: HitData) -> bool:
+	if hit == null:
+		return false
+	return hit.weapon_id == &"ghost_fist"
+
+
+func _can_flip_on_hit(hit: HitData) -> bool:
+	# 设计确认：仅以下来源触发翻倒：ghost_fist / chimera_ghost_hand_l / StoneMaskBirdFaceBullet
+	if hit == null:
+		return false
+	return (
+		hit.weapon_id == &"ghost_fist"
+		or hit.weapon_id == &"chimera_ghost_hand_l"
+		or hit.weapon_id == &"stone_mask_bird_face_bullet"
+	)
+
+
 func apply_hit(hit: HitData) -> bool:
+	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在本帧命中前写入）
+	var is_soft_hit: bool = _next_hit_is_soft
+	_next_hit_is_soft = false
+
 	if hit == null:
 		return false
 	if not has_hp or hp <= 0:
 		return false
 
-	# 弹翻阶段
+	# 弹翻阶段：ShellHurtbox 已由 _update_hurtbox_states() 禁用，
+	# 本阶段所有命中均来自 SoftHurtbox（soft_hitbox_active=true 时）
 	if mode == Mode.FLIPPED:
 		if soft_hitbox_active:
 			# 软体易伤：标记 was_attacked_while_flipped → BT 触发分裂
@@ -210,6 +317,7 @@ func apply_hit(hit: HitData) -> bool:
 
 	# 空壳阶段：可被常规攻击打，走弱化流程
 	if mode == Mode.EMPTY_SHELL:
+		anim_play(&"hit_shell_small", false, false)  # 空壳受击视觉反馈
 		if hp_locked:
 			_flash_once()
 			return true
@@ -221,6 +329,7 @@ func apply_hit(hit: HitData) -> bool:
 		return true
 
 	# 壳体保护阶段（NORMAL / RETREATING / IN_SHELL）
+
 	# --- 雷花 → 触发缩壳 ---
 	if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower":
 		if mode != Mode.RETREATING and mode != Mode.IN_SHELL:
@@ -232,30 +341,25 @@ func apply_hit(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# --- ghost_fist / chimera_ghost_hand_l → 弹翻（仅 NORMAL 态壳外）---
-	if hit.weapon_id == &"ghost_fist" or hit.weapon_id == &"chimera_ghost_hand_l":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		# 缩壳/壳内：壳保护，反向行走，刷新受攻时间
-		_reflect_from_shell(hit)
+	# --- NORMAL 态可翻转命中（ghost_fist / chimera_ghost_hand_l / 面具弹）---
+	if mode == Mode.NORMAL and _can_flip_on_hit(hit):
+		mode = Mode.FLIPPED
+		_flash_once()
 		return true
 
-	# --- StoneMaskBirdFaceBullet → 弹翻（仅 NORMAL 态）---
-	if hit.weapon_id == &"stone_mask_bird_face_bullet":
-		if mode == Mode.NORMAL:
-			mode = Mode.FLIPPED
-			_flash_once()
-			return true
-		_reflect_from_shell(hit)
+	# --- NORMAL 态软腹命中（仅缩壳流）→ 缩壳，不扣血 ---
+	if is_soft_hit and mode == Mode.NORMAL:
+		mode = Mode.RETREATING
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		if _is_player_attack(hit):
+			# 设计确认：StoneEyeBug 只有在玩家触发 retreat_in 后才允许攻击；
+			# 且需等待 2s（attack_cd）后才可进入 ATTACK_FLOW。
+			attack_enabled_after_player_retreat = true
+			next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
+		_flash_once()
 		return true
 
-	# --- 软体命中（弹翻前，NORMAL 且未弹翻）→ 缩壳 ---
-	# 注：在弹翻前，软体骨骼被打到 → 触发缩壳（不扣血，只闪白）
-	# weapon_id 留空或使用通用攻击：在 NORMAL 态软体被命中逻辑
-	# 其他武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效
-
+	# --- 其余武器命中壳体 → 反向行走 + 刷新受攻时间，伤害无效 ---
 	_reflect_from_shell(hit)
 	return true
 
@@ -273,10 +377,80 @@ func _reflect_from_shell(hit: HitData) -> void:
 
 
 # =============================================================================
+# 软体受击盒接口
+# =============================================================================
+
+func _mark_next_hit_soft() -> void:
+	## 由 SoftHurtbox.get_host() 在命中前调用，标记本次 apply_hit() 为软体命中
+	_next_hit_is_soft = true
+
+
+func _update_hurtbox_states() -> void:
+	## 按当前 mode 和 soft_hitbox_active 开关壳体 / 软腹受击盒的 monitoring
+	## 每帧在 _physics_process 开头调用，保证与状态机同步
+	if _shell_hurtbox == null and _soft_hurtbox == null:
+		return
+	match mode:
+		Mode.NORMAL:
+			# 壳体可被命中（反弹），软腹也可被命中（缩壳）
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = true
+		Mode.RETREATING, Mode.IN_SHELL:
+			# 缩壳 / 壳内：软腹已收起，只留壳体
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = false
+		Mode.FLIPPED:
+			# 翻倒：壳体朝下无法命中，软腹随 soft_hitbox_active 开关
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = false
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = soft_hitbox_active
+		Mode.EMPTY_SHELL:
+			# 空壳：只有壳可受击，软腹已逃走
+			if _shell_hurtbox:
+				_shell_hurtbox.monitoring = true
+			if _soft_hurtbox:
+				_soft_hurtbox.monitoring = false
+
+
+func _update_soft_hurtbox_position() -> void:
+	## 每帧将 SoftHurtbox 的 global_position 对齐到 Spine 骨骼（或 Mock 固定偏移）
+	## AnimDriverSpine 是子节点，其 _physics_process 在本帧稍后执行，存在 1 帧骨骼滞后，
+	## 对游戏命中判定无显著影响。
+	if _soft_hurtbox == null:
+		return
+	if _anim_driver != null:
+		var bone_pos: Vector2 = _anim_driver.get_bone_world_position(soft_body_bone)
+		if bone_pos != Vector2.ZERO:
+			_soft_hurtbox.global_position = bone_pos
+			return
+	# Fallback：无 Spine 或骨骼未找到，使用本地偏移
+	_soft_hurtbox.position = soft_body_fallback_offset
+
+
+# =============================================================================
 # 锁链交互
 # =============================================================================
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
+	# 读取并立即清除软体命中标记（由 SoftHurtbox.get_host() 在命中前写入）
+	var is_soft_hit: bool = _next_hit_is_soft
+	_next_hit_is_soft = false
+
+	# NORMAL + SoftHurtbox 链命中：触发缩壳（非翻倒）
+	if mode == Mode.NORMAL and is_soft_hit:
+		mode = Mode.RETREATING
+		shell_last_attacked_ms = Time.get_ticks_msec()
+		# 设计确认：只有玩家触发 retreat_in 后，等待 2s 才可攻击
+		attack_enabled_after_player_retreat = true
+		next_attack_end_ms = Time.get_ticks_msec() + int(attack_cd * 1000.0)
+		_flash_once()
+		return 0
+
 	# 空壳 + 虚弱 → 可链接
 	if mode == Mode.EMPTY_SHELL and weak:
 		_linked_player = _player
@@ -288,6 +462,12 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 # =============================================================================
 # 状态切换辅助（供 BT 叶节点调用）
 # =============================================================================
+
+func force_close_hit_windows() -> void:
+	## 强制关闭所有命中检测窗口（见 0.1 节：强制打断必须强制关命中窗口）
+	atk1_window_open = false
+	atk2_window_open = false
+
 
 func notify_become_empty_shell() -> void:
 	## 软体逃跑后，将壳变为空壳状态
@@ -367,3 +547,4 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"flip"] = 0.4
 	_anim_mock._durations[&"struggle_loop"] = 1.0
 	_anim_mock._durations[&"escape_split"] = 0.6
+	_anim_mock._durations[&"hit_shell_small"] = 0.25

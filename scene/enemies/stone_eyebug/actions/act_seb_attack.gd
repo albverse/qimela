@@ -4,10 +4,15 @@ class_name ActSEBAttack
 ## 石眼虫攻击序列：停步 → 朝向玩家 → attack_stone（石化）→ attack_lick（击退）→ 设冷却。
 ## 攻击冷却在此 ActionLeaf 内自管理（写入 seb.next_attack_end_ms），
 ## 不使用 CooldownDecorator（会被 SelectorReactive interrupt 重置）。
+##
+## 命中时机依赖 Spine 事件：atk1_hit_on / atk1_hit_off / atk2_hit_on / atk2_hit_off。
+## Mock 兜底：动画结束点作为命中时机。
 
 enum Phase { STOP, ATTACK_STONE, ATTACK_LICK, DONE }
 
 var _phase: int = Phase.STOP
+var _atk1_hit_applied: bool = false
+var _atk2_hit_applied: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -23,7 +28,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if seb == null:
 		return FAILURE
 
-	var player: Node2D = blackboard.get_value("player") as Node2D
+	var player: Node2D = seb.get_player()
 
 	match _phase:
 		Phase.STOP:
@@ -39,22 +44,35 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 func _tick_stop(seb: StoneEyeBug, player: Node2D) -> int:
 	seb.velocity = Vector2.ZERO
-	# 朝向玩家
 	if player != null and is_instance_valid(player):
 		seb.facing = 1 if player.global_position.x >= seb.global_position.x else -1
 	_phase = Phase.ATTACK_STONE
+	_atk1_hit_applied = false
+	seb.ev_atk1_hit_on = false
+	seb.ev_atk1_hit_off = false
 	seb.anim_play(&"attack_stone", false, false)
 	return RUNNING
 
 
 func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
-	if seb.anim_is_finished(&"attack_stone"):
-		# 命中判定：玩家是否仍在检测区
+	# Spine atk1_hit_on：命中窗口开，立即施加石化
+	if not _atk1_hit_applied and seb.ev_atk1_hit_on:
+		seb.ev_atk1_hit_on = false
+		_atk1_hit_applied = true
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
 			_apply_stone_stun(seb, player)
-		# 检查玩家是否仍在范围内，若是则接攻击2
+	# Spine atk1_hit_off 或 Mock anim_finished：命中窗口关，推进阶段
+	if seb.ev_atk1_hit_off or seb.anim_is_finished(&"attack_stone"):
+		seb.ev_atk1_hit_off = false
+		# Mock 兜底：若 Spine 未开窗，在动画结束点应用伤害
+		if not _atk1_hit_applied:
+			if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
+				_apply_stone_stun(seb, player)
 		if seb.is_player_in_detect_area():
 			_phase = Phase.ATTACK_LICK
+			_atk2_hit_applied = false
+			seb.ev_atk2_hit_on = false
+			seb.ev_atk2_hit_off = false
 			seb.anim_play(&"attack_lick", false, false)
 		else:
 			_finish_attack(seb)
@@ -62,16 +80,23 @@ func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 
 
 func _apply_stone_stun(seb: StoneEyeBug, player: Node2D) -> void:
-	## 对玩家施加石化僵直（通过 EventBus 或玩家接口）
 	if player.has_method("apply_stone_stun"):
 		player.call("apply_stone_stun", seb.player_stone_stun)
 
 
 func _tick_attack_lick(seb: StoneEyeBug, player: Node2D) -> int:
-	if seb.anim_is_finished(&"attack_lick"):
-		# 命中判定：将玩家击退到检测区以外
+	# Spine atk2_hit_on：命中窗口开，立即施加击退
+	if not _atk2_hit_applied and seb.ev_atk2_hit_on:
+		seb.ev_atk2_hit_on = false
+		_atk2_hit_applied = true
 		if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
 			_apply_lick_knockback(seb, player)
+	# Spine atk2_hit_off 或 Mock anim_finished：命中窗口关，结束攻击
+	if seb.ev_atk2_hit_off or seb.anim_is_finished(&"attack_lick"):
+		seb.ev_atk2_hit_off = false
+		if not _atk2_hit_applied:
+			if seb.is_player_in_detect_area() and player != null and is_instance_valid(player):
+				_apply_lick_knockback(seb, player)
 		_finish_attack(seb)
 	return RUNNING
 
@@ -96,5 +121,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var seb := actor as StoneEyeBug
 	if seb != null:
 		seb.velocity = Vector2.ZERO
+		seb.force_close_hit_windows()  # 强制关命中窗口（雷击/弹翻打断时防止判定残留）
 	_phase = Phase.STOP
 	super(actor, blackboard)

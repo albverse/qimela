@@ -19,6 +19,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if mollusc == null:
 		return FAILURE
 
+	# 受击硬直中：冻结移动，等待 hurt 动画和 hurt_lock_t 结束
+	if mollusc.is_hurt:
+		mollusc.velocity = Vector2.ZERO
+		return RUNNING
+
 	var dt := mollusc.get_physics_process_delta_time()
 
 	# 重规划（玩家进入威胁距离）
@@ -35,7 +40,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	mollusc.move_and_slide()
 
 	# 更新剩余逃跑距离
-	var moved := abs(mollusc.velocity.x) * dt
+	var moved: float = absf(mollusc.velocity.x) * dt
 	mollusc.escape_remaining = max(mollusc.escape_remaining - moved, 0.0)
 	if mollusc.escape_remaining <= 0.0:
 		# 本轮逃跑完成，重新规划

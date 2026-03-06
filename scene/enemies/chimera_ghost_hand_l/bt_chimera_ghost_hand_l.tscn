@@ -1,36 +1,24 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=11 format=3 uid="uid://bl4vroeac5wc2"]
 
-; === Beehave 内置节点脚本 ===
-[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
-[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
-[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+[ext_resource type="Script" uid="uid://j3bspootv03o" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_attack.gd" id="act_attack"]
+[ext_resource type="Script" uid="uid://brq72w0crl3uc" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_idle_float.gd" id="act_idle"]
+[ext_resource type="Script" uid="uid://ddqce60dek4d8" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_linked_move.gd" id="act_linked"]
+[ext_resource type="Script" uid="uid://cmrsm7i6a3kew" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_reset_flow.gd" id="act_reset"]
+[ext_resource type="Script" uid="uid://bb0t2ovl7wifo" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" uid="uid://x2mxqjjnjlgv" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_attack_requested.gd" id="cond_attack"]
+[ext_resource type="Script" uid="uid://dvlgkvqt0nmdo" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_is_linked.gd" id="cond_linked"]
+[ext_resource type="Script" uid="uid://bcyoybyje0gkc" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_reset_needed.gd" id="cond_reset"]
+[ext_resource type="Script" uid="uid://cw22yurt5l74k" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" uid="uid://dcojdhvj8qcw0" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
 
-; === 自定义 Condition 脚本 ===
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_reset_needed.gd" id="cond_reset"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_attack_requested.gd" id="cond_attack"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/conditions/cond_ghost_hand_is_linked.gd" id="cond_linked"]
-
-; === 自定义 Action 脚本 ===
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_reset_flow.gd" id="act_reset"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_attack.gd" id="act_attack"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_linked_move.gd" id="act_linked"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_ghost_hand_l/actions/act_ghost_hand_idle_float.gd" id="act_idle"]
-
-; =============================================================================
-; BeehaveTree 根节点
-; actor 自动取父节点（ChimeraGhostHandL CharacterBody2D）
-; =============================================================================
-[node name="BeehaveTree" type="Node"]
+[node name="BeehaveTree" type="Node" node_paths=PackedStringArray("blackboard", "actor")]
 script = ExtResource("bt_tree")
+blackboard = NodePath("@Node@41773")
+actor = NodePath("..")
 
-; =============================================================================
-; RootSelector: SelectorReactiveComposite
-; 优先级：重置 > 攻击 > 跟随 > 浮空（兜底）
-; =============================================================================
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
 
-; --- 1. Seq_Reset（最高优先级：受伤/超距 → vanish/appear）---
 [node name="Seq_Reset" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -40,7 +28,6 @@ script = ExtResource("cond_reset")
 [node name="Act_ResetFlow" type="Node" parent="RootSelector/Seq_Reset"]
 script = ExtResource("act_reset")
 
-; --- 2. Seq_Attack（攻击请求）---
 [node name="Seq_Attack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -50,7 +37,6 @@ script = ExtResource("cond_attack")
 [node name="Act_AttackFlow" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("act_attack")
 
-; --- 3. Seq_LinkedMove（被链接时跟随移动）---
 [node name="Seq_LinkedMove" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -60,6 +46,5 @@ script = ExtResource("cond_linked")
 [node name="Act_LinkedMove" type="Node" parent="RootSelector/Seq_LinkedMove"]
 script = ExtResource("act_linked")
 
-; --- 4. Act_IdleFloat（兜底浮空，永远 RUNNING）---
 [node name="Act_IdleFloat" type="Node" parent="RootSelector"]
 script = ExtResource("act_idle")
