@@ -586,9 +586,9 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 		return 0
 
 	# 锁链命中壳体（无效伤害）也应触发 hit_shell_small 反馈。
-	# 问题2修复：只有非软腹命中才播放 hit_shell_small
+	# 根因修复：锁链不应重置 shell_last_attacked_ms，避免出壳计时器永远无法到期。
+	# 只有武器命中（apply_hit 路径）才会重置该计时器。
 	if not is_soft_hit:
-		shell_last_attacked_ms = Time.get_ticks_msec()
 		_play_hit_shell_small_feedback()
 	# 其他状态：链碰壳体直接消失（返回 0，伤害不生效）
 	return 0
@@ -769,3 +769,4 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"empty_loop"] = 1.0
 	_anim_mock._durations[&"hit_shell_small"] = 0.25
+	_anim_mock._durations[&"escape_split"] = 0.6
