@@ -71,7 +71,7 @@
 RootSelector (SelectorReactive)
 ├─ Seq_SpawnEnter [Cond_SpawnEntering]   → Act_SpawnEnter    ← 生成入场：先播 enter，结束后才进入常规行为
 ├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun      ← 虚弱/光花弱眩晕
-├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell ← Idle>5s 后检测到空壳才回壳
+├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell ← 生成>10s 且 Idle>5s 后检测到空壳才回壳
 ├─ Seq_IdleHitEscape [Cond_IdleHitEscapeRequested] → Act_Escape ← Idle 受击后立刻反向逃跑一段（escape_dist）
 ├─ Seq_Attack     [Cond_PlayerInRange]   → Act_AttackSequence← 玩家在 120px 内
 ├─ Seq_Escape     [Cond_PlayerNear]      → Act_Escape        ← 玩家在 200px 内逃跑
@@ -94,7 +94,9 @@ RootSelector (SelectorReactive)
 
 > 生成入场补充：Mollusc 生成后先执行 `enter` 入场动画，结束后再解锁常规行为分支。
 
-> 回壳时机补充：Mollusc 不会在刚生成时立刻回壳；仅当连续 Idle 达到 `shell_return_idle_delay`（默认 5s）后，才开放空壳检测并进入回壳分支。
+> 回壳时机补充：Mollusc 不会在刚生成时立刻回壳；仅当“生成时长达到 `shell_return_spawn_delay`（默认 10s）”且“连续 Idle 达到 `shell_return_idle_delay`（默认 5s）”后，才开放空壳检测并进入回壳分支。
+
+> 眩晕恢复补充：weak/光花 weak_stun 通道激活期间会屏蔽 `stunned_t` 倒计时，避免在 weak_stun 仍 RUNNING 时误触发 `_release_linked_chains()`。
 
 ### 1.6 进退两难破局（新增）
 

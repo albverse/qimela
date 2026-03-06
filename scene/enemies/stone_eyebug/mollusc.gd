@@ -50,6 +50,9 @@ class_name Mollusc
 @export var shell_return_idle_delay: float = 5.0
 ## Idle 连续超过该时长后，才允许进入“检测空壳并回壳”分支（秒）
 
+@export var shell_return_spawn_delay: float = 10.0
+## 生成后至少经过该时长，才允许回壳检测（秒）
+
 # ===== 内部状态 =====
 
 ## 家园空壳节点（由 StoneEyeBug 调用 set_home_shell 设置）
@@ -94,6 +97,7 @@ var breakout_target_x: float = 0.0
 var _idle_state_active: bool = false
 var _idle_hit_escape_requested: bool = false
 var _idle_elapsed_sec: float = 0.0
+var _spawn_elapsed_sec: float = 0.0
 
 ## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
 var spawn_enter_active: bool = true
@@ -178,7 +182,8 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	if (weak or lightflower_weak_stun_active) and weak_stun_t > 0.0:
+	var weak_channel_active: bool = weak or lightflower_weak_stun_active
+	if weak_channel_active and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
 		if weak_stun_t <= 0.0:
 			if weak:
@@ -192,13 +197,16 @@ func _physics_process(dt: float) -> void:
 		if hurt_lock_t <= 0.0:
 			is_hurt = false
 
-	# 眩晕计时（MonsterBase 默认逻辑在此子类中手动维持）
-	if stunned_t > 0.0:
+	# 眩晕计时：弱眩晕通道激活时不再倒计时 stunned_t，避免链被误释放。
+	if weak_channel_active:
+		stunned_t = 0.0
+	elif stunned_t > 0.0:
 		stunned_t = maxf(stunned_t - dt, 0.0)
 		if stunned_t <= 0.0:
 			_release_linked_chains()
 
-	# Idle 持续计时（用于“Idle>5秒后才允许回壳”）
+	# 时间计时
+	_spawn_elapsed_sec += dt
 	if _idle_state_active:
 		_idle_elapsed_sec += dt
 	else:
@@ -306,9 +314,9 @@ func _register_idle_hit_escape(hit: HitData) -> void:
 
 
 func is_shell_return_window_open() -> bool:
-	if shell_return_idle_delay <= 0.0:
-		return true
-	return _idle_elapsed_sec >= shell_return_idle_delay
+	var spawn_ok: bool = shell_return_spawn_delay <= 0.0 or _spawn_elapsed_sec >= shell_return_spawn_delay
+	var idle_ok: bool = shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
+	return spawn_ok and idle_ok
 
 
 func set_home_shell(shell: Node2D) -> void:
