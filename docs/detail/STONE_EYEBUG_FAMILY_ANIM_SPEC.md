@@ -69,10 +69,11 @@
 
 ```
 RootSelector (SelectorReactive)
-├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun     ← 最高：虚弱时原地眩晕
-├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell← 回壳优先
-├─ Seq_Attack     [Cond_PlayerInRange]   → Act_AttackSequence← 玩家在 120px 内
+├─ Seq_SpawnEnter [Cond_SpawnEntering]   → Act_SpawnEnter    ← 生成入场：先播 enter，结束后才进入常规行为
+├─ Seq_WeakStun   [Cond_IsWeak]          → Act_WeakStun      ← 虚弱/光花弱眩晕
+├─ Seq_ReturnShell [Cond_SeeEmptyShell]  → Act_ReturnToShell ← 回壳优先
 ├─ Seq_IdleHitEscape [Cond_IdleHitEscapeRequested] → Act_Escape ← Idle 受击后立刻反向逃跑一段（escape_dist）
+├─ Seq_Attack     [Cond_PlayerInRange]   → Act_AttackSequence← 玩家在 120px 内
 ├─ Seq_Escape     [Cond_PlayerNear]      → Act_Escape        ← 玩家在 200px 内逃跑
 └─ Act_Idle                                                   ← 兜底：玩家不在附近
 ```
@@ -86,6 +87,12 @@ RootSelector (SelectorReactive)
 > 因此时长与常规 weak_stun 一致，且动画流程统一为 `weak_stun` → `weak_stun_loop`。
 
 > Hurt 动画补充：Idle/Escape 分支在 `is_hurt` 时不再强制覆盖为 `idle/run`，会优先保持/补播 `hurt`，避免受击无反馈。
+
+> Idle 受击立即逃跑补充：`Act_Escape` 已加入例外，若存在 Idle 受击应激请求，不会被 `is_hurt` 的冻结分支吞掉。
+
+> 回壳闭环补充：StoneEyeBug 进入空壳态时会加入组 `stoneeyebug_shell_empty`，Mollusc 才能稳定命中 `Cond_SeeEmptyShell -> Act_ReturnToShell`。
+
+> 生成入场补充：Mollusc 生成后先执行 `enter` 入场动画，结束后再解锁常规行为分支。
 
 ### 1.6 进退两难破局（新增）
 

@@ -608,6 +608,8 @@ func notify_become_empty_shell() -> void:
 	## 软体逃跑后，将壳变为空壳冻结状态（仅播放 empty_loop，等待回壳通知）
 	mode = Mode.EMPTY_SHELL
 	species_id = &"stone_eyebug_shell"
+	if not is_in_group("stoneeyebug_shell_empty"):
+		add_to_group("stoneeyebug_shell_empty")
 	soft_hitbox_active = false
 	mollusc_spawned = true
 	attack_enabled_after_player_retreat = false
@@ -625,6 +627,8 @@ func notify_shell_restored() -> void:
 	## 软体归来：壳恢复为缩壳待机状态
 	mode = Mode.IN_SHELL
 	species_id = &"stone_eyebug"
+	if is_in_group("stoneeyebug_shell_empty"):
+		remove_from_group("stoneeyebug_shell_empty")
 	mollusc_spawned = false
 	shell_last_attacked_ms = Time.get_ticks_msec()
 	# 注意：_update_hurtbox_states() 会在下一帧根据 mode=IN_SHELL 恢复 LightReceiver，

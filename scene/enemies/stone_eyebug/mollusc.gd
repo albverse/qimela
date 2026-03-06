@@ -91,6 +91,9 @@ var breakout_target_x: float = 0.0
 var _idle_state_active: bool = false
 var _idle_hit_escape_requested: bool = false
 
+## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
+var spawn_enter_active: bool = true
+
 
 # ===== 动画状态追踪 =====
 
@@ -138,6 +141,9 @@ func _ready() -> void:
 		_setup_mock_durations()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+	spawn_enter_active = true
+	anim_play(&"enter", false, false)
 
 
 func _setup_front_rays() -> void:
@@ -264,6 +270,14 @@ func has_idle_hit_escape_request() -> bool:
 
 func clear_idle_hit_escape_request() -> void:
 	_idle_hit_escape_requested = false
+
+
+func finish_spawn_enter() -> void:
+	if not spawn_enter_active:
+		return
+	spawn_enter_active = false
+	if not is_hurt and not anim_is_playing(&"idle"):
+		anim_play(&"idle", true, true)
 
 
 func _register_idle_hit_escape(hit: HitData) -> void:
@@ -619,6 +633,7 @@ func _get_obj_name(obj: Object) -> StringName:
 # =============================================================================
 
 func _setup_mock_durations() -> void:
+	_anim_mock._durations[&"enter"] = 0.45
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6

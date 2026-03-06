@@ -21,7 +21,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 
 	# 受击硬直/眩晕中：冻结移动
-	if mollusc.is_hurt or mollusc.is_stunned():
+	# 例外：Idle受击应激逃跑请求生效时，不被 hurt 冻结吞掉“立即逃跑”体感。
+	var bypass_hurt_freeze: bool = mollusc.is_hurt and mollusc.has_idle_hit_escape_request()
+	if (mollusc.is_hurt and not bypass_hurt_freeze) or mollusc.is_stunned():
 		mollusc.velocity = Vector2.ZERO
 		if mollusc.is_hurt and not mollusc.anim_is_playing(&"hurt"):
 			mollusc.anim_play(&"hurt", false, false)
