@@ -47,6 +47,9 @@ class_name Mollusc
 @export var breakout_overtake_px: float = 50.0
 ## 破局连段后继续前冲的越位距离（相对玩家，px）
 
+@export var shell_return_idle_delay: float = 5.0
+## Idle 连续超过该时长后，才允许进入“检测空壳并回壳”分支（秒）
+
 # ===== 内部状态 =====
 
 ## 家园空壳节点（由 StoneEyeBug 调用 set_home_shell 设置）
@@ -90,6 +93,7 @@ var breakout_target_x: float = 0.0
 ## Idle 受击应激逃跑（一次性请求）
 var _idle_state_active: bool = false
 var _idle_hit_escape_requested: bool = false
+var _idle_elapsed_sec: float = 0.0
 
 ## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
 var spawn_enter_active: bool = true
@@ -194,6 +198,12 @@ func _physics_process(dt: float) -> void:
 		if stunned_t <= 0.0:
 			_release_linked_chains()
 
+	# Idle 持续计时（用于“Idle>5秒后才允许回壳”）
+	if _idle_state_active:
+		_idle_elapsed_sec += dt
+	else:
+		_idle_elapsed_sec = 0.0
+
 	# 移动由 BT 叶节点控制；apply_gravity 在 Act_MolluscEscape 内处理
 
 
@@ -293,6 +303,12 @@ func _register_idle_hit_escape(hit: HitData) -> void:
 	escape_dir_x = -1 if attack_dir_x > 0.0 else 1
 	escape_remaining = max(escape_remaining, escape_dist)
 	_idle_hit_escape_requested = true
+
+
+func is_shell_return_window_open() -> bool:
+	if shell_return_idle_delay <= 0.0:
+		return true
+	return _idle_elapsed_sec >= shell_return_idle_delay
 
 
 func set_home_shell(shell: Node2D) -> void:

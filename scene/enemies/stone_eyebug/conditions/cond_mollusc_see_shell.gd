@@ -8,6 +8,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
+	if not mollusc.is_shell_return_window_open():
+		return FAILURE
 	var shell := mollusc.find_empty_shell()
 	if shell != null:
 		return SUCCESS
