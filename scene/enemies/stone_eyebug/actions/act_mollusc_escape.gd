@@ -36,6 +36,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	# 若玩家已不在威胁范围，且本轮逃跑距离已消耗完，则退出本分支（交给 Idle）。
 	if not player_near and mollusc.escape_remaining <= 0.0:
+		mollusc.clear_idle_hit_escape_request()
 		mollusc.velocity = Vector2.ZERO
 		return FAILURE
 

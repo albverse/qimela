@@ -237,11 +237,12 @@ func set_idle_state_active(active: bool) -> void:
 	_idle_state_active = active
 
 
-func consume_idle_hit_escape_request() -> bool:
-	if not _idle_hit_escape_requested:
-		return false
+func has_idle_hit_escape_request() -> bool:
+	return _idle_hit_escape_requested
+
+
+func clear_idle_hit_escape_request() -> void:
 	_idle_hit_escape_requested = false
-	return true
 
 
 func _register_idle_hit_escape(hit: HitData) -> void:

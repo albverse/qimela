@@ -79,7 +79,8 @@ RootSelector (SelectorReactive)
 
 
 > Idle 受击反应规则：仅当 Mollusc 处于 `Act_Idle` 时收到 `apply_hit()`，才会登记一次应激逃跑请求；
-> 下一帧由 `Seq_IdleHitEscape` 消费该请求，并按“相对攻击来源反方向”起跑，至少跑完一段 `escape_dist`。
+> 在 `SequenceReactive` 下该请求会保持到这段逃跑完成（`escape_remaining <= 0`）后再清除，避免“首帧触发、次帧被条件失败打断”。
+> 起跑方向为“相对攻击来源反方向”，至少跑完一段 `escape_dist`。
 
 ### 1.6 进退两难破局（新增）
 
