@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -8,6 +8,7 @@
 ; === 自定义 Condition 脚本 ===
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_weak.gd" id="cond_weak"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_see_shell.gd" id="cond_see_shell"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_see_new_shell.gd" id="cond_see_new_shell"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_in_range.gd" id="cond_player_attack"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_player_near.gd" id="cond_player_near"]
 [ext_resource type="Script" path="res://scene/enemies/stone_eyebug/conditions/cond_mollusc_attack_ready.gd" id="cond_attack_ready"]
@@ -31,7 +32,7 @@ script = ExtResource("bt_tree")
 
 ; =============================================================================
 ; RootSelector: SelectorReactiveComposite
-; 优先级：入场 > 虚弱眩晕 > 回壳 > Idle受击应激逃跑 > 攻击 > 常规逃跑 > 待机（兜底）
+; 优先级：入场 > 虚弱眩晕 > 回新壳(无延迟) > 回任意壳(5s idle) > Idle受击应激逃跑 > 攻击 > 常规逃跑 > 待机（兜底）
 ; =============================================================================
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
@@ -56,7 +57,17 @@ script = ExtResource("cond_weak")
 [node name="Act_WeakStun" type="Node" parent="RootSelector/Seq_WeakStun"]
 script = ExtResource("act_weak_stun")
 
-; --- 2. Seq_ReturnShell（回壳优先）---
+; --- 2. Seq_NewShell（生成后立即检测新壳，无延迟）---
+[node name="Seq_NewShell" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_SeeNewShell" type="Node" parent="RootSelector/Seq_NewShell"]
+script = ExtResource("cond_see_new_shell")
+
+[node name="Act_ReturnToNewShell" type="Node" parent="RootSelector/Seq_NewShell"]
+script = ExtResource("act_return")
+
+; --- 3. Seq_ReturnShell（Idle 超过 5s 后回任意空壳）---
 [node name="Seq_ReturnShell" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -66,7 +77,7 @@ script = ExtResource("cond_see_shell")
 [node name="Act_ReturnToShell" type="Node" parent="RootSelector/Seq_ReturnShell"]
 script = ExtResource("act_return")
 
-; --- 3. Seq_IdleHitEscape（Idle 状态受击后，立刻反向逃跑）---
+; --- 4. Seq_IdleHitEscape（Idle 状态受击后，立刻反向逃跑）---
 [node name="Seq_IdleHitEscape" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -76,7 +87,7 @@ script = ExtResource("cond_idle_hit_escape")
 [node name="Act_EscapeOnIdleHit" type="Node" parent="RootSelector/Seq_IdleHitEscape"]
 script = ExtResource("act_escape")
 
-; --- 4. Seq_Attack（玩家进入攻击范围）---
+; --- 5. Seq_Attack（玩家进入攻击范围）---
 [node name="Seq_Attack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -89,7 +100,7 @@ script = ExtResource("cond_attack_ready")
 [node name="Act_AttackSequence" type="Node" parent="RootSelector/Seq_Attack"]
 script = ExtResource("act_attack")
 
-; --- 5. Seq_Escape（玩家在威胁距离内 → 逃跑）---
+; --- 6. Seq_Escape（玩家在威胁距离内 → 逃跑）---
 [node name="Seq_Escape" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 

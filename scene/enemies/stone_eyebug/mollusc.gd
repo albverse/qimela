@@ -314,9 +314,9 @@ func _register_idle_hit_escape(hit: HitData) -> void:
 
 
 func is_shell_return_window_open() -> bool:
-	var spawn_ok: bool = shell_return_spawn_delay <= 0.0 or _spawn_elapsed_sec >= shell_return_spawn_delay
-	var idle_ok: bool = shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
-	return spawn_ok and idle_ok
+	## Idle 超过门控时长后允许回任意空壳（含 home_shell）。
+	## 生成后立即可回新壳的逻辑由 find_new_shell() + CondMolluscSeeNewShell 独立处理。
+	return shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -324,11 +324,10 @@ func set_home_shell(shell: Node2D) -> void:
 
 
 func find_empty_shell() -> Node2D:
-	## 在场景中找到空壳节点（group: stoneeyebug_shell_empty）
+	## 在场景中找到最近的空壳节点（group: stoneeyebug_shell_empty），含 home_shell。
 	var shells := get_tree().get_nodes_in_group("stoneeyebug_shell_empty")
 	if shells.is_empty():
 		return null
-	# 返回最近的空壳
 	var nearest: Node2D = null
 	var nearest_dist := INF
 	for s in shells:
@@ -337,6 +336,28 @@ func find_empty_shell() -> Node2D:
 		var sn := s as Node2D
 		if sn == null:
 			continue
+		var d := global_position.distance_to(sn.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = sn
+	return nearest
+
+
+func find_new_shell() -> Node2D:
+	## 找到"新壳"：非 home_shell 的最近空壳。生成后无延迟即可进入。
+	var shells := get_tree().get_nodes_in_group("stoneeyebug_shell_empty")
+	if shells.is_empty():
+		return null
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for s in shells:
+		if not is_instance_valid(s):
+			continue
+		var sn := s as Node2D
+		if sn == null:
+			continue
+		if home_shell != null and is_instance_valid(home_shell) and sn == home_shell:
+			continue  # 排除刚脱离的旧壳
 		var d := global_position.distance_to(sn.global_position)
 		if d < nearest_dist:
 			nearest_dist = d
