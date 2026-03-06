@@ -23,7 +23,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			bird.mode = StoneMaskBird.Mode.WAKING
 			return SUCCESS
 
-	if bird.can_start_hunt():
+	# has_face（已戴面具）时不应再被 walk_monster 触发狩猎唤醒，保持当前休息行为。
+	if not bird.has_face and bird.can_start_hunt():
 		var target := bird.find_nearest_walk_monster_in_range(bird.rest_hunt_trigger_px)
 		if target != null:
 			bird.hunt_target = target
@@ -31,6 +32,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			bird.rest_hunt_requested = true
 			bird.mode = StoneMaskBird.Mode.WAKING
 			return SUCCESS
+	elif bird.has_face:
+		# 防御性清理：有面具时不保留“休息态狩猎请求”。
+		bird.rest_hunt_requested = false
 
 	# 永远 RUNNING，直到被更高优先级的 Seq 打断
 	return RUNNING
