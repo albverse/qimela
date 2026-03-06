@@ -3,7 +3,7 @@ class_name ActMolluscReturnShell
 
 ## 软体虫回壳闭环：播 enter_shell 动画 → 通知壳体恢复 → 销毁自身。
 
-enum Phase { MOVE_TO_SHELL, ENTER_SHELL }
+enum Phase { MOVE_TO_SHELL, ENTER_SHELL, FLIP_TO_NORMAL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
 
@@ -26,6 +26,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return _tick_move(mollusc)
 		Phase.ENTER_SHELL:
 			return _tick_enter(mollusc)
+		Phase.FLIP_TO_NORMAL:
+			return _tick_flip_to_normal(mollusc)
 	return RUNNING
 
 
@@ -66,6 +68,13 @@ func _tick_move(mollusc: Mollusc) -> int:
 
 func _tick_enter(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"enter_shell"):
+		_phase = Phase.FLIP_TO_NORMAL
+		mollusc.anim_play(&"flip_to_normal", false, false)
+	return RUNNING
+
+
+func _tick_flip_to_normal(mollusc: Mollusc) -> int:
+	if mollusc.anim_is_finished(&"flip_to_normal"):
 		mollusc.set_shell_return_committed(false)
 		# 通知壳体恢复
 		var shell: Node2D = mollusc.find_empty_shell()

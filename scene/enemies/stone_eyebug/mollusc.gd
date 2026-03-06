@@ -188,11 +188,11 @@ func _physics_process(dt: float) -> void:
 	var weak_channel_active: bool = _is_weak_stun_channel_active()
 	if weak_channel_active and weak_stun_t > 0.0:
 		weak_stun_t = max(weak_stun_t - dt, 0.0)
-		if weak_stun_t <= 0.0:
-			if weak:
-				_restore_from_weak()
-			else:
-				lightflower_weak_stun_active = false
+	if weak_channel_active and weak_stun_t <= 0.0:
+		if weak:
+			_restore_from_weak()
+		# 与 weak 恢复同步清理 lightflower 通道，避免“weak 已恢复但弱眩晕通道残留”导致长时间 act_weakstun。
+		lightflower_weak_stun_active = false
 
 	# 受击硬直计时
 	if hurt_lock_t > 0.0:
@@ -754,6 +754,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6
+	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3

@@ -865,7 +865,7 @@ func _finish_chain(i: int) -> void:
 	c.interacted.clear()
 
 	var other_slot: int = 1 - i
-	if chains[other_slot].state == ChainState.LINKED and not chains[other_slot].is_chimera:
+	if chains[other_slot].state == ChainState.LINKED:
 		if active_slot != i:
 			switch_slot()
 
