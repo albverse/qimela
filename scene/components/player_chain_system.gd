@@ -589,7 +589,16 @@ func _update_chain(i: int, dt: float) -> void:
 				return
 
 			if not c.is_chimera:
-				c.struggle_timer += dt
+				# 目标处于虚弱/眩晕"可被锁链持续钳制"状态时，暂停挣脱计时器。
+				# 设计规则：只要怪物不从 weak/stun 状态自行恢复，链条不可自行消失。
+				var target_holdable: bool = (
+					c.linked_target != null
+					and is_instance_valid(c.linked_target)
+					and c.linked_target.has_method("is_chain_holdable")
+					and bool(c.linked_target.call("is_chain_holdable"))
+				)
+				if not target_holdable:
+					c.struggle_timer += dt
 				var progress: float = c.struggle_timer / c.struggle_max
 				if EventBus != null and EventBus.has_method("emit_chain_struggle_progress"):
 					EventBus.emit_chain_struggle_progress(i, progress)

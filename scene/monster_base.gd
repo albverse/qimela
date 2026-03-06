@@ -257,6 +257,12 @@ func apply_healing_burst_stun() -> void:
 		apply_stun(healing_burst_stun_time, true)
 
 # ===== 锁链交互 =====
+func is_chain_holdable() -> bool:
+	## 当目标处于"可被锁链持续钳制"状态时返回 true，链条 struggle_timer 暂停。
+	## 子类（如 Mollusc）可重写以增加额外判定条件。
+	return weak or stunned_t > 0.0
+
+
 func on_chain_hit(_player: Node, _slot: int) -> int:
 	# 被锁链命中时调用
 	# 返回值：0=普通受击（会扣血）, 1=可链接（虚弱或眩晕状态）

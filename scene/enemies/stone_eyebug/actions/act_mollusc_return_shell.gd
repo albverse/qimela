@@ -1,11 +1,16 @@
 extends ActionLeaf
 class_name ActMolluscReturnShell
 
-## 软体虫回壳闭环：播 enter_shell 动画 → 通知壳体恢复 → 销毁自身。
+## 软体虫回壳闭环：
+##   1. before_run 锁定目标壳（优先新壳，其次任意空壳）
+##   2. MOVE_TO_SHELL：移向目标壳
+##   3. ENTER_SHELL：播 enter_shell 动画 → 通知壳体恢复 → 销毁自身
+## 目标壳在 before_run 时确定并缓存，避免每帧重查导致目标跳变（如 home_shell 比新壳近时被误选）。
 
 enum Phase { MOVE_TO_SHELL, ENTER_SHELL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
+var _target_shell: Node2D = null
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -14,6 +19,10 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 		return
 	_phase = Phase.MOVE_TO_SHELL
 	mollusc.velocity = Vector2.ZERO
+	# 优先锁定新壳（非 home_shell），其次任意空壳（含 home_shell，需满足时间门控）
+	_target_shell = mollusc.find_new_shell()
+	if _target_shell == null:
+		_target_shell = mollusc.find_empty_shell()
 
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
@@ -30,13 +39,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func _tick_move(mollusc: Mollusc) -> int:
-	var shell: Node2D = mollusc.find_empty_shell()
-	if shell == null or not is_instance_valid(shell):
+	if _target_shell == null or not is_instance_valid(_target_shell):
+		_target_shell = null
 		return FAILURE
 
 	var dt := mollusc.get_physics_process_delta_time()
-	var dx := shell.global_position.x - mollusc.global_position.x
-	var dy := shell.global_position.y - mollusc.global_position.y
+	var dx := _target_shell.global_position.x - mollusc.global_position.x
+	var dy := _target_shell.global_position.y - mollusc.global_position.y
 	var dist := Vector2(dx, dy).length()
 
 	if dist <= 16.0:
@@ -58,13 +67,13 @@ func _tick_move(mollusc: Mollusc) -> int:
 
 func _tick_enter(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"enter_shell"):
-		# 通知壳体恢复
-		var shell: Node2D = mollusc.find_empty_shell()
-		if shell != null and is_instance_valid(shell) and shell.has_method("notify_shell_restored"):
-			shell.call("notify_shell_restored")
-			# 恢复 group
-			if shell.is_in_group("stoneeyebug_shell_empty"):
-				shell.remove_from_group("stoneeyebug_shell_empty")
+		# 通知目标壳体恢复
+		if _target_shell != null and is_instance_valid(_target_shell):
+			if _target_shell.has_method("notify_shell_restored"):
+				_target_shell.call("notify_shell_restored")
+			if _target_shell.is_in_group("stoneeyebug_shell_empty"):
+				_target_shell.remove_from_group("stoneeyebug_shell_empty")
+		_target_shell = null
 		# 软体销毁自身
 		mollusc.queue_free()
 		return SUCCESS
@@ -76,4 +85,5 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if mollusc != null:
 		mollusc.velocity = Vector2.ZERO
 	_phase = Phase.MOVE_TO_SHELL
+	_target_shell = null
 	super(actor, blackboard)

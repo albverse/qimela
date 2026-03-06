@@ -1,9 +1,10 @@
-[gd_scene load_steps=11 format=3 uid="uid://b51cgdabfk23m"]
+[gd_scene load_steps=12 format=3 uid="uid://b51cgdabfk23m"]
 
 [ext_resource type="Script" uid="uid://b332pnei4jgr1" path="res://scene/enemies/stone_eyebug/actions/act_seb_attack.gd" id="act_attack"]
 [ext_resource type="Script" uid="uid://bx0feu73350wl" path="res://scene/enemies/stone_eyebug/actions/act_seb_flipped_loop.gd" id="act_flip_and_struggle"]
 [ext_resource type="Script" uid="uid://u4kefx1daitb" path="res://scene/enemies/stone_eyebug/actions/act_seb_shell_flow.gd" id="act_shell"]
 [ext_resource type="Script" uid="uid://dudl0kas8kel" path="res://scene/enemies/stone_eyebug/actions/act_seb_wander.gd" id="act_wander"]
+[ext_resource type="Script" path="res://scene/enemies/stone_eyebug/actions/act_seb_empty_shell_wait.gd" id="act_empty_shell_wait"]
 [ext_resource type="Script" uid="uid://bb0t2ovl7wifo" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
 [ext_resource type="Script" uid="uid://b3wc6j0l0ok3y" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_attack_ready.gd" id="cond_atk_ready"]
 [ext_resource type="Script" uid="uid://co3vdo2c72qmg" path="res://scene/enemies/stone_eyebug/conditions/cond_seb_mode_is.gd" id="cond_mode_is"]
@@ -38,6 +39,16 @@ target_mode = 1
 
 [node name="Act_ShellFlow" type="Node" parent="RootSelector/Seq_ShellFlow"]
 script = ExtResource("act_shell")
+
+[node name="Seq_EmptyShell" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeEmptyShell" type="Node" parent="RootSelector/Seq_EmptyShell"]
+script = ExtResource("cond_mode_is")
+target_mode = 4
+
+[node name="Act_EmptyShellWait" type="Node" parent="RootSelector/Seq_EmptyShell"]
+script = ExtResource("act_empty_shell_wait")
 
 [node name="Seq_Attack" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
