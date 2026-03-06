@@ -8,6 +8,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var mollusc := actor as Mollusc
 	if mollusc == null:
 		return FAILURE
+	# 回壳承诺期间禁止 Idle 受击逃跑分支抢占，避免“回壳路上因玩家在身边而转逃跑”。
+	if mollusc.is_shell_return_committed():
+		return FAILURE
 	if mollusc.has_idle_hit_escape_request():
 		return SUCCESS
 	return FAILURE

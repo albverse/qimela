@@ -191,6 +191,9 @@ func _physics_process(dt: float) -> void:
 	if weak_channel_active and weak_stun_t <= 0.0:
 		if weak:
 			_restore_from_weak()
+		else:
+			# LightFlower 弱通道结束时同样必须解链，保持“弱/晕恢复即断链”的统一玩法规则。
+			_release_linked_chains()
 		# 与 weak 恢复同步清理 lightflower 通道，避免“weak 已恢复但弱眩晕通道残留”导致长时间 act_weakstun。
 		lightflower_weak_stun_active = false
 
@@ -423,6 +426,9 @@ func find_new_shell() -> Node2D:
 
 func set_shell_return_committed(active: bool) -> void:
 	shell_return_committed = active
+	if active:
+		# 回壳承诺生效后，清理 Idle 受击逃跑请求，防止被 Seq_IdleHitEscape 抢占到逃跑分支。
+		clear_idle_hit_escape_request()
 
 
 func is_shell_return_committed() -> bool:
