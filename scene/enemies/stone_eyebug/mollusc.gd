@@ -271,6 +271,28 @@ func apply_hit(hit: HitData) -> bool:
 	return true
 
 
+func on_chain_attached(slot: int) -> void:
+	## Mollusc 特例：同一槽位重复 attach 时不重复延长眩晕。
+	## 仅收敛本体虫链路，避免影响其它怪物的通用链路时序。
+	if _linked_slots.is_empty():
+		if _hurtbox != null:
+			_hurtbox_original_layer = _hurtbox.collision_layer
+			_hurtbox.collision_layer = 0
+
+	var is_new_slot: bool = not _linked_slots.has(slot)
+	if is_new_slot:
+		_linked_slots.append(slot)
+	_linked_slot = slot
+
+	if is_new_slot:
+		if weak or lightflower_weak_stun_active:
+			weak_stun_t += weak_stun_extend_time
+		elif stunned_t > 0.0:
+			stunned_t += weak_stun_extend_time
+
+	_flash_once()
+
+
 func _do_hurt() -> void:
 	force_close_hit_windows()
 	is_hurt = true

@@ -275,18 +275,16 @@ func on_chain_attached(slot: int) -> void:
 		if _hurtbox != null:
 			_hurtbox_original_layer = _hurtbox.collision_layer
 			_hurtbox.collision_layer = 0
-
-	var is_new_slot: bool = not _linked_slots.has(slot)
-	if is_new_slot:
+	
+	if not _linked_slots.has(slot):
 		_linked_slots.append(slot)
 	_linked_slot = slot
-
-	# 延长虚弱/眩晕时间：仅在“新链条首次挂上”时生效，避免重复 attach 回调把时长无限叠高。
-	if is_new_slot:
-		if weak:
-			weak_stun_t += weak_stun_extend_time
-		elif stunned_t > 0.0:
-			stunned_t += weak_stun_extend_time
+	
+	# 延长虚弱/眩晕时间
+	if weak:
+		weak_stun_t += weak_stun_extend_time
+	elif stunned_t > 0.0:
+		stunned_t += weak_stun_extend_time
 	
 	_flash_once()
 
