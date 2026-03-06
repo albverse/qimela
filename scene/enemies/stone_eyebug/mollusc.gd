@@ -314,9 +314,10 @@ func _register_idle_hit_escape(hit: HitData) -> void:
 
 
 func is_shell_return_window_open() -> bool:
+	## 生成超过 spawn_delay 秒 OR 发呆超过 idle_delay 秒，均可触发（OR 逻辑）
 	var spawn_ok: bool = shell_return_spawn_delay <= 0.0 or _spawn_elapsed_sec >= shell_return_spawn_delay
 	var idle_ok: bool = shell_return_idle_delay <= 0.0 or _idle_elapsed_sec >= shell_return_idle_delay
-	return spawn_ok and idle_ok
+	return spawn_ok or idle_ok
 
 
 func set_home_shell(shell: Node2D) -> void:
@@ -336,6 +337,28 @@ func find_empty_shell() -> Node2D:
 			continue
 		var sn := s as Node2D
 		if sn == null:
+			continue
+		var d := global_position.distance_to(sn.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = sn
+	return nearest
+
+
+func find_new_shell() -> Node2D:
+	## 在场景中找到非 home_shell 的最近空壳（group: stoneeyebug_shell_empty）
+	var shells := get_tree().get_nodes_in_group("stoneeyebug_shell_empty")
+	if shells.is_empty():
+		return null
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for s in shells:
+		if not is_instance_valid(s):
+			continue
+		var sn := s as Node2D
+		if sn == null:
+			continue
+		if sn == home_shell:
 			continue
 		var d := global_position.distance_to(sn.global_position)
 		if d < nearest_dist:

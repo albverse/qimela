@@ -589,13 +589,19 @@ func _update_chain(i: int, dt: float) -> void:
 				return
 
 			if not c.is_chimera:
-				c.struggle_timer += dt
-				var progress: float = c.struggle_timer / c.struggle_max
-				if EventBus != null and EventBus.has_method("emit_chain_struggle_progress"):
-					EventBus.emit_chain_struggle_progress(i, progress)
-				if c.struggle_timer >= c.struggle_max:
-					_on_struggle_break(i)
-					return
+				# 当目标处于虚弱或眩晕状态时，链条不计时自溶（设计规则：虚弱/眩晕状态下链条不应自溶）
+				var linked_entity: EntityBase = _resolve_entity(c.linked_target)
+				var target_immobilized: bool = false
+				if linked_entity != null:
+					target_immobilized = linked_entity.get_weak_state() or linked_entity.is_stunned()
+				if not target_immobilized:
+					c.struggle_timer += dt
+					var progress: float = c.struggle_timer / c.struggle_max
+					if EventBus != null and EventBus.has_method("emit_chain_struggle_progress"):
+						EventBus.emit_chain_struggle_progress(i, progress)
+					if c.struggle_timer >= c.struggle_max:
+						_on_struggle_break(i)
+						return
 		ChainState.DISSOLVING:
 			pass
 
@@ -663,7 +669,12 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 		var host_name: String = String(debug_host.name) if debug_host != null else ""
 		print("[ChainInteract:%s] slot=%d area=%s host=%s" % [source, slot, area.name, host_name])
 
-	var host: Node = area.get_parent()
+	# 优先使用 get_host()：SoftHurtbox 的 get_host() 会调用 _mark_next_hit_soft()
+	var host: Node
+	if area.has_method("get_host"):
+		host = area.call("get_host") as Node
+	else:
+		host = area.get_parent()
 	if host == null:
 		return
 
