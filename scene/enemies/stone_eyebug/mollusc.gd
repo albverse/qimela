@@ -791,7 +791,7 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6
-	_anim_mock._durations[&"flip_to_normal"] = 0.4
+	# NOTE: flip_to_normal 属于 StoneEyeBug 的 Spine 骨架，Mollusc 无此动画（FIX-C）。
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3
