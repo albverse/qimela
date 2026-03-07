@@ -59,6 +59,8 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	if seb.mode == StoneEyeBug.Mode.IN_SHELL:
 		# 已在壳内（软体回壳后 notify_shell_restored 切到 IN_SHELL）
 		_phase = Phase.IN_SHELL
+		# FIX-C: notify_shell_restored() 播的 flip_to_normal 必须完整播完，
+		# 不能立即切 in_shell_loop。_tick_in_shell 会在动画结束后再切。
 		if not seb.anim_is_playing(&"flip_to_normal"):
 			seb.anim_play(&"in_shell_loop", true, true)
 		return
@@ -124,6 +126,7 @@ func _tick_retreat(seb: StoneEyeBug) -> int:
 
 
 func _tick_in_shell(seb: StoneEyeBug) -> int:
+	# FIX-C: 软体回壳后壳体先播 flip_to_normal，等完成再切 in_shell_loop。
 	if seb.anim_is_playing(&"flip_to_normal"):
 		return RUNNING
 	if not seb.anim_is_playing(&"in_shell_loop"):
