@@ -3,12 +3,17 @@ class_name ChimeraNunSnake
 
 ## =============================================================================
 ## ChimeraNunSnake - 修女蛇（Beehave x Spine 行为树 奇美拉攻击型怪物）
+## 蓝图版本：v0.7
 ## =============================================================================
+## 实体类型：CHIMERA（继承 ChimeraBase），但战斗行为按 Monster 攻击型处理。
+## 链条规则走 Monster 逻辑：默认不可直链，只有 weak / stunned 可链。
 ## 顶层状态：CLOSED_EYE / OPEN_EYE / GUARD_BREAK / WEAK / STUN
-## 详见蓝图文档第4~6节。
-## 行为由 Beehave 行为树驱动。
-## 动画由 AnimDriverSpine（或 AnimDriverMock fallback）驱动。
+## 行为由 Beehave 行为树驱动，动画由 AnimDriverSpine（或 Mock fallback）驱动。
+## 移动完全由 BT 叶节点控制（_physics_process 不处理移动和重力）。
 ## =============================================================================
+
+## ===== 攻击目标组（与 MonsterBase 保持一致）=====
+const ATTACK_TARGET_GROUP: StringName = &"enemy_attack_target"
 
 ## ===== 顶层模式枚举 =====
 enum Mode {
@@ -29,184 +34,174 @@ enum EyePhase {
 	FORCE_RECALL = 5,  ## 被 weak/stun/中断 强制召回
 }
 
-## ===== 导出参数（通用）=====
+# =============================================================================
+# 导出参数
+# =============================================================================
+
+## --- 通用参数 ---
 @export var detect_player_radius: float = 240.0
-## 检测玩家半径（px）
-
 @export var detect_attack_target_radius: float = 240.0
-## 检测攻击目标半径（px）
-
 @export var closed_walk_speed: float = 90.0
-## 闭眼常规移动速度（px/s）
-
 @export var closed_run_speed: float = 130.0
-## 闭眼快速移动速度（px/s）
-
 @export var petrified_target_chase_speed: float = 150.0
-## 石化玩家追击速度（px/s）
 
-## ===== 导出参数（状态时长）=====
+## --- 状态时长参数 ---
 @export var guard_break_duration_sec: float = 0.8
-## 破防状态持续时长（秒）
-
 @export var open_eye_idle_timeout: float = 1.2
-## 睁眼 idle 超时（秒）
-
 @export var closed_eye_poll_interval: float = 0.1
-## 闭眼感知轮询间隔（秒）
-
 @export var weak_eye_recall_check_interval: float = 1.0
-## 虚弱状态下眼球召回检测间隔（秒）
-
 @export var weak_duration: float = 2.5
-## 虚弱持续时长（秒）
-
 @export var stun_duration_override: float = 1.2
-## 修女蛇眩晕持续时长（秒，覆盖 MonsterBase 默认值）
 
-## ===== 导出参数（攻击 A：僵直攻击）=====
+## --- 攻击A：僵直攻击 ---
 @export var stiff_attack_range: float = 80.0
-## 僵直攻击范围（px）
-
 @export var stiff_attack_damage: int = 1
-## 僵直攻击伤害
-
 @export var stiff_attack_player_stun_sec: float = 0.5
-## 僵直攻击命中后玩家僵直时长（秒）
 
-## ===== 导出参数（攻击 B：发射眼球）=====
+## --- 攻击B：发射眼球 ---
 @export var eye_projectile_speed: float = 420.0
-## 眼球飞行速度（px/s）
-
 @export var eye_projectile_hover_sec: float = 0.5
-## 眼球悬停时长（秒）
-
 @export var eye_projectile_retarget_count: int = 3
-## 眼球重定向次数
-
-@export var eye_projectile_invincible: bool = true
-## 眼球子弹是否无敌（不可被攻击命中）
-
 @export var eye_return_speed: float = 700.0
-## 眼球返航速度（px/s）
-
 @export var eye_projectile_max_lifetime_sec: float = 10.0
-## 眼球最大存活时长（秒），超时强制销毁
-
 @export var eye_projectile_scene: PackedScene = null
-## 眼球子弹实例场景（运行时 spawn）
 
-## ===== 导出参数（攻击 C：锤地）=====
+## --- 攻击C：锤地 ---
 @export var ground_pound_range: float = 110.0
-## 锤地攻击范围（px）
-
 @export var ground_pound_damage: int = 1
-## 锤地伤害
 
-## ===== 导出参数（攻击 D：甩尾）=====
+## --- 攻击D：甩尾 ---
 @export var tail_sweep_range: float = 140.0
-## 甩尾攻击范围（px）
-
 @export var tail_sweep_knockback_px: float = 200.0
-## 甩尾击退距离（px）
 
-## ===== 内部状态（BT 叶节点直接读写）=====
+## --- 光照系统（MonsterBase 等价）---
+@export var light_receiver_path: NodePath = ^"LightReceiver"
+@export var light_counter_max: float = 10.0
+
+## --- 受击参数 ---
+@export var hit_stun_time: float = 0.1
+
+# =============================================================================
+# 内部状态（BT 叶节点直接读写）
+# =============================================================================
 
 var mode: int = Mode.CLOSED_EYE
-## 当前顶层模式
-
 var eye_phase: int = EyePhase.SOCKETED
-## 眼球当前阶段
-
 var facing: int = 1
-## 当前朝向（1=右, -1=左）
 
-## ===== 转场锁 =====
+## 转场锁
 var opening_transition_lock: bool = false
-## 开眼转场锁：防止 reactive BT 在开眼过程中抢占
-
 var closing_transition_lock: bool = false
-## 关眼转场锁：防止 reactive BT 在关眼过程中抢占
 
-## ===== 破防计时 =====
+## 破防计时
 var guard_break_end_ms: int = 0
-## 破防状态结束时间戳（ms）
 
-## ===== 攻击命中窗口 =====
+## 攻击命中窗口（由 atk_hit_on/atk_hit_off Spine 事件驱动）
 var atk_hit_window_open: bool = false
-## 攻击命中窗口是否开启（由 atk_hit_on/atk_hit_off Spine 事件驱动）
 
+## EyeHurtbox 激活状态
 var eye_hurtbox_enabled: bool = false
-## EyeHurtbox 是否激活（由 eye_hurtbox_enable/disable Spine 事件驱动）
 
-## ===== 眼球子弹实例 =====
+## 虚弱/眩晕内部计时
+var _weak_timer: float = 0.0
+var _stun_timer: float = 0.0
+
+## 光照系统（MonsterBase 等价）
+var light_counter: float = 0.0
+var _thunder_processed_this_frame: bool = false
+
+## 链接槽位列表（MonsterBase 等价：支持多条链）
+var _linked_slots: Array[int] = []
+
+## 眼球子弹实例
 var _eye_projectile_instance: Node2D = null
-## 当前飞出的眼球子弹实例
 
-## ===== Spine 事件标志（_on_spine_event 写入，BT 叶节点读取后立即清除）=====
+# =============================================================================
+# Spine 事件标志（_on_spine_event 写入，BT 叶节点读取后立即清除）
+# =============================================================================
 var ev_eye_hurtbox_enable: bool = false
 var ev_eye_hurtbox_disable: bool = false
 var ev_atk_hit_on: bool = false
 var ev_atk_hit_off: bool = false
 var ev_eye_shoot_spawn: bool = false
-var ev_guard_break_done: bool = false
+var ev_guard_break_enter_done: bool = false
 var ev_open_to_close_done: bool = false
 var ev_close_to_open_done: bool = false
+var ev_tail_sweep_transition_done: bool = false
 
-## ===== 动画状态追踪 =====
+# =============================================================================
+# 动画状态追踪
+# =============================================================================
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 
-## ===== 动画驱动 =====
+# =============================================================================
+# 动画驱动
+# =============================================================================
 var _anim_driver: AnimDriverSpine = null
 var _anim_mock: AnimDriverMock = null
 
-## ===== 受击盒引用 =====
-var _hurtbox_main: Area2D = null     ## 主 Hurtbox（闭眼时也无效，仅链条溶解）
-var _eye_hurtbox: Area2D = null      ## EyeHurtbox（睁眼/破防时有效）
-var _ground_pound_hitbox: Area2D = null  ## GroundPoundHitbox
-var _detect_area: Area2D = null      ## 感知范围 Area2D
+# =============================================================================
+# 节点引用
+# =============================================================================
+var _eye_hurtbox: Area2D = null
+var _hurtbox_main: Area2D = null
+var _ground_pound_hitbox: Area2D = null
+var _tail_sweep_hitbox: Area2D = null
+var _detect_area: Area2D = null
+var _light_receiver: Area2D = null
 
 @onready var _spine_sprite: Node = null
-
-## ===== 待处理命中来源记录（破防判断用）=====
-var _pending_guard_break_hit: bool = false
-## 本帧是否收到了破防来源命中
-
-var _last_eye_hurtbox_hp_hit: bool = false
-## 本帧 EyeHurtbox 是否受到 HP 扣减
 
 # =============================================================================
 # 生命周期
 # =============================================================================
 
 func _ready() -> void:
+	# --- 核心属性（在 super._ready 之前设置）---
 	species_id = &"chimera_nun_snake"
 	attribute_type = AttributeType.LIGHT
 	size_tier = SizeTier.MEDIUM
 	max_hp = 5
 	weak_hp = 1
-	# 修女蛇属于 Chimera（entity_type 已在 ChimeraBase._ready 中设置）
-	# 但攻击行为按 Monster 处理
 	can_be_attacked = true
 	has_hp = true
 
 	super._ready()
+
+	# entity_type 已在 ChimeraBase._ready 中设为 CHIMERA
 	add_to_group("chimera_nun_snake")
+	add_to_group("monster")  # 加入 monster 组，被通用怪物系统识别
 
-	_hurtbox_main = get_node_or_null("Hurtbox") as Area2D
+	# --- 节点引用缓存 ---
 	_eye_hurtbox = get_node_or_null("EyeHurtbox") as Area2D
+	_hurtbox_main = get_node_or_null("Hurtbox") as Area2D
 	_ground_pound_hitbox = get_node_or_null("GroundPoundHitbox") as Area2D
+	_tail_sweep_hitbox = get_node_or_null("TailSweepHitbox") as Area2D
 	_detect_area = get_node_or_null("DetectArea") as Area2D
+	_light_receiver = get_node_or_null(light_receiver_path) as Area2D
 
-	# 初始状态：EyeHurtbox 禁用
+	# --- 初始状态：闭眼（主 Hurtbox 激活，EyeHurtbox 关闭）---
 	_set_eye_hurtbox_active(false)
+	if _ground_pound_hitbox:
+		_ground_pound_hitbox.monitoring = false
+	if _tail_sweep_hitbox:
+		_tail_sweep_hitbox.monitoring = false
 
-	# 订阅光花放电事件（破防来源之一）
+	# --- EventBus 信号连接（MonsterBase 等价）---
 	if EventBus:
+		EventBus.thunder_burst.connect(_on_thunder_burst)
+		EventBus.light_started.connect(_on_light_started)
+		EventBus.light_finished.connect(_on_light_finished)
+		EventBus.healing_burst.connect(_on_healing_burst)
 		EventBus.lightning_flower_release.connect(_on_lightning_flower_release)
 
+	# --- LightReceiver 信号连接 ---
+	if _light_receiver:
+		_light_receiver.area_entered.connect(_on_light_area_entered)
+
+	# --- Spine / Mock 动画驱动 ---
 	_spine_sprite = get_node_or_null("SpineSprite")
 	if _is_spine_sprite_compatible(_spine_sprite):
 		_anim_driver = AnimDriverSpine.new()
@@ -231,10 +226,22 @@ func _is_spine_sprite_compatible(node: Node) -> bool:
 
 
 func _physics_process(dt: float) -> void:
+	## 修女蛇 _physics_process：
+	## - 不调用 super._physics_process（ChimeraBase 的移动/跟随逻辑由 BT 接管）
+	## - 不处理移动和重力（由 BT 叶节点控制）
+	## - 只处理：光照计时、mock 动画 tick、weak/stun 倒计时、朝向翻转
+
+	# 光照计数器衰减
+	if light_counter > 0.0:
+		light_counter -= dt
+		light_counter = maxf(light_counter, 0.0)
+	_thunder_processed_this_frame = false
+
+	# Mock 驱动需要手动 tick
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
-	# 虚弱/眩晕倒计时（修女蛇独立管理，不依赖 MonsterBase 默认流）
+	# 虚弱/眩晕倒计时
 	if mode == Mode.WEAK:
 		_weak_timer -= dt
 		if _weak_timer <= 0.0:
@@ -244,33 +251,16 @@ func _physics_process(dt: float) -> void:
 		if _stun_timer <= 0.0:
 			_exit_stun()
 
-	# 重力
-	if not is_on_floor():
-		velocity.y += 800.0 * dt
-
-	# 朝向翻转（根据水平速度）
-	if velocity.x > 10.0:
-		facing = 1
-	elif velocity.x < -10.0:
-		facing = -1
-
 	# Spine sprite 朝向翻转
-	if _spine_sprite != null:
-		_spine_sprite.scale.x = float(facing)
+	if _spine_sprite != null and is_instance_valid(_spine_sprite):
+		_spine_sprite.scale.x = absf(_spine_sprite.scale.x) * float(facing)
 
-	# BT 叶节点通过 move_and_slide 移动；物理更新由 BT 叶节点驱动
-	# _do_move 覆写不再由基类调用
-
-# 虚弱/眩晕内部计时
-var _weak_timer: float = 0.0
-var _stun_timer: float = 0.0
 
 # =============================================================================
 # 动画接口（BT 叶节点统一调用）
 # =============================================================================
 
 func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -> void:
-	## 播放指定动画。叶节点只调这一个接口，不直接碰 Spine。
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
 	_current_anim = anim_name
@@ -322,17 +312,21 @@ func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
 		&"atk_hit_on":
 			ev_atk_hit_on = true
 			atk_hit_window_open = true
+			_set_attack_hitbox_active(true)
 		&"atk_hit_off":
 			ev_atk_hit_off = true
 			atk_hit_window_open = false
+			_set_attack_hitbox_active(false)
 		&"eye_shoot_spawn":
 			ev_eye_shoot_spawn = true
-		&"guard_break_done":
-			ev_guard_break_done = true
+		&"guard_break_enter_done":
+			ev_guard_break_enter_done = true
 		&"open_to_close_done":
 			ev_open_to_close_done = true
 		&"close_to_open_done":
 			ev_close_to_open_done = true
+		&"tail_sweep_transition_done":
+			ev_tail_sweep_transition_done = true
 
 
 func _extract_spine_event_name(args: Array) -> StringName:
@@ -369,22 +363,121 @@ func _get_obj_name(obj: Object) -> StringName:
 # =============================================================================
 
 func _set_eye_hurtbox_active(active: bool) -> void:
+	## 开启 EyeHurtbox 时，同步禁用主 Hurtbox（两者互斥）
+	## 关闭 EyeHurtbox 时，恢复主 Hurtbox（CLOSED_EYE 状态可链条检测）
 	eye_hurtbox_enabled = active
-	if _eye_hurtbox == null:
-		return
-	_eye_hurtbox.monitoring = active
-	_eye_hurtbox.monitorable = active
-	var shape := _eye_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if shape:
-		shape.disabled = not active
+
+	# EyeHurtbox 开关
+	if _eye_hurtbox != null:
+		_eye_hurtbox.monitoring = active
+		_eye_hurtbox.monitorable = active
+		var eye_shape := _eye_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if eye_shape:
+			eye_shape.disabled = not active
+
+	# 主 Hurtbox：闭眼时激活（可被链条检测），睁眼时关闭（仅 EyeHurtbox 有效）
+	if _hurtbox_main != null:
+		_hurtbox_main.monitoring = not active
+		_hurtbox_main.monitorable = not active
+		var main_shape := _hurtbox_main.get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if main_shape:
+			main_shape.disabled = active
+
+
+func _set_attack_hitbox_active(active: bool) -> void:
+	## 根据当前动画上下文激活正确的攻击判定框
+	## GroundPoundHitbox 和 TailSweepHitbox 共享同一个 atk_hit_on/off 事件
+	## 由 BT 动作层在使用前确保只激活对应的框
+	pass  # 由各 BT Action 节点在开启命中窗口前自行管理对应 Hitbox
 
 
 func force_close_hit_windows() -> void:
-	## 强制关闭所有命中检测窗口（被打断时确保无残留开窗）
 	atk_hit_window_open = false
-	_set_eye_hurtbox_active(false)
 	if _ground_pound_hitbox:
 		_ground_pound_hitbox.monitoring = false
+	if _tail_sweep_hitbox:
+		_tail_sweep_hitbox.monitoring = false
+
+
+# =============================================================================
+# 光照系统（MonsterBase 等价，手动实现）
+# =============================================================================
+
+var _processed_light_sources: Dictionary = {}
+var _active_light_sources: Dictionary = {}
+
+func _on_thunder_burst(add_seconds: float) -> void:
+	if _thunder_processed_this_frame:
+		return
+	_thunder_processed_this_frame = true
+	light_counter += add_seconds
+	light_counter = minf(light_counter, light_counter_max)
+
+
+func _on_healing_burst(light_energy: float) -> void:
+	light_counter += light_energy
+	light_counter = minf(light_counter, light_counter_max)
+
+
+func on_light_exposure(remaining_time: float) -> void:
+	light_counter += remaining_time
+	light_counter = minf(light_counter, light_counter_max)
+
+
+func _on_light_started(source_id: int, remaining_time: float, source_light_area: Area2D) -> void:
+	if _light_receiver == null or source_light_area == null:
+		return
+	if not source_light_area.overlaps_area(_light_receiver):
+		_active_light_sources[source_id] = {
+			"area": source_light_area,
+			"total_duration": remaining_time,
+			"start_time_ms": Time.get_ticks_msec()
+		}
+		return
+	if _processed_light_sources.has(source_id):
+		return
+	_processed_light_sources[source_id] = true
+	light_counter += remaining_time
+	light_counter = minf(light_counter, light_counter_max)
+
+
+func _on_light_finished(source_id: int) -> void:
+	_processed_light_sources.erase(source_id)
+	_active_light_sources.erase(source_id)
+
+
+func _on_light_area_entered(area: Area2D) -> void:
+	if area == null:
+		return
+	for source_id in _active_light_sources.keys():
+		var light_data: Dictionary = _active_light_sources[source_id]
+		if light_data["area"] == area:
+			if _processed_light_sources.has(source_id):
+				return
+			var remaining: float = _get_current_light_remaining(light_data)
+			_processed_light_sources[source_id] = true
+			light_counter += remaining
+			light_counter = minf(light_counter, light_counter_max)
+			break
+
+
+func _get_current_light_remaining(light_data: Dictionary) -> float:
+	var total_duration: float = light_data.get("total_duration", 0.0)
+	if total_duration <= 0.0:
+		return 0.0
+	var start_ms: int = int(light_data.get("start_time_ms", 0))
+	var elapsed: float = maxf((Time.get_ticks_msec() - start_ms) / 1000.0, 0.0)
+	return maxf(total_duration - elapsed, 0.0)
+
+
+func _on_lightning_flower_release(source: Node2D) -> void:
+	if mode != Mode.CLOSED_EYE:
+		return
+	if source == null or not is_instance_valid(source):
+		return
+	if source.global_position.distance_to(global_position) > detect_player_radius * 1.5:
+		return
+	_enter_guard_break()
 
 
 # =============================================================================
@@ -392,7 +485,6 @@ func force_close_hit_windows() -> void:
 # =============================================================================
 
 func _can_break_closed_guard(weapon_id: StringName) -> bool:
-	## 判断来源是否能破防闭眼防御
 	return (
 		weapon_id == &"ghost_fist"
 		or weapon_id == &"chimera_ghost_hand_l"
@@ -409,43 +501,42 @@ func apply_hit(hit: HitData) -> bool:
 
 	match mode:
 		Mode.CLOSED_EYE:
-			# 链条命中：溶解无效，不建链，不扣血
 			if hit.weapon_id == &"chain":
 				_flash_once()
-				return true  # 消耗命中，但无效
-			# 普通武器无效
+				return true
 			if not _can_break_closed_guard(hit.weapon_id):
 				_play_closed_eye_hit_resist()
 				return true
-			# 有效破防来源 → 进入 GUARD_BREAK
 			_enter_guard_break()
 			_flash_once()
 			return true
 
 		Mode.OPEN_EYE, Mode.GUARD_BREAK:
-			# 仅 EyeHurtbox 命中时有效（由 _last_eye_hurtbox_hp_hit 标记）
-			# 本函数只在 EyeHurtbox 路由后才被调用扣血
-			if _last_eye_hurtbox_hp_hit:
-				_last_eye_hurtbox_hp_hit = false
-				if hp_locked:
-					_flash_once()
-					return true
-				hp = max(hp - hit.damage, 0)
+			## 睁眼系：仅命中 EyeHurtbox 有效（主 Hurtbox 已禁用，故所有到达此处的 apply_hit
+			## 均来自 EyeHurtbox 或直接事件（如光花放电），无需额外区分）
+			if hit.weapon_id == &"chain":
+				return false
+			# 光花放电可触发 STUN
+			if hit.weapon_id == &"lightning_flower" or hit.weapon_id == &"lightflower":
+				_enter_stun()
 				_flash_once()
-				if hp <= weak_hp and hp > 0 and not weak:
-					# 进入虚弱
-					weak = true
-					hp_locked = true
-					vanish_fusion_count = 0
-					_enter_weak()
-				elif hp <= 0 and not hp_locked:
-					_on_death()
 				return true
-			# 非 EyeHurtbox 路由：无效
-			return false
+			# 其余有效武器命中眼球 → 扣 HP
+			if hp_locked:
+				_flash_once()
+				return true
+			hp = max(hp - hit.damage, 0)
+			_flash_once()
+			if hp <= weak_hp and hp > 0 and not weak:
+				weak = true
+				hp_locked = true
+				vanish_fusion_count = 0
+				_enter_weak()
+			elif hp <= 0 and not hp_locked:
+				_on_death()
+			return true
 
 		Mode.WEAK, Mode.STUN:
-			# hp_locked 时普通攻击无效；可被链接（链条路由在 on_chain_hit 中处理）
 			_flash_once()
 			return true
 
@@ -453,42 +544,64 @@ func apply_hit(hit: HitData) -> bool:
 
 
 func _play_closed_eye_hit_resist() -> void:
-	## 闭眼无效受击反馈：不可被普通无效攻击反复打断，但可被破防来源覆盖
 	if (
 		anim_is_playing(&"closed_eye_hit_resist")
 		or anim_is_playing(&"ground_pound")
 		or anim_is_playing(&"tail_sweep")
+		or anim_is_playing(&"tail_sweep_transition")
 	):
 		return
 	_flash_once()
 	anim_play(&"closed_eye_hit_resist", false, false)
 
 
-## 由 EyeHurtbox 的 Area2D 信号路由调用（标记本次命中来自 EyeHurtbox）
-func mark_eye_hurtbox_hit(hit: HitData) -> bool:
-	if not eye_hurtbox_enabled:
-		return false
-	_last_eye_hurtbox_hp_hit = true
-	return apply_hit(hit)
-
-
 # =============================================================================
-# 锁链交互（覆写 ChimeraBase 默认"可直链"行为）
+# 锁链交互（覆写 ChimeraBase 默认"可直链"行为，改走 Monster 逻辑）
 # =============================================================================
 
 func on_chain_hit(player_ref: Node, slot: int) -> int:
-	# 修女蛇不可直接链接，只有 weak 或 stun 状态才可链
 	match mode:
 		Mode.WEAK, Mode.STUN:
 			if is_occupied_by_other_chain(slot):
 				return 0
 			_linked_player = player_ref
 			_player = player_ref as Node2D
-			return 1  # 可链接
+			return 1
 		_:
-			# 闭眼时链条仅溶解
 			_flash_once()
 			return 0
+
+
+func on_chain_attached(slot: int) -> void:
+	## 链接时（由 player_chain_system 调用）
+	# 第一条链连接时禁用 Hurtbox 碰撞层
+	if _linked_slots.is_empty():
+		if _hurtbox != null:
+			_hurtbox_original_layer = _hurtbox.collision_layer
+			_hurtbox.collision_layer = 0
+	if not _linked_slots.has(slot):
+		_linked_slots.append(slot)
+	_linked_slot = slot
+	# 延长虚弱/眩晕时间
+	if mode == Mode.WEAK:
+		_weak_timer += 3.0
+	elif mode == Mode.STUN:
+		_stun_timer += 3.0
+	_flash_once()
+
+
+func on_chain_detached(slot: int) -> void:
+	## 链断开时
+	_linked_slots.erase(slot)
+	if _linked_slots.is_empty():
+		_linked_slot = -1
+		_linked_player = null
+		_player = null
+		if _hurtbox != null and _hurtbox_original_layer >= 0:
+			_hurtbox.collision_layer = _hurtbox_original_layer
+			_hurtbox_original_layer = -1
+	else:
+		_linked_slot = _linked_slots[0]
 
 
 # =============================================================================
@@ -496,19 +609,17 @@ func on_chain_hit(player_ref: Node, slot: int) -> int:
 # =============================================================================
 
 func enter_mode(new_mode: int) -> void:
-	## 切换顶层模式（统一入口）
-	mode = new_mode
 	match new_mode:
 		Mode.CLOSED_EYE:
+			mode = new_mode
 			_set_eye_hurtbox_active(false)
 			opening_transition_lock = false
 			closing_transition_lock = false
 		Mode.OPEN_EYE:
-			# EyeHurtbox 由 Spine 事件驱动开启
+			mode = new_mode
 			opening_transition_lock = false
 		Mode.GUARD_BREAK:
-			_set_eye_hurtbox_active(true)
-			guard_break_end_ms = Time.get_ticks_msec() + int(guard_break_duration_sec * 1000.0)
+			_enter_guard_break()
 		Mode.WEAK:
 			_enter_weak()
 		Mode.STUN:
@@ -516,35 +627,32 @@ func enter_mode(new_mode: int) -> void:
 
 
 func _enter_guard_break() -> void:
+	if mode == Mode.GUARD_BREAK:
+		return  # 防止重复进入
 	mode = Mode.GUARD_BREAK
+	force_close_hit_windows()
 	_set_eye_hurtbox_active(true)
 	guard_break_end_ms = Time.get_ticks_msec() + int(guard_break_duration_sec * 1000.0)
 	velocity = Vector2.ZERO
-	force_close_hit_windows()
-	atk_hit_window_open = false
-	# EyeHurtbox 启用（破防阶段暴露弱点）
-	eye_hurtbox_enabled = true
 
 
 func _enter_weak() -> void:
 	mode = Mode.WEAK
 	_weak_timer = weak_duration
-	# 立即终止当前攻击链
 	force_close_hit_windows()
 	velocity = Vector2.ZERO
-	# 若眼球在外，强制召回
 	if eye_phase != EyePhase.SOCKETED:
 		_force_eye_recall()
 
 
 func _exit_weak() -> void:
-	mode = Mode.CLOSED_EYE
-	_set_eye_hurtbox_active(false)
+	hp = max_hp
 	weak = false
 	hp_locked = false
 	vanish_fusion_count = 0
-	# 状态结束后 chain 链接解除（MonsterBase 规则）
-	_release_linked_chain_if_any()
+	mode = Mode.CLOSED_EYE
+	_set_eye_hurtbox_active(false)
+	_release_linked_chains()
 
 
 func _enter_stun() -> void:
@@ -559,38 +667,46 @@ func _enter_stun() -> void:
 func _exit_stun() -> void:
 	mode = Mode.CLOSED_EYE
 	_set_eye_hurtbox_active(false)
-	_release_linked_chain_if_any()
+	_release_linked_chains()
 
 
 func _force_eye_recall() -> void:
-	## 强制眼球召回（进入 FORCE_RECALL 阶段）
 	eye_phase = EyePhase.FORCE_RECALL
 	if _eye_projectile_instance != null and is_instance_valid(_eye_projectile_instance):
 		if _eye_projectile_instance.has_method("force_recall"):
 			_eye_projectile_instance.call("force_recall")
 
 
-func _release_linked_chain_if_any() -> void:
-	## 状态结束后解除 chain 链接（按 MonsterBase 规则：weak/stun 结束时解除）
-	if not is_linked():
+func _release_linked_chains() -> void:
+	## 释放所有链接的锁链（MonsterBase._release_linked_chains 等价）
+	var slots: Array[int] = _linked_slots.duplicate()
+	_linked_slots.clear()
+	_linked_slot = -1
+	var p: Node = _linked_player
+	_linked_player = null
+	_player = null
+
+	# 恢复 Hurtbox 碰撞层
+	if _hurtbox != null and _hurtbox_original_layer >= 0:
+		_hurtbox.collision_layer = _hurtbox_original_layer
+		_hurtbox_original_layer = -1
+
+	# 通知 Player/ChainSystem 溶解锁链
+	if p == null or not is_instance_valid(p):
 		return
-	# 通知玩家端的 chain_sys 解除此槽位的链接
-	if _linked_player != null and is_instance_valid(_linked_player):
-		var cs: Node = _linked_player.get_node_or_null("Components/ChainSystem")
-		if cs != null and cs.has_method("force_detach_from_target"):
-			cs.call("force_detach_from_target", self)
+	for s in slots:
+		_force_dissolve_chain_on_player(p, s)
 
 
-func _on_lightning_flower_release(source: Node2D) -> void:
-	## 光花放电事件响应：若在闭眼状态则触发破防
-	if mode != Mode.CLOSED_EYE:
+func _force_dissolve_chain_on_player(p: Node, slot: int) -> void:
+	if p == null or not is_instance_valid(p):
 		return
-	if source == null or not is_instance_valid(source):
+	if p.has_method("force_dissolve_chain"):
+		p.call("force_dissolve_chain", slot)
 		return
-	# 检查距离（光花须在感知范围内）
-	if source.global_position.distance_to(global_position) > detect_player_radius * 1.5:
-		return
-	_enter_guard_break()
+	var chain_sys: Object = p.get("chain_sys")
+	if chain_sys != null and chain_sys.has_method("force_dissolve_chain"):
+		chain_sys.call("force_dissolve_chain", slot)
 
 
 # =============================================================================
@@ -598,20 +714,15 @@ func _on_lightning_flower_release(source: Node2D) -> void:
 # =============================================================================
 
 func spawn_eye_projectile() -> Node2D:
-	## 在 eye_shoot_spawn 帧生成眼球子弹
 	if eye_projectile_scene == null:
-		push_error("[ChimeraNunSnake] eye_projectile_scene 未设置，无法生成眼球")
+		push_error("[ChimeraNunSnake] eye_projectile_scene 未设置")
 		return null
 	if _eye_projectile_instance != null and is_instance_valid(_eye_projectile_instance):
-		# 上一颗眼球未回收，跳过
 		return _eye_projectile_instance
-
 	var proj: Node = (eye_projectile_scene as PackedScene).instantiate()
 	var proj2d := proj as Node2D
 	if proj2d != null:
-		# 出生点：EyeHurtbox 骨骼位置（或 fallback 到自身位置）
-		var spawn_pos: Vector2 = _get_eye_socket_world_pos()
-		proj2d.global_position = spawn_pos
+		proj2d.global_position = get_eye_socket_world_pos()
 		if proj.has_method("setup"):
 			proj.call("setup", self)
 	get_parent().add_child(proj)
@@ -620,23 +731,20 @@ func spawn_eye_projectile() -> Node2D:
 	return proj2d
 
 
-func _get_eye_socket_world_pos() -> Vector2:
-	## 获取眼球发射点（骨骼挂点或 fallback）
+func get_eye_socket_world_pos() -> Vector2:
 	if _anim_driver != null:
 		var bone_pos: Vector2 = _anim_driver.get_bone_world_position("bone_eye_socket")
 		if bone_pos != Vector2.ZERO:
 			return bone_pos
+	var mark := get_node_or_null("EyeSocketMark") as Node2D
+	if mark != null:
+		return mark.global_position
 	if _eye_hurtbox != null:
 		return _eye_hurtbox.global_position
 	return global_position + Vector2(0.0, -40.0)
 
 
-func get_eye_socket_world_pos() -> Vector2:
-	return _get_eye_socket_world_pos()
-
-
 func notify_eye_returned() -> void:
-	## 由眼球子弹在到达眼窝后调用，通知修女蛇眼球已归位
 	eye_phase = EyePhase.SOCKETED
 	_eye_projectile_instance = null
 
@@ -645,20 +753,44 @@ func notify_eye_returned() -> void:
 # 感知接口（供 BT 条件节点调用）
 # =============================================================================
 
+func get_priority_attack_target() -> Node2D:
+	## 与 MonsterBase.get_priority_attack_target 等价
+	var targets := get_tree().get_nodes_in_group(ATTACK_TARGET_GROUP)
+	if targets.is_empty():
+		targets = get_tree().get_nodes_in_group("player")
+	if targets.is_empty():
+		return null
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for t in targets:
+		if not is_instance_valid(t):
+			continue
+		var n := t as Node2D
+		if n == null:
+			continue
+		var d := global_position.distance_to(n.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = n
+	return nearest
+
+
 func get_player() -> Node2D:
-	## 优先从 DetectArea 获取，否则从组中获取
+	## 优先从 DetectArea 获取，否则从组获取最近目标
 	if _detect_area != null:
 		for body in _detect_area.get_overlapping_bodies():
-			if body.is_in_group(MonsterBase.ATTACK_TARGET_GROUP):
+			if body.is_in_group(ATTACK_TARGET_GROUP) or body.is_in_group("player"):
 				return body as Node2D
-	var players: Array = get_tree().get_nodes_in_group("player")
-	if not players.is_empty():
-		return players[0] as Node2D
-	return null
+		for area in _detect_area.get_overlapping_areas():
+			var host: Node = area
+			while host != null:
+				if host is Node2D and host.is_in_group(ATTACK_TARGET_GROUP):
+					return host as Node2D
+				host = host.get_parent()
+	return get_priority_attack_target()
 
 
 func get_petrified_player() -> Node2D:
-	## 检测是否有石化玩家
 	var players: Array = get_tree().get_nodes_in_group("player")
 	for p in players:
 		if p.has_method("is_petrified") and p.call("is_petrified"):
@@ -667,7 +799,6 @@ func get_petrified_player() -> Node2D:
 
 
 func is_player_in_range(range_px: float) -> bool:
-	## 检测玩家是否在指定范围内（只检查水平距离）
 	var player: Node2D = get_player()
 	if player == null:
 		return false
@@ -679,7 +810,7 @@ func is_player_in_detect_area() -> bool:
 
 
 # =============================================================================
-# 静态辅助
+# 辅助
 # =============================================================================
 
 static func now_ms() -> int:
@@ -696,16 +827,17 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"closed_eye_run"] = 0.6
 	_anim_mock._durations[&"closed_eye_hit_resist"] = 0.3
 	_anim_mock._durations[&"close_to_open"] = 0.5
-	_anim_mock._durations[&"open_eye_idle"] = 1.0
 	_anim_mock._durations[&"stiff_attack"] = 0.5
+	_anim_mock._durations[&"open_eye_idle"] = 1.0
 	_anim_mock._durations[&"shoot_eye_start"] = 0.4
 	_anim_mock._durations[&"shoot_eye_loop"] = 1.0
 	_anim_mock._durations[&"shoot_eye_end"] = 0.4
-	_anim_mock._durations[&"shoot_eye_recall"] = 0.4
+	_anim_mock._durations[&"shoot_eye_recall_weak_or_stun"] = 0.4
 	_anim_mock._durations[&"open_eye_to_close"] = 0.5
 	_anim_mock._durations[&"guard_break_enter"] = 0.4
 	_anim_mock._durations[&"guard_break_loop"] = 1.0
 	_anim_mock._durations[&"ground_pound"] = 0.6
+	_anim_mock._durations[&"tail_sweep_transition"] = 0.4
 	_anim_mock._durations[&"tail_sweep"] = 0.5
 	_anim_mock._durations[&"weak"] = 0.4
 	_anim_mock._durations[&"weak_loop"] = 1.0

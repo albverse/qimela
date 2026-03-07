@@ -1,8 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://chimera_nun_snake_main"]
+[gd_scene load_steps=16 format=3 uid="uid://chimera_nun_snake_main"]
 
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/chimera_nun_snake.gd" id="1_script"]
 [ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
-[ext_resource type="PackedScene" path="res://scene/enemies/chimera_nun_snake/bt_chimera_nun_snake.tscn" id="3_bt"]
+[ext_resource type="Script" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/chimera_nun_snake/bt_chimera_nun_snake.tscn" id="4_bt"]
+[ext_resource type="PackedScene" path="res://scene/enemies/chimera_nun_snake/NunSnakeEyeProjectile.tscn" id="5_eye_proj"]
 
 [sub_resource type="CapsuleShape2D" id="body_shape"]
 radius = 18.0
@@ -14,16 +16,27 @@ radius = 40.0
 [sub_resource type="CircleShape2D" id="eye_hurtbox_shape"]
 radius = 20.0
 
+[sub_resource type="CircleShape2D" id="light_recv_shape"]
+radius = 50.0
+
+[sub_resource type="RectangleShape2D" id="ground_pound_shape"]
+size = Vector2(110.0, 30.0)
+
+[sub_resource type="RectangleShape2D" id="tail_sweep_shape"]
+size = Vector2(140.0, 60.0)
+
 [sub_resource type="CircleShape2D" id="detect_shape"]
 radius = 240.0
 
 [node name="ChimeraNunSnake" type="CharacterBody2D"]
-collision_layer = 4 # EnemyBody(3)
-collision_mask = 1  # World(1)
+collision_layer = 4
+collision_mask = 1
 script = ExtResource("1_script")
+light_receiver_path = NodePath("LightReceiver")
+eye_projectile_scene = ExtResource("5_eye_proj")
 
 [node name="SpineSprite" type="Node2D" parent="."]
-## SpineSprite 占位：当前为空节点，等待 Spine 资源就绪后替换为 SpineSprite 并赋 SkeletonData
+## SpineSprite 占位：等待 Spine 资源就绪后替换为 SpineSprite 并赋 SkeletonData
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -24)
@@ -31,7 +44,7 @@ shape = SubResource("body_shape")
 
 [node name="Hurtbox" type="Area2D" parent="."]
 position = Vector2(0, -24)
-collision_layer = 8  # EnemyHurtbox(4)
+collision_layer = 8
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
@@ -40,28 +53,48 @@ shape = SubResource("main_hurtbox_shape")
 
 [node name="EyeHurtbox" type="Area2D" parent="."]
 position = Vector2(0, -40)
-collision_layer = 8  # EnemyHurtbox(4)
+collision_layer = 8
 collision_mask = 0
 monitoring = false
 monitorable = false
+script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="EyeHurtbox"]
 shape = SubResource("eye_hurtbox_shape")
 disabled = true
 
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+position = Vector2(0, -30)
+shape = SubResource("light_recv_shape")
+
 [node name="GroundPoundHitbox" type="Area2D" parent="."]
+## 定点爆发型锤地判定（常驻节点，atk_hit_on/off 事件驱动开关）
 position = Vector2(0, -4)
 collision_layer = 0
-collision_mask = 2  # PlayerBody(2)
+collision_mask = 2
 monitoring = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="GroundPoundHitbox"]
-shape = SubResource("main_hurtbox_shape")
-disabled = false
+shape = SubResource("ground_pound_shape")
+
+[node name="TailSweepHitbox" type="Area2D" parent="."]
+## 甩尾判定（atk_hit_on/off 事件驱动，由 BT 动作层管理）
+position = Vector2(0, -24)
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TailSweepHitbox"]
+shape = SubResource("tail_sweep_shape")
 
 [node name="DetectArea" type="Area2D" parent="."]
 collision_layer = 0
-collision_mask = 2  # PlayerBody(2)
+collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea"]
 position = Vector2(0, -24)
@@ -71,5 +104,6 @@ shape = SubResource("detect_shape")
 position = Vector2(0, -40)
 ## 眼球发射点 / 眼窝挂点（无 Spine 时 fallback 坐标）
 
-[node name="BeehaveTree" parent="." instance=ExtResource("3_bt")]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+blackboard = NodePath("@Node@0")
 actor = NodePath("..")

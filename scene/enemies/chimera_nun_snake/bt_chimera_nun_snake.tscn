@@ -1,26 +1,30 @@
-[gd_scene load_steps=14 format=3 uid="uid://bt_chimera_nun_snake"]
+[gd_scene load_steps=15 format=3 uid="uid://bt_chimera_nun_snake"]
 
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/blackboard.gd" id="blackboard_script"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_is_weak_or_stun.gd" id="cond_weak_stun"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_has_petrified_target.gd" id="cond_petrified"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_mode_is.gd" id="cond_mode_is"]
-[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_detect_target.gd" id="cond_detect"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_weak_stun_handle.gd" id="act_weak_stun"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_petrified_execution_chase.gd" id="act_petrified_chase"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_guard_break_flow.gd" id="act_guard_break"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_open_eye_attack.gd" id="act_open_eye"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_closed_eye_idle.gd" id="act_closed_eye"]
 
-[node name="BeehaveTree" type="Node"]
+[node name="BeehaveTree" type="Node" node_paths=PackedStringArray("blackboard", "actor")]
 script = ExtResource("bt_tree")
+blackboard = NodePath("Blackboard")
+actor = NodePath("..")
+
+[node name="Blackboard" type="Node" parent="."]
+script = ExtResource("blackboard_script")
 
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
 
 [node name="Seq_WeakStun" type="Node" parent="RootSelector"]
-## 最高优先级：虚弱/眩晕处理
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_IsWeakOrStun" type="Node" parent="RootSelector/Seq_WeakStun"]
@@ -30,7 +34,6 @@ script = ExtResource("cond_weak_stun")
 script = ExtResource("act_weak_stun")
 
 [node name="Seq_PetrifiedChase" type="Node" parent="RootSelector"]
-## 石化玩家追击（高优先级狩猎）
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_HasPetrifiedTarget" type="Node" parent="RootSelector/Seq_PetrifiedChase"]
@@ -40,7 +43,6 @@ script = ExtResource("cond_petrified")
 script = ExtResource("act_petrified_chase")
 
 [node name="Seq_GuardBreak" type="Node" parent="RootSelector"]
-## 破防状态
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_ModeGuardBreak" type="Node" parent="RootSelector/Seq_GuardBreak"]
@@ -51,7 +53,6 @@ target_mode = 2
 script = ExtResource("act_guard_break")
 
 [node name="Seq_OpenEyeAttack" type="Node" parent="RootSelector"]
-## 睁眼系攻击（已在 OPEN_EYE 模式时继续攻击流）
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_ModeOpenEye" type="Node" parent="RootSelector/Seq_OpenEyeAttack"]
@@ -62,5 +63,4 @@ target_mode = 1
 script = ExtResource("act_open_eye")
 
 [node name="Act_ClosedEyeIdle" type="Node" parent="RootSelector"]
-## 兜底：闭眼待机 + 感知 + 意图选择（永远 RUNNING）
 script = ExtResource("act_closed_eye")
