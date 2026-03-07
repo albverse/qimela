@@ -41,6 +41,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 		_phase = Phase.HIT_SHELL
 		seb.anim_play(&"hit_shell", false, true)
 	else:
+		_phase = Phase.RETREAT_IN
 		_start_retreat(seb)
 
 
