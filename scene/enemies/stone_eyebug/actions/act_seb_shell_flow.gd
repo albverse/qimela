@@ -12,6 +12,37 @@ class_name ActSEBShellFlow
 ##   before_run 检测 mode==IN_SHELL → _phase=IN_SHELL
 ##   IN_SHELL   → 播 in_shell_loop；5s 无攻击 → EMERGE
 ##   EMERGE     → 播 emerge_out；emerge_done 事件 OR anim_finished → mode=NORMAL → SUCCESS
+##
+## ═══════════════════════════════════════════════════════════════════════════
+## ⚠️  设计冻结 — BUG FIX 2025-03-07 — 禁止修改以下两处逻辑，原因已记录
+## ═══════════════════════════════════════════════════════════════════════════
+##
+## 【BUG-1: _phase 跨周期污染 → 永久 RUNNING】
+##   本脚本同时被 Act_ShellFlow（Seq_ShellFlow）和 Act_InShellWait（Seq_InShell）
+##   复用，两个实例各有独立 _phase 字段。
+##
+##   BUG 路径：
+##     第1次 before_run → _start_retreat()（_phase 保持初始 RETREAT_IN）→ 正常
+##     _tick_retreat 返回 SUCCESS 时将 _phase 设为 IN_SHELL（已记录此次周期末态）
+##     第2次 before_run → 调用 _start_retreat() 但未重置 _phase
+##       → _phase 仍为 IN_SHELL → tick() 进入 _tick_in_shell（mode=RETREATING，错误）
+##       → 5s 后 _phase 变为 EMERGE
+##     第3次 before_run → _phase=EMERGE → _tick_emerge 检测 anim_is_finished("emerge_out")
+##       → _current_anim 为 "retreat_in"，条件永不成立 → 永久 RUNNING（完全卡死）
+##
+##   GhostFist 能解卡的原因：interrupt() 已正确将 _phase 重置为 RETREAT_IN，
+##   GhostFist 触发 FLIPPED → interrupt() 调用 → _phase 重置 → 临时恢复。
+##
+##   修复：before_run() else 分支在调用 _start_retreat() 前显式设置
+##         _phase = Phase.RETREAT_IN（见下方 before_run 第 else 分支）。
+##
+## 【BUG-2: emerge_out 被 hit_shell_small 覆盖 → _tick_emerge 永久等待】
+##   stone_eyebug.gd 的 _play_hit_shell_small_feedback() 在临界动画检测中
+##   原先缺少 anim_is_playing("emerge_out") 保护，链命中可覆盖 emerge_out，
+##   导致 _on_anim_completed("emerge_out") 不再能置位 _current_anim_finished。
+##   修复：stone_eyebug.gd in_critical_anim 增加 anim_is_playing("emerge_out") 守卫。
+##
+## ═══════════════════════════════════════════════════════════════════════════
 
 enum Phase { HIT_SHELL, RETREAT_IN, IN_SHELL, EMERGE }
 
@@ -41,6 +72,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 		_phase = Phase.HIT_SHELL
 		seb.anim_play(&"hit_shell", false, true)
 	else:
+		_phase = Phase.RETREAT_IN
 		_start_retreat(seb)
 
 

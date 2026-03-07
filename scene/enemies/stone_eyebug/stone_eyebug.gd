@@ -455,13 +455,16 @@ func _reflect_from_shell(hit: HitData) -> void:
 
 func _play_hit_shell_small_feedback() -> void:
 	# hit_shell_small：壳体无效受击短反馈。
-	# 若处于关键动作（攻击/缩壳/翻转）则不插播，仅闪白。
+	# 若处于关键动作（攻击/缩壳/翻转/出壳）则不插播，仅闪白。
+	# 注：emerge_out 必须受保护——若被 hit_shell_small 覆盖，_tick_emerge 的完成条件
+	# （anim_is_finished("emerge_out")）将永远无法成立，导致 Act_InShellWait 永久 RUNNING。
 	var in_critical_anim: bool = (
 		anim_is_playing(&"attack_stone")
 		or anim_is_playing(&"attack_lick")
 		or anim_is_playing(&"retreat_in")
 		or anim_is_playing(&"normal_to_flip")
 		or anim_is_playing(&"flip_to_normal")
+		or anim_is_playing(&"emerge_out")
 		or mode == Mode.FLIPPED
 		or mode == Mode.RETREATING
 	)
