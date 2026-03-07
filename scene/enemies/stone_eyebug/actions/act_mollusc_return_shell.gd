@@ -2,6 +2,34 @@ extends ActionLeaf
 class_name ActMolluscReturnShell
 
 ## 软体虫回壳闭环：播 enter_shell 动画 → 通知壳体恢复 → 销毁自身。
+##
+## ═══════════════════════════════════════════════════════════════════════════
+## ⚠️  设计冻结 — BUG FIX 2025-03-07 — 禁止修改以下标注处，原因已记录
+## ═══════════════════════════════════════════════════════════════════════════
+##
+## 【BUG: shell_return_committed 多处被重置为 false → Seq_Escape 重新激活】
+##
+##   原设计：_tick_move 路阻/壳消失 FAILURE 时、以及 interrupt() 时，
+##   均调用 set_shell_return_committed(false)，导致：
+##     - Seq_Attack 抢占 Seq_ReturnShell → interrupt() → committed=false
+##       → 攻击结束后 Seq_Escape 重新激活（玩家靠近即逃，不再回壳）
+##     - 路阻 FAILURE → committed=false → Seq_Escape 重新激活
+##   违反设计规则：一旦决定回壳，Act_Escape 应永久禁用。
+##
+##   修复（与 mollusc.gd 的单向锁配合）：
+##     - 完全移除 _tick_move 两处 set_shell_return_committed(false) 调用
+##     - 完全移除 interrupt() 中的 set_shell_return_committed(false) 调用
+##     - mollusc.gd 的 set_shell_return_committed() 在数据层强制单向锁：
+##       一旦 true 则拒绝 false 回退（即使调用也无效）
+##
+##   回壳决策后行为语义（committed=true 永久生效）：
+##     - Seq_Escape / Seq_IdleHitEscape：永久 FAILURE（CondMolluscPlayerNear/
+##       CondMolluscIdleHitEscape 均检测 committed）
+##     - Seq_Attack：仍可正常触发（玩家进入攻击范围时攻击）
+##     - Seq_ReturnShell：每 BT 帧尝试；路阻时返回 FAILURE，BT 退到 Act_Idle；
+##       路畅时继续推进；被 Seq_Attack 打断后下帧重启 _tick_move 继续尝试
+##
+## ═══════════════════════════════════════════════════════════════════════════
 
 enum Phase { MOVE_TO_SHELL, ENTER_SHELL, FLIP_TO_NORMAL }
 
@@ -34,7 +62,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 func _tick_move(mollusc: Mollusc) -> int:
 	var shell: Node2D = mollusc.find_empty_shell()
 	if shell == null or not is_instance_valid(shell):
-		mollusc.set_shell_return_committed(false)
+		# ⚠️ 设计冻结：禁止在此处重置 committed。壳消失时静默 FAILURE，
+		# BT 退到 Act_Idle/Seq_Attack；committed 保持 true，逃跑永久禁用。
 		return FAILURE
 
 	var dt := mollusc.get_physics_process_delta_time()
@@ -49,12 +78,12 @@ func _tick_move(mollusc: Mollusc) -> int:
 		mollusc.anim_play(&"enter_shell", false, false)
 		return RUNNING
 
-	# 回壳期间若遇到正向墙/断崖（路阻），撤销回壳承诺，允许行为树切回逃跑分支重规划。
+	# ⚠️ 设计冻结：路阻时返回 FAILURE 但禁止重置 committed。
+	# BT 退到 Seq_Attack 或 Act_Idle；下一 BT 帧 Seq_ReturnShell 重新尝试。
+	# 逃跑分支永久禁用（由 committed 单向锁保证）。
 	if mollusc.is_shell_return_path_blocked(shell):
-		mollusc.set_shell_return_committed(false)
 		mollusc.velocity = Vector2.ZERO
 		return FAILURE
-
 
 	# 移动向壳
 	var dir := Vector2(dx, dy).normalized()
@@ -75,6 +104,8 @@ func _tick_enter(mollusc: Mollusc) -> int:
 
 func _tick_flip_to_normal(mollusc: Mollusc) -> int:
 	if mollusc.anim_is_finished(&"flip_to_normal"):
+		# 回壳完成后 committed 被单向锁拦截（false 无法写入），
+		# 但 queue_free() 立即销毁实例，此行实际无效（保留以维持代码意图清晰）。
 		mollusc.set_shell_return_committed(false)
 		# 通知壳体恢复
 		var shell: Node2D = mollusc.find_empty_shell()
@@ -92,7 +123,9 @@ func _tick_flip_to_normal(mollusc: Mollusc) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var mollusc := actor as Mollusc
 	if mollusc != null:
-		mollusc.set_shell_return_committed(false)
+		# ⚠️ 设计冻结：禁止在此处重置 committed。
+		# 被 Seq_Attack 打断后 committed 保持 true；攻击结束后 Seq_ReturnShell 重启。
+		# 原来此处有 set_shell_return_committed(false)，已移除（BUG FIX 2025-03-07）。
 		mollusc.velocity = Vector2.ZERO
 	_phase = Phase.MOVE_TO_SHELL
 	super(actor, blackboard)

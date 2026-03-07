@@ -425,6 +425,15 @@ func find_new_shell() -> Node2D:
 
 
 func set_shell_return_committed(active: bool) -> void:
+	## ⚠️ 设计冻结 — DO NOT MODIFY — BUG FIX 2025-03-07
+	## shell_return_committed 是单向标记（one-way latch）：
+	##   一旦设为 true（回壳决策已触发），永远不允许回退为 false。
+	##   原因：若允许回退，interrupt()/路阻 FAILURE 会重新开放 Seq_Escape，
+	##   导致"回壳决策后仍能逃跑"的 BUG（违反设计规则：决策一旦做出不可撤销）。
+	##   唯一例外：queue_free() 调用前的最终清理（mollusc 即将销毁，无实际影响）。
+	if shell_return_committed and not active:
+		# 单向锁：已承诺则拒绝回退
+		return
 	shell_return_committed = active
 	if active:
 		# 回壳承诺生效后，清理 Idle 受击逃跑请求，防止被 Seq_IdleHitEscape 抢占到逃跑分支。
