@@ -104,6 +104,4 @@ shape = SubResource("detect_shape")
 position = Vector2(0, -40)
 ## 眼球发射点 / 眼窝挂点（无 Spine 时 fallback 坐标）
 
-[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
-blackboard = NodePath("@Node@0")
-actor = NodePath("..")
+[node name="BeehaveTree" parent="." instance=ExtResource("4_bt")]
