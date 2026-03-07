@@ -31,7 +31,7 @@ class_name ActMolluscReturnShell
 ##
 ## ═══════════════════════════════════════════════════════════════════════════
 
-enum Phase { MOVE_TO_SHELL, ENTER_SHELL, FLIP_TO_NORMAL }
+enum Phase { MOVE_TO_SHELL, ENTER_SHELL }
 
 var _phase: int = Phase.MOVE_TO_SHELL
 
@@ -54,8 +54,6 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return _tick_move(mollusc)
 		Phase.ENTER_SHELL:
 			return _tick_enter(mollusc)
-		Phase.FLIP_TO_NORMAL:
-			return _tick_flip_to_normal(mollusc)
 	return RUNNING
 
 
@@ -72,9 +70,9 @@ func _tick_move(mollusc: Mollusc) -> int:
 	var dist := Vector2(dx, dy).length()
 
 	if dist <= 16.0:
-		# 到达壳体位置 → 开始进入动画
+		# 到达壳体位置 → 开始进入动画（无敌且不可被打断）
 		_phase = Phase.ENTER_SHELL
-		mollusc.velocity = Vector2.ZERO
+		mollusc.begin_shell_enter_lock()
 		mollusc.anim_play(&"enter_shell", false, false)
 		return RUNNING
 
@@ -96,28 +94,28 @@ func _tick_move(mollusc: Mollusc) -> int:
 
 
 func _tick_enter(mollusc: Mollusc) -> int:
+	if not mollusc.anim_is_playing(&"enter_shell"):
+		mollusc.anim_play(&"enter_shell", false, false)
 	if mollusc.anim_is_finished(&"enter_shell"):
-		_phase = Phase.FLIP_TO_NORMAL
-		mollusc.anim_play(&"flip_to_normal", false, false)
-	return RUNNING
-
-
-func _tick_flip_to_normal(mollusc: Mollusc) -> int:
-	if mollusc.anim_is_finished(&"flip_to_normal"):
-		# 回壳完成后 committed 被单向锁拦截（false 无法写入），
-		# 但 queue_free() 立即销毁实例，此行实际无效（保留以维持代码意图清晰）。
-		mollusc.set_shell_return_committed(false)
-		# 通知壳体恢复
-		var shell: Node2D = mollusc.find_empty_shell()
-		if shell != null and is_instance_valid(shell) and shell.has_method("notify_shell_restored"):
-			shell.call("notify_shell_restored")
-			# 恢复 group
-			if shell.is_in_group("stoneeyebug_shell_empty"):
-				shell.remove_from_group("stoneeyebug_shell_empty")
-		# 软体销毁自身
-		mollusc.queue_free()
+		_restore_shell_and_finish(mollusc)
 		return SUCCESS
 	return RUNNING
+
+
+func _restore_shell_and_finish(mollusc: Mollusc) -> void:
+	# 回壳完成后 committed 被单向锁拦截（false 无法写入），
+	# 但 queue_free() 立即销毁实例，此行实际无效（保留以维持代码意图清晰）。
+	mollusc.end_shell_enter_lock()
+	mollusc.set_shell_return_committed(false)
+	# 通知壳体恢复（由 StoneEyeBug 壳体播放自身 flip_to_normal）
+	var shell: Node2D = mollusc.find_empty_shell()
+	if shell != null and is_instance_valid(shell) and shell.has_method("notify_shell_restored"):
+		shell.call("notify_shell_restored")
+		# 恢复 group
+		if shell.is_in_group("stoneeyebug_shell_empty"):
+			shell.remove_from_group("stoneeyebug_shell_empty")
+	# 软体销毁自身
+	mollusc.queue_free()
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
@@ -126,6 +124,7 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 		# ⚠️ 设计冻结：禁止在此处重置 committed。
 		# 被 Seq_Attack 打断后 committed 保持 true；攻击结束后 Seq_ReturnShell 重启。
 		# 原来此处有 set_shell_return_committed(false)，已移除（BUG FIX 2025-03-07）。
+		mollusc.end_shell_enter_lock()
 		mollusc.velocity = Vector2.ZERO
 	_phase = Phase.MOVE_TO_SHELL
 	super(actor, blackboard)
