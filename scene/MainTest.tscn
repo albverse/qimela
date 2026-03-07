@@ -165,38 +165,38 @@ position = Vector2(396, 362)
 position = Vector2(132, 476)
 
 [node name="StoneEyeBug" parent="World/Floor (StaticBody2D)" instance=ExtResource("9_4rqvp")]
-position = Vector2(720, 583)
+position = Vector2(605, 582)
 
 [node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
-position = Vector2(310, 532)
+position = Vector2(484, 432)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
 position = Vector2(-7, -36)
 
 [node name="Fly1" parent="World" instance=ExtResource("4_ngg7y")]
-position = Vector2(490, 397)
+position = Vector2(1487, 303)
 
 [node name="Fly2" parent="World" instance=ExtResource("4_ngg7y")]
-position = Vector2(410, 396)
+position = Vector2(-28, 333)
 
 [node name="Neutral1" parent="World" instance=ExtResource("7_neutral")]
-position = Vector2(-5, 560)
+position = Vector2(-454, 512)
 
 [node name="WalkB1" parent="World" instance=ExtResource("8_walkb")]
-position = Vector2(10, 555)
+position = Vector2(1541, 447)
 
 [node name="FlyB1" parent="World" instance=ExtResource("9_flyb")]
 position = Vector2(190, 296)
 
 [node name="Walk2" parent="World" instance=ExtResource("3_7qdox")]
-position = Vector2(352, 597)
+position = Vector2(10, 569)
 size_tier = 2
 
 [node name="MonsterHand" parent="World" instance=ExtResource("13_g5v7j")]
 position = Vector2(372, 467)
 
 [node name="rest_area" parent="World" instance=ExtResource("17_rest_area")]
-position = Vector2(71, 530)
+position = Vector2(-263, 372)
 
 [node name="StoneMaskBird" parent="World" instance=ExtResource("16_gteh2")]
 position = Vector2(-128, 510)
@@ -204,3 +204,6 @@ position = Vector2(-128, 510)
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
+
+[node name="StoneEyeBug" parent="." instance=ExtResource("9_4rqvp")]
+position = Vector2(248, 580)

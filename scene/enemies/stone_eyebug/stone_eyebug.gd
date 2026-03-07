@@ -256,8 +256,7 @@ func anim_stop() -> void:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
-	if anim_name == &"flip_to_normal" and mode == Mode.IN_SHELL:
-		anim_play(&"in_shell_loop", true, true)
+
 
 func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
 	## Spine 动画事件回调（事件名解析后写入 ev_* 标志，BT 叶节点读取并驱动状态转移）
@@ -628,7 +627,8 @@ func notify_become_empty_shell() -> void:
 
 
 func notify_shell_restored() -> void:
-	## 软体归来：壳体先执行 flip_to_normal，再回到缩壳待机。
+	## 软体归来：播壳体自身的 flip_to_normal，结束后由 ActSEBShellFlow 切 in_shell_loop。
+	## FIX-C: flip_to_normal 属于 StoneEyeBug Spine，不能由 Mollusc 播放（Mollusc 无此动画）。
 	mode = Mode.IN_SHELL
 	species_id = &"stone_eyebug"
 	if is_in_group("stoneeyebug_shell_empty"):
@@ -637,7 +637,9 @@ func notify_shell_restored() -> void:
 	shell_last_attacked_ms = Time.get_ticks_msec()
 	# 注意：_update_hurtbox_states() 会在下一帧根据 mode=IN_SHELL 恢复 LightReceiver，
 	# 此处无需手动设置 monitoring/disabled，避免与 _update_hurtbox_states 冲突。
-	anim_play(&"flip_to_normal", false, true)
+	# ⚠️ 不要在此处播 in_shell_loop：flip_to_normal 必须先完整播完，
+	# ActSEBShellFlow._tick_in_shell() 在 anim_is_finished("flip_to_normal") 后再切循环。
+	anim_play(&"flip_to_normal", false, false)
 
 
 func spawn_mollusc_instance() -> Node2D:
