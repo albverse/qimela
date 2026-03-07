@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://bt_chimera_nun_snake"]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
@@ -13,7 +13,7 @@
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_open_eye_attack.gd" id="act_open_eye"]
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_closed_eye_idle.gd" id="act_closed_eye"]
 
-[node name="BeehaveTree" type="Node" node_paths=PackedStringArray("blackboard", "actor")]
+[node name="BeehaveTree" type="Node"]
 script = ExtResource("bt_tree")
 blackboard = NodePath("Blackboard")
 actor = NodePath("..")

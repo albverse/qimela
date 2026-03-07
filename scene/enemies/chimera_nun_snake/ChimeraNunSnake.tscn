@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://chimera_nun_snake_main"]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/chimera_nun_snake.gd" id="1_script"]
 [ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
