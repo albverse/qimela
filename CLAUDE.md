@@ -2,160 +2,110 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## 1. 项目速览
 
-**Qimela (奇美拉)** — Godot 4.5 GDScript, 2D horizontal action-puzzle game.
+**Qimela (奇美拉)** — Godot 4.5 GDScript，2D横版动作解谜。
 
-Core mechanics: dual chain-launching, monster weakening/fusion, chimera generation.
+核心机制：双锁链投射 + 怪物虚弱/融合 + 奇美拉生成。
 
-**To run:** Open the project in the Godot 4.5 editor. Main scene is `MainTest.tscn`. There is no build script — use the Godot editor Play button or `godot --path /path/to/qimela_git`.
-
-## Documentation
-
-`docs/` contains comprehensive reference material. Start here before modifying any system:
-
-| File | Purpose |
-|------|---------|
-| `docs/GAME_ARCHITECTURE_MASTER.md` | **Primary AI entry point** — module index with key files and doc links |
-| `docs/0_ROUTER.md` | Navigation guide and quick reference tables |
-| `docs/C_ENTITY_DIRECTORY.md` | Single source of truth for all entities (species_id, attributes, HP) |
-| `docs/D_FUSION_RULES.md` | Authoritative fusion formula table |
-| `docs/A_PHYSICS_LAYER_TABLE.md` | Collision layer/bitmask reference |
-| `docs/B_GAMEPLAY_RULES.md` | Complete gameplay rules |
-| `docs/detail/*.md` | Deep-dive for each system (animation, chain, entity, fusion, etc.) |
-
-## Code Conventions
-
-**File naming:**
-- `.tscn` scenes: `PascalCase`
-- `.gd` scripts: `snake_case`
-- `class_name`: `PascalCase`
-
-**Forbidden GDScript patterns:**
-```gdscript
-# ❌ No ternary operator (not supported in GDScript 4)
-var x = cond ? A : B
-
-# ❌ No Variant type inference on instantiate
-var n := scene.instantiate()
-
-# ❌ No bare bitmask numbers without comments
-collision_mask = 5
+**运行方式：** Godot 4.5 编辑器打开，主场景 `MainTest.tscn`（无构建脚本）。
+```
+godot --path /path/to/qimela_git
 ```
 
-**Required patterns:**
+---
+
+## 2. 权威真相源优先级
+
+> **必须按此顺序查阅，不可凭记忆或代码推断。**
+
+| 优先级 | 内容 | 权威文件 |
+|--------|------|---------|
+| 1 | **模块总索引** | `docs/GAME_ARCHITECTURE_MASTER.md` |
+| 2 | **入口链路 + 调用链** | `docs/PROJECT_MAP.md` |
+| 3 | **硬约束 + 命名规范** | `docs/CONSTRAINTS.md` |
+| 4 | **实体 species_id / HP** | `docs/C_ENTITY_DIRECTORY.md` |
+| 5 | **融合结果** | `docs/D_FUSION_RULES.md` |
+| 6 | **物理碰撞层** | `docs/A_PHYSICS_LAYER_TABLE.md` |
+| 7 | **Spine API / 动画名** | `docs/SPINE_GODOT_LATEST_INTEGRATED_STANDARD.md` |
+| 8 | **Beehave 行为树 API** | `docs/BEEHAVE_REFERENCE.md` |
+
+---
+
+## 3. 默认最少读取白名单（≤8核心 + 2权威）
+
+> 写代码时默认只读此清单。不在清单内的文件需要明确理由。
+
+**核心文件（≤8个）：**
+1. `docs/GAME_ARCHITECTURE_MASTER.md` — 模块总索引
+2. `docs/PROJECT_MAP.md` — 入口链路与调用链
+3. `docs/CONSTRAINTS.md` — 硬约束清单（本文件的补充）
+4. `scene/player.gd` — 玩家总线（tick 顺序）
+5. `autoload/event_bus.gd` — 全局信号接口
+6. `autoload/fusion_registry.gd` — 融合规则接口
+7. `docs/C_ENTITY_DIRECTORY.md` — 实体数据权威
+8. `docs/D_FUSION_RULES.md` — 融合规则权威
+
+**权威外部参考（≤2个）：**
+- `docs/SPINE_GODOT_LATEST_INTEGRATED_STANDARD.md` — 涉及 Spine 动画时必读
+- `docs/BEEHAVE_REFERENCE.md` — 涉及 Boss / Beehave 行为树时必读
+
+**超出白名单时：** 先说明读取理由，再读文件。
+
+---
+
+## 4. GDScript 禁区速查（完整规范见 `docs/CONSTRAINTS.md`）
+
 ```gdscript
-# ✅ Use if/else expression
+# ❌ 禁止
+var x = cond ? A : B          # 无三目运算符
+var n := scene.instantiate()  # 禁止 Variant 推断
+collision_mask = 5             # 禁止裸数字（无注释）
+
+# ✅ 正确
 var x = A if cond else B
-
-# ✅ Explicit type annotation on instantiate
 var n: Node = (scene as PackedScene).instantiate()
-
-# ✅ Always comment collision layer numbers (see docs/A_PHYSICS_LAYER_TABLE.md)
-collision_mask = 4 | 64  # EnemyBody(3)+ChainInteract(7)
+collision_mask = 4 | 64  # EnemyBody(3) + ChainInteract(7)
 ```
 
-**Physics layer bitmask formula:** Layer N → bitmask = `1 << (N-1)`
+**物理层公式：第 N 层 → bitmask = `1 << (N-1)`**
 
-| Layer | Name | Bitmask |
-|-------|------|---------|
-| 1 | World | 1 |
-| 2 | PlayerBody | 2 |
-| 3 | EnemyBody | 4 |
-| 4 | EnemyHurtbox | 8 |
-| 5 | ObjectSense | 16 |
-| 6 | hazards | 32 |
-| 7 | ChainInteract | 64 |
+---
 
-## Architecture
+## 5. 文件命名规范
 
-### Player System (Component Orchestrator)
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| `.tscn` | `PascalCase` | `MonsterWalk.tscn` |
+| `.gd` | `snake_case` | `player_chain_system.gd` |
+| `class_name` | `PascalCase` | `PlayerChainSystem` |
 
-`scene/player.gd` is a tick dispatcher — not a monolithic script. Each `_physics_process` calls components in fixed order:
+---
 
-```
-1. Movement.tick(dt)       → horizontal velocity, gravity, jump
-2. move_and_slide()        → Godot physics (is_on_floor valid after this)
-3. LocomotionFSM.tick(dt)  → Idle/Walk/Run/Jump state machine → Track0 anim
-4. ActionFSM.tick(dt)      → None/Attack/Fuse/Hurt/Die + timeout protection
-5. Health.tick(dt)         → invincibility frames, knockback
-6. Animator.tick(dt)       → dual-track arbitration + Spine/Mock playback
-7. ChainSystem.tick(dt)    → Verlet rope update (reads bone positions set by Animator)
-8. _commit_pending_chain_fire → delayed chain fire (avoids same-frame race)
-```
+## 6. 关键架构速记
 
-Components live in `scene/components/` and hold a back-reference `var player: Player`.
+- **玩家 tick 顺序**（8步，不可调换）→ 见 `docs/PROJECT_MAP.md §5.1`
+- **Chain 不走 ActionFSM**，是独立 overlay 系统
+- **虚弱怪（hp_locked=true）** 只能被融合消灭
+- **EventBus** 只用 `emit_*()` 方法，不直接 `.emit()`
+- **新实体**必须先在 `docs/C_ENTITY_DIRECTORY.md` 和 `docs/D_FUSION_RULES.md` 注册
 
-### Dual-Track Animation
+---
 
-- **Track 0 (Locomotion):** Always reflects LocomotionFSM state
-- **Track 1 (Action):** Overlays ActionFSM actions when active
-- Driver: `AnimDriverSpine` (Spine skeletal) or `AnimDriverMock` (fallback)
-- See `docs/detail/ANIMATION_SYSTEM.md` for animation name tables
+## 7. 文档导航索引
 
-### Chain System (Independent Overlay)
-
-`player_chain_system.gd` is **intentionally NOT managed by ActionFSM**:
-- Two independent slots can have different states simultaneously
-- Persists across frames (FLYING → STUCK/LINKED → DISSOLVING → IDLE)
-- Can fire while moving or airborne
-- Uses Verlet physics for rope simulation
-
-State machine: `IDLE → FLYING → STUCK | LINKED → DISSOLVING → IDLE`
-
-Fire: direct input → `_pending_chain_fire_side` → `ChainSystem.fire()`
-Cancel: X key → `ChainSystem.force_dissolve_all_chains()`
-
-### Entity Hierarchy
-
-```
-EntityBase (entity_base.gd)
-├── MonsterBase (monster_base.gd)         — HP, weak state, stun, lightning reactions
-│   ├── MonsterWalk (DARK attribute)
-│   ├── MonsterFly (LIGHT attribute)
-│   ├── MonsterNeutral (NORMAL attribute)
-│   ├── MonsterHand
-│   └── MonsterHostile (fusion failure product, no weak state)
-└── ChimeraBase (chimera_base.gd)         — fusion product, following/wandering/decomposition
-    ├── ChimeraA (standard following chimera)
-    └── ChimeraStoneSnake (attack type, fires projectiles, cannot be chain-linked)
-```
-
-**Weak state rule:** When monster HP ≤ `weak_hp`, it enters weak state (`hp_locked = true`) and cannot be killed by normal attacks — only fusion can finish it.
-
-### Fusion System
-
-`autoload/fusion_registry.gd` — singleton rule engine. Matches `(species_id_a, species_id_b)` pairs:
-
-| Result | Effect |
-|--------|--------|
-| `SUCCESS` | Spawn chimera, both originals vanish |
-| `FAIL_HOSTILE` | Spawn hostile monster (no weak state) |
-| `FAIL_VANISH` | Both vanish, spawn healing sprites |
-| `FAIL_EXPLODE` | Both explode + mud splash (chimera + chimera) |
-| `HEAL_LARGE` | Heal/damage the larger entity |
-| `REJECTED` | Blocked (same species, no rule) |
-
-**Authoritative entity data:** `docs/C_ENTITY_DIRECTORY.md` and `docs/D_FUSION_RULES.md` — do not infer species_ids or fusion outcomes from code alone.
-
-### Boss Enemy (StoneMaskBird)
-
-Located in `scene/enemies/stone_mask_bird/`. Uses the **Beehave** behavior tree addon (in `addons/beehave/`) instead of a hardcoded FSM. Contains 11 action nodes and 7 condition nodes under `actions/` and `conditions/`.
-
-### Autoloads (Global Singletons)
-
-- `autoload/event_bus.gd` — global signal hub (thunder, healing, chain, fusion events). Emit via `EventBus.emit_*()`.
-- `autoload/fusion_registry.gd` — fusion rule engine, loaded at startup.
-
-### Input Mapping
-
-| Action | Key |
-|--------|-----|
-| Move left/right | A / D |
-| Jump | W |
-| Cancel chains | X |
-| Fuse | Space |
-| Use healing sprite | C |
-| Healing burst | Q |
-| Fire chain | Mouse left click (direct input, not action-mapped) |
-| Switch weapon | Z (direct input) |
+| 文件 | 用途 |
+|------|------|
+| `docs/GAME_ARCHITECTURE_MASTER.md` | **AI首选入口**，模块总表 |
+| `docs/PROJECT_MAP.md` | 入口链路、节点树、调用链 |
+| `docs/CONSTRAINTS.md` | 工程硬约束、命名规范、禁区 |
+| `docs/A_PHYSICS_LAYER_TABLE.md` | 碰撞层详表 |
+| `docs/B_GAMEPLAY_RULES.md` | 完整玩法规则 |
+| `docs/C_ENTITY_DIRECTORY.md` | 实体数据权威（species_id/HP/属性） |
+| `docs/D_FUSION_RULES.md` | 融合公式权威 |
+| `docs/E_BEEHAVE_ENEMY_DESIGN_GUIDE.md` | Boss 行为树设计指南 |
+| `docs/BEEHAVE_REFERENCE.md` | Beehave API 权威参考 |
+| `docs/SPINE_GODOT_LATEST_INTEGRATED_STANDARD.md` | Spine Godot 集成规范 |
+| `docs/AI_Animation_Spec_Pack_/` | 动画规范包（12份） |
+| `docs/detail/*.md` | 各模块详细实现文档 |
+| `CURRENT_TASK.md` | **当前任务上下文**（每次开发前填写） |
