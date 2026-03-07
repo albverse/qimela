@@ -256,7 +256,8 @@ func anim_stop() -> void:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
-
+	if anim_name == &"flip_to_normal" and mode == Mode.IN_SHELL:
+		anim_play(&"in_shell_loop", true, true)
 
 func _on_spine_event(_a1, _a2 = null, _a3 = null, _a4 = null) -> void:
 	## Spine 动画事件回调（事件名解析后写入 ev_* 标志，BT 叶节点读取并驱动状态转移）
@@ -627,7 +628,7 @@ func notify_become_empty_shell() -> void:
 
 
 func notify_shell_restored() -> void:
-	## 软体归来：壳恢复为缩壳待机状态
+	## 软体归来：壳体先执行 flip_to_normal，再回到缩壳待机。
 	mode = Mode.IN_SHELL
 	species_id = &"stone_eyebug"
 	if is_in_group("stoneeyebug_shell_empty"):
@@ -636,7 +637,7 @@ func notify_shell_restored() -> void:
 	shell_last_attacked_ms = Time.get_ticks_msec()
 	# 注意：_update_hurtbox_states() 会在下一帧根据 mode=IN_SHELL 恢复 LightReceiver，
 	# 此处无需手动设置 monitoring/disabled，避免与 _update_hurtbox_states 冲突。
-	anim_play(&"in_shell_loop", true, true)
+	anim_play(&"flip_to_normal", false, true)
 
 
 func spawn_mollusc_instance() -> Node2D:

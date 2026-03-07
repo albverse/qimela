@@ -104,6 +104,8 @@ var spawn_enter_active: bool = true
 
 ## 回壳承诺：开始回壳后，屏蔽“玩家威胁触发逃跑”分支，直到回壳成功或判定路阻。
 var shell_return_committed: bool = false
+## 回壳入壳锁：播放 enter_shell 期间强制无敌且动画不可被其它逻辑打断。
+var shell_enter_lock: bool = false
 
 
 # ===== 动画状态追踪 =====
@@ -244,6 +246,8 @@ func get_weak_state() -> bool:
 # =============================================================================
 
 func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -> void:
+	if shell_enter_lock and anim_name != &"enter_shell":
+		return
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
 	_current_anim = anim_name
@@ -281,6 +285,8 @@ func force_close_hit_windows() -> void:
 func apply_hit(hit: HitData) -> bool:
 	## 受击处理：仅受击反馈，不走 HP 死亡语义。
 	## 设计确认：Mollusc 生命终结路径为回壳/融合回收，不因常规受击直接死亡。
+	if shell_enter_lock:
+		return false
 	if hit == null:
 		return false
 	if hurt_lock_t <= 0.0:
@@ -292,6 +298,9 @@ func apply_hit(hit: HitData) -> bool:
 
 
 func on_chain_hit(player_ref: Node, _slot: int) -> int:
+	## 回壳入壳期间无敌且不可被打断。
+	if shell_enter_lock:
+		return 0
 	## Mollusc 特例：LightFlower weak 通道也允许被链接，避免“看起来眩晕却不能链”。
 	if weak or lightflower_weak_stun_active or stunned_t > 0.0:
 		_linked_player = player_ref
@@ -422,6 +431,21 @@ func find_new_shell() -> Node2D:
 			nearest_dist = d
 			nearest = sn
 	return nearest
+func begin_shell_enter_lock() -> void:
+	shell_enter_lock = true
+	velocity = Vector2.ZERO
+	is_attacking = false
+	is_hurt = false
+	hurt_lock_t = 0.0
+	force_close_hit_windows()
+
+
+func end_shell_enter_lock() -> void:
+	shell_enter_lock = false
+
+
+func is_shell_enter_locked() -> bool:
+	return shell_enter_lock
 
 
 func set_shell_return_committed(active: bool) -> void:
@@ -459,6 +483,8 @@ func is_shell_return_path_blocked(target_shell: Node2D) -> bool:
 
 
 func is_player_in_attack_range() -> bool:
+	if shell_enter_lock:
+		return false
 	if forced_breakout_active:
 		return get_primary_player_in_range(attack_range) != null
 	return _get_attack_target_in_range(attack_range) != null
@@ -471,6 +497,8 @@ func is_player_near_threat() -> bool:
 func get_player() -> Node2D:
 	## Beehave 优先：仅在“攻击分支已判定进入攻击范围”时再取攻击目标。
 	## 这里严格限制为 attack_range 内目标，避免主动寻敌改变行为树语义。
+	if shell_enter_lock:
+		return null
 	if forced_breakout_active:
 		var primary := get_primary_player_in_range(attack_range)
 		if primary != null:
@@ -775,7 +803,6 @@ func _setup_mock_durations() -> void:
 	_anim_mock._durations[&"idle"] = 1.0
 	_anim_mock._durations[&"run"] = 0.5
 	_anim_mock._durations[&"enter_shell"] = 0.6
-	_anim_mock._durations[&"flip_to_normal"] = 0.4
 	_anim_mock._durations[&"attack_stone"] = 0.6
 	_anim_mock._durations[&"attack_lick"] = 0.5
 	_anim_mock._durations[&"hurt"] = 0.3

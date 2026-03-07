@@ -168,7 +168,7 @@ position = Vector2(132, 476)
 position = Vector2(720, 583)
 
 [node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
-position = Vector2(270, 461)
+position = Vector2(310, 532)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
 position = Vector2(-7, -36)
@@ -180,10 +180,10 @@ position = Vector2(490, 397)
 position = Vector2(410, 396)
 
 [node name="Neutral1" parent="World" instance=ExtResource("7_neutral")]
-position = Vector2(290, 507)
+position = Vector2(-5, 560)
 
 [node name="WalkB1" parent="World" instance=ExtResource("8_walkb")]
-position = Vector2(440, 507)
+position = Vector2(10, 555)
 
 [node name="FlyB1" parent="World" instance=ExtResource("9_flyb")]
 position = Vector2(190, 296)
