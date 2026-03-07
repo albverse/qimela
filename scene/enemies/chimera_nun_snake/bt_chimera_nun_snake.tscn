@@ -1,0 +1,77 @@
+[gd_scene load_steps=14 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_is_weak_or_stun.gd" id="cond_weak_stun"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_has_petrified_target.gd" id="cond_petrified"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nns_mode_is.gd" id="cond_mode_is"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_weak_stun_handle.gd" id="act_weak_stun"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_petrified_execution_chase.gd" id="act_petrified_chase"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_guard_break_flow.gd" id="act_guard_break"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_open_eye_attack.gd" id="act_open_eye"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_nns_closed_eye_idle.gd" id="act_closed_eye"]
+
+; BeehaveTree 根节点：actor 自动取父节点（ChimeraNunSnake CharacterBody2D）
+; Blackboard 由 BeehaveTree._ready() 自动创建，不在此声明子节点
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级从上到下：
+;   WeakOrStun > PetrifiedChase > GuardBreak > OpenEyeAttack > ClosedEyeIdle
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 1. Seq_WeakStun（优先级最高：虚弱或晕眩状态）---
+[node name="Seq_WeakStun" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsWeakOrStun" type="Node" parent="RootSelector/Seq_WeakStun"]
+script = ExtResource("cond_weak_stun")
+
+[node name="Act_HandleWeakOrStun" type="Node" parent="RootSelector/Seq_WeakStun"]
+script = ExtResource("act_weak_stun")
+
+; --- 2. Seq_PetrifiedChase（石化目标追击执行）---
+[node name="Seq_PetrifiedChase" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_HasPetrifiedTarget" type="Node" parent="RootSelector/Seq_PetrifiedChase"]
+script = ExtResource("cond_petrified")
+
+[node name="Act_PetrifiedExecutionChase" type="Node" parent="RootSelector/Seq_PetrifiedChase"]
+script = ExtResource("act_petrified_chase")
+
+; --- 3. Seq_GuardBreak（护盾破防流程）---
+[node name="Seq_GuardBreak" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeGuardBreak" type="Node" parent="RootSelector/Seq_GuardBreak"]
+script = ExtResource("cond_mode_is")
+target_mode = 2
+
+[node name="Act_GuardBreakFlow" type="Node" parent="RootSelector/Seq_GuardBreak"]
+script = ExtResource("act_guard_break")
+
+; --- 4. Seq_OpenEyeAttack（睁眼攻击阶段）---
+[node name="Seq_OpenEyeAttack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeOpenEye" type="Node" parent="RootSelector/Seq_OpenEyeAttack"]
+script = ExtResource("cond_mode_is")
+target_mode = 1
+
+[node name="Act_OpenEyeAttack" type="Node" parent="RootSelector/Seq_OpenEyeAttack"]
+script = ExtResource("act_open_eye")
+
+; --- 5. Act_ClosedEyeIdle（兜底：闭眼待机，永远 RUNNING）---
+[node name="Act_ClosedEyeIdle" type="Node" parent="RootSelector"]
+script = ExtResource("act_closed_eye")

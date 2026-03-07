@@ -51,3 +51,9 @@ func emit_slot_switched(active_slot: int) -> void:
 
 func emit_fusion_rejected() -> void:
 	fusion_rejected.emit()
+
+# 光花放电事件（修女蛇破防来源之一）
+signal lightning_flower_release(source: Node2D)
+
+func emit_lightning_flower_release(source: Node2D) -> void:
+	lightning_flower_release.emit(source)

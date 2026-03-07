@@ -110,3 +110,20 @@ func _validate_rules() -> void:
 | 2026-02-02 | 初始化文档，从fusion_registry.gd同步 |
 | 2026-02-02 | 添加 fly_light + hand_light → Chimera_StoneSnake 规则 |
 | 2026-03-03 | 添加 mollusc + stone_eyebug_shell → ChimeraGhostHandL 规则；新增石眼虫/软体虫/幽灵手奇美拉三实体 |
+| 2026-03-07 | 新增 chimera_nun_snake 实体（修女蛇）；融合规则占位，尚未实现产物（TODO） |
+
+---
+
+## 9. 融合规则占位（修女蛇，待实现）
+
+```yaml
+fusion_placeholder:
+  species_id: chimera_nun_snake
+  enabled: true
+  implemented: false
+  todo:
+    - 确定与哪些 species_id 的融合组合
+    - 在 autoload/fusion_registry.gd 的 _rules 字典中添加规则
+    - 同步更新本文档
+    - 定义 success / rejected / fail_hostile / fail_vanish 行为
+```

@@ -579,6 +579,9 @@ func _resolve_monster(area_or_body: Node) -> Node:
 			return null
 		if cur is MonsterBase:
 			return cur
+		# 支持非 MonsterBase 的攻击型实体（如 ChimeraNunSnake extends ChimeraBase）
+		if cur.is_in_group("monster") and cur.has_method("apply_hit"):
+			return cur
 		if cur.is_in_group("rest_area") and cur.has_method("apply_hit"):
 			return cur
 		cur = cur.get_parent()
