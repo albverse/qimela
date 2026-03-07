@@ -102,8 +102,14 @@ var _spawn_elapsed_sec: float = 0.0
 ## 生成入场锁：先播 enter，结束后才进入常规 BT 行为
 var spawn_enter_active: bool = true
 
-## 回壳承诺：开始回壳后，屏蔽“玩家威胁触发逃跑”分支，直到回壳成功或判定路阻。
+## 回壳承诺：开始回壳后，屏蔽”玩家威胁触发逃跑”分支，直到回壳成功或判定路阻。
 var shell_return_committed: bool = false
+
+## 入壳无敌锁：进入 ENTER_SHELL/FLIP_TO_NORMAL 阶段后启用。
+## 双重保护：① apply_hit/on_chain_hit 忽略所有受击（动画不被覆盖）
+##           ② CondMolluscPlayerInRange 返回 FAILURE（Seq_Attack 无法打断）
+## 由 ActMolluscReturnShell 在 dist<=16 时设为 true，interrupt() 时清除。
+var is_entering_shell: bool = false
 
 
 # ===== 动画状态追踪 =====
@@ -283,6 +289,9 @@ func apply_hit(hit: HitData) -> bool:
 	## 设计确认：Mollusc 生命终结路径为回壳/融合回收，不因常规受击直接死亡。
 	if hit == null:
 		return false
+	# 入壳无敌阶段：完全免疫所有受击，enter_shell/flip_to_normal 不可被覆盖。
+	if is_entering_shell:
+		return false
 	if hurt_lock_t <= 0.0:
 		_do_hurt()
 	else:
@@ -292,7 +301,10 @@ func apply_hit(hit: HitData) -> bool:
 
 
 func on_chain_hit(player_ref: Node, _slot: int) -> int:
-	## Mollusc 特例：LightFlower weak 通道也允许被链接，避免“看起来眩晕却不能链”。
+	## Mollusc 特例：LightFlower weak 通道也允许被链接，避免”看起来眩晕却不能链”。
+	# 入壳无敌阶段：链命中完全忽略。
+	if is_entering_shell:
+		return 0
 	if weak or lightflower_weak_stun_active or stunned_t > 0.0:
 		_linked_player = player_ref
 		return 1
@@ -442,6 +454,10 @@ func set_shell_return_committed(active: bool) -> void:
 
 func is_shell_return_committed() -> bool:
 	return shell_return_committed
+
+
+func set_entering_shell(active: bool) -> void:
+	is_entering_shell = active
 
 
 func is_shell_return_path_blocked(target_shell: Node2D) -> bool:
