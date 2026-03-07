@@ -9,10 +9,10 @@ class_name PlayerActionFSM
 ## 动作结束统一走 resolve_post_action_state
 ## 禁止：播放动画、改 velocity
 
-enum State { NONE, ATTACK, ATTACK_CANCEL, FUSE, HURT, DIE }
+enum State { NONE, ATTACK, ATTACK_CANCEL, FUSE, HURT, DIE, PETRIFIED }
 
 const STATE_NAMES: Array[StringName] = [
-	&"None", &"Attack", &"AttackCancel", &"Fuse", &"Hurt", &"Die"
+	&"None", &"Attack", &"AttackCancel", &"Fuse", &"Hurt", &"Die", &"Petrified"
 ]
 
 const DEFAULT_HURT_TIMEOUT: float = 1.0  ## Hurt 默认超时（stun 结束后恢复此值）
@@ -33,6 +33,12 @@ var _hurt_timer: float = 0.0
 var _fuse_timer: float = 0.0
 var _return_idle_after_hurt: bool = false
 var _use_fuse_hurt_anim: bool = false
+
+## PETRIFIED 状态参数（可由 Player 导出参数覆盖）
+var stone_recover_enabled: bool = true
+var stone_auto_recover_sec: float = 3.0
+var stone_forced_death_sec: float = 10.0
+var _petrified_timer: float = 0.0
 
 
 func state_name() -> StringName:
@@ -61,6 +67,11 @@ func tick(_dt: float) -> void:
 		_attack_timer = 0.0
 		_fuse_timer = 0.0
 		return  # 终态：不执行任何逻辑
+
+	# === PETRIFIED 状态处理 ===
+	if state == State.PETRIFIED:
+		_tick_petrified(_dt)
+		return
 
 	# === GLOBAL pr=100: hp<=0 → Die ===
 	var hp: int = _player.health.hp if _player.health != null else 1
@@ -440,6 +451,72 @@ func _do_transition(to: int, reason: String, priority: int) -> void:
 	if _player != null and _player.has_method("log_msg"):
 		_player.log_msg("ACTION",
 			"TRANS=%s->%s reason=%s pr=%d" % [from_name, to_name, reason, priority])
+
+
+# ── PETRIFIED 石化状态 ──
+
+func on_petrified() -> void:
+	## 外部入口：玩家进入石化状态
+	if _player == null:
+		return
+	if state == State.DIE or state == State.PETRIFIED:
+		return
+	_petrified_timer = 0.0
+	# 中断当前动作（链条、攻击等）
+	if _player.chain_sys != null and _player.chain_sys.has_method("force_dissolve_all_chains"):
+		_player.chain_sys.force_dissolve_all_chains(&"petrified")
+	_do_transition(State.PETRIFIED, "petrified_enter", 95)
+
+
+func is_petrified() -> bool:
+	return state == State.PETRIFIED
+
+
+func _tick_petrified(dt: float) -> void:
+	## 石化中：禁止移动/跳跃/攻击；管理自动恢复与强制死亡计时
+	if _player == null:
+		return
+
+	# 冻结移动
+	if _player.movement != null:
+		_player.movement.move_intent = 0
+		_player.movement.input_dir = 0.0
+		_player.velocity.x = 0.0
+
+	_petrified_timer += dt
+
+	# 强制死亡超时（10s）
+	if _petrified_timer >= stone_forced_death_sec:
+		_petrified_die_by_stone("petrified_forced_death_timeout")
+		return
+
+	# 自动恢复（3s）
+	if stone_recover_enabled and _petrified_timer >= stone_auto_recover_sec:
+		_exit_petrified_recover()
+		return
+
+
+func _exit_petrified_recover() -> void:
+	## 石化恢复出口
+	_petrified_timer = 0.0
+	_do_transition(State.NONE, "petrified_recover", 90)
+	if _player != null and _player.loco_fsm != null:
+		_sync_loco(&"Idle", "petrified_recover")
+
+
+func _petrified_die_by_stone(reason: String) -> void:
+	## 石化死亡（被处决或超时）
+	_petrified_timer = 0.0
+	if _player != null and _player.health != null:
+		_player.health.hp = 0
+	_do_transition(State.DIE, reason, 100)
+
+
+func on_petrified_hurt() -> void:
+	## 石化中被攻击命中（stone_hurt_kill）→ 立即死亡
+	if state != State.PETRIFIED:
+		return
+	_petrified_die_by_stone("petrified_hurt_kill")
 
 
 # ── 日志 ──

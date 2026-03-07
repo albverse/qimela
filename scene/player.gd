@@ -196,7 +196,11 @@ func _is_chain_fire_blocked() -> bool:
 	if health != null and health.hp <= 0:
 		return true
 	if action_fsm != null:
-		if action_fsm.state == PlayerActionFSM.State.DIE or action_fsm.state == PlayerActionFSM.State.HURT:
+		if (
+			action_fsm.state == PlayerActionFSM.State.DIE
+			or action_fsm.state == PlayerActionFSM.State.HURT
+			or action_fsm.state == PlayerActionFSM.State.PETRIFIED
+		):
 			return true
 	return false
 
@@ -230,10 +234,33 @@ func _commit_pending_chain_fire() -> void:
 	_pending_chain_fire_side = ""
 
 
+# ── 石化接口（供眼球子弹调用）──
+
+func enter_petrified() -> void:
+	## 进入石化状态入口（由 NunSnakeEyeProjectile 命中时调用）
+	if action_fsm == null:
+		return
+	if action_fsm.has_method("on_petrified"):
+		action_fsm.on_petrified()
+
+
+func is_petrified() -> bool:
+	## 查询是否处于石化状态
+	if action_fsm == null:
+		return false
+	if action_fsm.has_method("is_petrified"):
+		return action_fsm.call("is_petrified")
+	return false
+
+
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+
+	# 石化状态：禁止所有输入
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.PETRIFIED:
 		return
 
 	# C / use healing sprite
