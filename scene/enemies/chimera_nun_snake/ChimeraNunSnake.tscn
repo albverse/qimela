@@ -36,7 +36,6 @@ light_receiver_path = NodePath("LightReceiver")
 eye_projectile_scene = ExtResource("5_eye_proj")
 
 [node name="SpineSprite" type="Node2D" parent="."]
-## SpineSprite 占位：等待 Spine 资源就绪后替换为 SpineSprite 并赋 SkeletonData
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -24)
@@ -73,7 +72,6 @@ position = Vector2(0, -30)
 shape = SubResource("light_recv_shape")
 
 [node name="GroundPoundHitbox" type="Area2D" parent="."]
-## 定点爆发型锤地判定（常驻节点，atk_hit_on/off 事件驱动开关）
 position = Vector2(0, -4)
 collision_layer = 0
 collision_mask = 2
@@ -83,7 +81,6 @@ monitoring = false
 shape = SubResource("ground_pound_shape")
 
 [node name="TailSweepHitbox" type="Area2D" parent="."]
-## 甩尾判定（atk_hit_on/off 事件驱动，由 BT 动作层管理）
 position = Vector2(0, -24)
 collision_layer = 0
 collision_mask = 2
@@ -102,6 +99,6 @@ shape = SubResource("detect_shape")
 
 [node name="EyeSocketMark" type="Marker2D" parent="."]
 position = Vector2(0, -40)
-## 眼球发射点 / 眼窝挂点（无 Spine 时 fallback 坐标）
 
-[node name="BeehaveTree" parent="." instance=ExtResource("4_bt")]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+actor = NodePath("..")
