@@ -47,7 +47,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if snake.mode == ChimeraNunSnake.Mode.WEAK or snake.mode == ChimeraNunSnake.Mode.STUN:
 		return FAILURE
 
-	snake.velocity = Vector2.ZERO
+	snake.velocity.x = 0.0
 
 	match _sub_state:
 		SubState.CLOSE_TO_OPEN:
@@ -97,6 +97,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			if snake.anim_is_finished(&"open_eye_to_close"):
 				snake.closing_transition_lock = false
 				snake._enter_closed_eye()
+				snake.start_attack_cooldown()
 				return SUCCESS
 			return RUNNING
 

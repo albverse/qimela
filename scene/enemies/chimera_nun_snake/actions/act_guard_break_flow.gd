@@ -82,6 +82,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		SubState.TAIL_SWEEP:
 			if snake.anim_is_finished(&"tail_sweep"):
 				snake._enter_closed_eye()
+				snake.start_attack_cooldown()
 				return SUCCESS
 			return RUNNING
 
@@ -89,6 +90,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			if snake.anim_is_finished(&"open_eye_to_close"):
 				snake.closing_transition_lock = false
 				snake._enter_closed_eye()
+				snake.start_attack_cooldown()
 				return SUCCESS
 			return RUNNING
 

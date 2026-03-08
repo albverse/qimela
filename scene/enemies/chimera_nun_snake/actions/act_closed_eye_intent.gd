@@ -12,13 +12,15 @@ class_name ActNunSnakeClosedEyeIntent
 ## - 玩家在 stiff_attack_range → 选 stiff_attack（进入攻击链）
 ## - 玩家在 ground_pound_range → 选 ground_pound
 ## - 否则 → 闭眼移动接近
+##
+## 攻击之间有冷却期（attack_cooldown_sec），冷却中继续行走接近。
 ## =============================================================================
 
 enum SubState {
 	SELECTING = 0,
 	WALKING = 1,
 	GROUND_POUND = 2,
-	OPEN_EYE_CHAIN = 3,  ## 切到 OpenEyeAttackChain action
+	COOLDOWN_WALK = 3,  ## 攻击冷却中，继续行走
 }
 
 var _sub_state: int = SubState.SELECTING
@@ -40,7 +42,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if target == null or not is_instance_valid(target):
 		target = snake.detect_player_in_range(snake.detect_player_radius)
 		if target == null:
-			snake.velocity = Vector2.ZERO
+			snake.velocity.x = 0.0
 			return FAILURE
 
 	match _sub_state:
@@ -50,12 +52,20 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			return _tick_walking(snake, target)
 		SubState.GROUND_POUND:
 			return _tick_ground_pound(snake)
+		SubState.COOLDOWN_WALK:
+			return _tick_cooldown_walk(snake, target)
 
 	return RUNNING
 
 
 func _tick_select(snake: ChimeraNunSnake, target: Node2D) -> int:
 	var h_dist: float = abs(target.global_position.x - snake.global_position.x)
+
+	# 冷却中 → 行走接近（不发动攻击）
+	if snake.is_attack_on_cooldown():
+		_sub_state = SubState.COOLDOWN_WALK
+		snake.anim_play(&"closed_eye_walk", true)
+		return RUNNING
 
 	# 在 stiff_attack_range → 选择开眼攻击链（交由 ActOpenEyeAttackChain 处理）
 	if h_dist <= snake.stiff_attack_range:
@@ -82,12 +92,12 @@ func _tick_walking(snake: ChimeraNunSnake, target: Node2D) -> int:
 
 	# 到达攻击范围 → 重新选择
 	if h_dist <= snake.stiff_attack_range:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		_sub_state = SubState.SELECTING
 		return _tick_select(snake, target)
 
 	if h_dist <= snake.ground_pound_range:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		_sub_state = SubState.SELECTING
 		return _tick_select(snake, target)
 
@@ -100,19 +110,35 @@ func _tick_walking(snake: ChimeraNunSnake, target: Node2D) -> int:
 
 
 func _tick_ground_pound(snake: ChimeraNunSnake) -> int:
-	snake.velocity = Vector2.ZERO
+	snake.velocity.x = 0.0
 	if snake.anim_is_finished(&"ground_pound"):
 		snake.force_close_all_hitboxes()
+		# 攻击结束 → 启动冷却，进入冷却行走
+		snake.start_attack_cooldown()
+		_sub_state = SubState.COOLDOWN_WALK
+		snake.anim_play(&"closed_eye_walk", true)
+		return RUNNING
+	return RUNNING
+
+
+func _tick_cooldown_walk(snake: ChimeraNunSnake, target: Node2D) -> int:
+	# 冷却结束 → 重新选择攻击
+	if not snake.is_attack_on_cooldown():
+		snake.velocity.x = 0.0
 		_sub_state = SubState.SELECTING
-		snake.anim_play(&"closed_eye_idle", true)
-		return SUCCESS
+		return _tick_select(snake, target)
+
+	# 冷却中继续向玩家行走（使怪物有机会走入 stiff_attack_range）
+	snake.face_toward(target)
+	var dir_x: float = sign(target.global_position.x - snake.global_position.x)
+	snake.velocity.x = dir_x * snake.closed_walk_speed
 	return RUNNING
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
 	if snake != null:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		snake.force_close_all_hitboxes()
 	_sub_state = SubState.SELECTING
 	super(actor, blackboard)

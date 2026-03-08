@@ -66,6 +66,9 @@ enum EyePhase {
 @export var tail_sweep_knockback_px: float = 200.0
 @export var tail_sweep_execute_petrified: bool = true
 
+# ===== 攻击冷却 =====
+@export var attack_cooldown_sec: float = 1.0
+
 # ===== 石化参数（玩家） =====
 @export var stone_recover_enabled: bool = true
 @export var stone_auto_recover_sec: float = 3.0
@@ -75,6 +78,9 @@ enum EyePhase {
 # ===== 内部状态（BT 叶节点直接读写） =====
 var mode: int = Mode.CLOSED_EYE
 var eye_phase: int = EyePhase.SOCKETED
+
+## 攻击冷却结束时间
+var _attack_cooldown_end_sec: float = 0.0
 
 ## 转场锁：防止 reactive BT 在开眼/关眼过程反复抢占
 var opening_transition_lock: bool = false
@@ -203,9 +209,9 @@ func _physics_process(dt: float) -> void:
 				stunned_t = 0.0
 				_restore_from_stun_nun_snake()
 
-	# 重力（始终施加，避免初始悬浮）
+	# 重力（与 MonsterWalk 同步 1200 px/s²）
 	if not is_on_floor():
-		velocity.y += dt * 1500.0  # gravity
+		velocity.y += dt * 1200.0  # gravity
 	else:
 		velocity.y = max(velocity.y, 0.0)
 	move_and_slide()
@@ -343,7 +349,7 @@ func _enter_weak() -> void:
 	reset_vanish_count()
 	weak_stun_t = nun_snake_weak_duration
 	force_close_all_hitboxes()
-	velocity = Vector2.ZERO
+	velocity.x = 0.0
 
 	# 终止攻击链
 	_abort_attack_chain()
@@ -364,7 +370,7 @@ func _enter_stun() -> void:
 	mode = Mode.STUN
 	stunned_t = nun_snake_stun_duration
 	force_close_all_hitboxes()
-	velocity = Vector2.ZERO
+	velocity.x = 0.0
 
 	_abort_attack_chain()
 
@@ -685,6 +691,14 @@ func detect_petrified_player() -> Node2D:
 		if p.has_method("is_petrified") and p.call("is_petrified"):
 			return p as Node2D
 	return null
+
+
+func start_attack_cooldown() -> void:
+	_attack_cooldown_end_sec = now_sec() + attack_cooldown_sec
+
+
+func is_attack_on_cooldown() -> bool:
+	return now_sec() < _attack_cooldown_end_sec
 
 
 func is_player_in_range(target: Node2D, range_px: float) -> bool:

@@ -49,12 +49,12 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	var target: Node2D = snake.petrified_target_node
 	if target == null or not is_instance_valid(target):
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		return SUCCESS  # 目标丢失
 
 	# 检查目标是否仍然石化
 	if target.has_method("is_petrified") and not target.call("is_petrified"):
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		return SUCCESS
 
 	match _sub_state:
@@ -82,7 +82,7 @@ func _tick_closing_eye(snake: ChimeraNunSnake, _target: Node2D) -> int:
 func _tick_chasing(snake: ChimeraNunSnake, target: Node2D) -> int:
 	_chase_timer += snake.get_physics_process_delta_time()
 	if _chase_timer >= _chase_timeout:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		return SUCCESS  # 追击超时
 
 	snake.face_toward(target)
@@ -90,7 +90,7 @@ func _tick_chasing(snake: ChimeraNunSnake, target: Node2D) -> int:
 	# 检查是否进入 tail_sweep_range
 	var h_dist: float = abs(target.global_position.x - snake.global_position.x)
 	if h_dist <= snake.tail_sweep_range:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		_sub_state = SubState.TAIL_SWEEP_TRANSITION
 		snake.anim_play(&"tail_sweep_transition", false)
 		return RUNNING
@@ -103,7 +103,7 @@ func _tick_chasing(snake: ChimeraNunSnake, target: Node2D) -> int:
 
 
 func _tick_tail_sweep_transition(snake: ChimeraNunSnake) -> int:
-	snake.velocity = Vector2.ZERO
+	snake.velocity.x = 0.0
 	if snake.anim_is_finished(&"tail_sweep_transition"):
 		_sub_state = SubState.TAIL_SWEEP
 		snake.anim_play(&"tail_sweep", false)
@@ -111,7 +111,7 @@ func _tick_tail_sweep_transition(snake: ChimeraNunSnake) -> int:
 
 
 func _tick_tail_sweep(snake: ChimeraNunSnake) -> int:
-	snake.velocity = Vector2.ZERO
+	snake.velocity.x = 0.0
 	if snake.anim_is_finished(&"tail_sweep"):
 		snake._enter_closed_eye()
 		return SUCCESS
@@ -121,7 +121,7 @@ func _tick_tail_sweep(snake: ChimeraNunSnake) -> int:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
 	if snake != null:
-		snake.velocity = Vector2.ZERO
+		snake.velocity.x = 0.0
 		snake.closing_transition_lock = false
 		snake.force_close_all_hitboxes()
 	_sub_state = SubState.CHASING

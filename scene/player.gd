@@ -7,6 +7,7 @@ extends CharacterBody2D
 
 # ── 调试开关 ──
 @export var debug_log: bool = true
+@export var debug_invincible: bool = false  ## 测试用：开启后被攻击不减HP
 
 # ── 移动参数 ──
 @export var move_speed: float = 260.0
@@ -531,6 +532,9 @@ func is_external_control_frozen() -> bool:
 	return _external_control_frozen
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
+	# 测试无敌模式：跳过所有伤害
+	if debug_invincible:
+		return
 	# 石化中被伤害 → 即死处决
 	if _petrified:
 		execute_petrified_death()

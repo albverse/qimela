@@ -46,7 +46,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return RUNNING
 
 	# 循环中，等待时间到
-	snake.velocity = Vector2.ZERO
+	snake.velocity.x = 0.0
 	return RUNNING
 
 
