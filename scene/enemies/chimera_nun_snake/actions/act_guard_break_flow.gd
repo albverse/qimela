@@ -52,8 +52,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		SubState.LOOP:
 			var now: float = ChimeraNunSnake.now_sec()
 			if now >= snake.guard_break_end_sec:
-				# 结束：检查玩家距离决定后续
-				var target: Node2D = snake.detect_player_in_range(snake.tail_sweep_range)
+				# 结束：检查玩家是否仍在感知范围内（与 STUN 恢复行为一致）
+				var target: Node2D = snake.detect_player_in_range(snake.detect_player_radius)
 				if target != null:
 					_sub_state = SubState.CLOSE_TO_TAIL
 					snake.closing_transition_lock = true

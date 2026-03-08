@@ -621,10 +621,9 @@ func _apply_hit_closed_eye(hit: HitData) -> bool:
 		_flash_once()
 		return true
 
-	# 普通攻击无效 —— 播放抗性反馈（防止重复刷新）
-	if not _hit_resist_playing:
-		_hit_resist_playing = true
-		anim_play(&"closed_eye_hit_resist", false)
+	# 普通攻击无效 —— 播放抗性反馈
+	# anim_play 内部有重复检测，playing 时不会重置；结束后下次命中可重新播放
+	anim_play(&"closed_eye_hit_resist", false)
 	_flash_once()
 	return false
 
@@ -643,8 +642,8 @@ func _process_eye_hurtbox_hit(hit: HitData) -> bool:
 		_enter_weak()
 		return true
 
-	# 优先级2：stiff_attack 期间眼部受击，hp ≤ 反击阈值 → 请求闭眼尾扫
-	if _current_anim == &"stiff_attack" and hp <= stiff_attack_eye_hit_tail_sweep_hp_threshold:
+	# 优先级2：stiff_attack 期间眼部受击 → 立即请求闭眼尾扫（任意命中即中断）
+	if _current_anim == &"stiff_attack":
 		_stiff_eye_hit_tail_counter_requested = true
 		return true  # 早返回，不触发 stun，由 BT 消费此请求后执行闭眼尾扫
 
