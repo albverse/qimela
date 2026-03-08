@@ -465,8 +465,8 @@ func _set_main_hurtbox_defense_config() -> void:
 	if _hurtbox_original_layer >= 0:
 		_hurtbox.collision_layer = _hurtbox_original_layer
 		_hurtbox_original_layer = -1
-	_hurtbox.monitoring = true
-	_hurtbox.monitorable = true
+	_hurtbox.set_deferred("monitoring", true)
+	_hurtbox.set_deferred("monitorable", true)
 
 
 func _set_main_hurtbox_open_eye_config() -> void:
@@ -476,8 +476,8 @@ func _set_main_hurtbox_open_eye_config() -> void:
 	if _hurtbox_original_layer >= 0:
 		_hurtbox.collision_layer = _hurtbox_original_layer
 		_hurtbox_original_layer = -1
-	_hurtbox.monitoring = true
-	_hurtbox.monitorable = true
+	_hurtbox.set_deferred("monitoring", true)
+	_hurtbox.set_deferred("monitorable", true)
 
 
 func _sync_hitboxes_to_bones() -> void:
