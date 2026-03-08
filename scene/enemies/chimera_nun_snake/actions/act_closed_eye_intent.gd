@@ -21,13 +21,25 @@ enum SubState {
 	WALKING = 1,
 	GROUND_POUND = 2,
 	COOLDOWN_WALK = 3,  ## 攻击冷却中，继续行走
+	POST_STUN_TAIL_TRANSITION = 4,  ## STUN 恢复后玩家在场，立即尾扫
+	POST_STUN_TAIL_SWEEP = 5,
 }
 
 var _sub_state: int = SubState.SELECTING
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
-	_sub_state = SubState.SELECTING
+	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
+	if snake == null:
+		_sub_state = SubState.SELECTING
+		return
+	# 检查 STUN 恢复后的尾扫请求
+	if snake.post_stun_tail_sweep_requested:
+		snake.post_stun_tail_sweep_requested = false
+		_sub_state = SubState.POST_STUN_TAIL_TRANSITION
+		snake.anim_play(&"tail_sweep_transition", false)
+	else:
+		_sub_state = SubState.SELECTING
 
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
@@ -37,6 +49,12 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 	if snake.mode != ChimeraNunSnake.Mode.CLOSED_EYE:
 		return FAILURE
+
+	# STUN 恢复尾扫（不需要玩家在范围内，直接执行）
+	if _sub_state == SubState.POST_STUN_TAIL_TRANSITION:
+		return _tick_post_stun_tail_transition(snake)
+	if _sub_state == SubState.POST_STUN_TAIL_SWEEP:
+		return _tick_post_stun_tail_sweep(snake)
 
 	var target: Node2D = blackboard.get_value("target_node") as Node2D
 	if target == null or not is_instance_valid(target):
@@ -135,10 +153,28 @@ func _tick_cooldown_walk(snake: ChimeraNunSnake, target: Node2D) -> int:
 	return RUNNING
 
 
+func _tick_post_stun_tail_transition(snake: ChimeraNunSnake) -> int:
+	snake.velocity.x = 0.0
+	if snake.anim_is_finished(&"tail_sweep_transition"):
+		_sub_state = SubState.POST_STUN_TAIL_SWEEP
+		snake.anim_play(&"tail_sweep", false)
+	return RUNNING
+
+
+func _tick_post_stun_tail_sweep(snake: ChimeraNunSnake) -> int:
+	snake.velocity.x = 0.0
+	if snake.anim_is_finished(&"tail_sweep"):
+		snake.force_close_all_hitboxes()
+		snake.start_attack_cooldown()
+		return SUCCESS
+	return RUNNING
+
+
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
 	if snake != null:
 		snake.velocity.x = 0.0
 		snake.force_close_all_hitboxes()
+		snake.post_stun_tail_sweep_requested = false
 	_sub_state = SubState.SELECTING
 	super(actor, blackboard)

@@ -76,7 +76,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		SubState.STIFF_ATTACK_COUNTER_CLOSE:
 			if snake.anim_is_finished(&"open_eye_to_close"):
 				snake.closing_transition_lock = false
-				snake._enter_closed_eye()
+				# 仅关闭 EyeHurtbox，保持 mode = OPEN_EYE 直至尾扫结束
+				# 提前调用 _enter_closed_eye() 会使 Cond_ModeOpenEye 失败，
+				# SelectorReactive 会中断此动作导致 tail_sweep 永远不会播放
+				snake._set_eye_hurtbox_enabled(false)
 				_sub_state = SubState.STIFF_ATTACK_COUNTER_TAIL_TRANSITION
 				snake.anim_play(&"tail_sweep_transition", false)
 			return RUNNING
@@ -89,6 +92,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 		SubState.STIFF_ATTACK_COUNTER_TAIL_SWEEP:
 			if snake.anim_is_finished(&"tail_sweep"):
+				snake._enter_closed_eye()  # 尾扫完成后才切换到 CLOSED_EYE
 				snake.start_attack_cooldown()
 				return SUCCESS
 			return RUNNING
