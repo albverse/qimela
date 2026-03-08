@@ -244,6 +244,24 @@ func anim_is_finished(anim_name: StringName) -> bool:
 	return _current_anim == anim_name and _current_anim_finished
 
 
+func _is_track_anim_playing(track: int, anim_name: StringName) -> bool:
+	if _anim_driver:
+		return _anim_driver.get_current_anim(track) == anim_name
+	if _anim_mock:
+		return _anim_mock.get_current_anim(track) == anim_name
+	return false
+
+
+func _play_hit_shell_small_overlay() -> void:
+	# 壳体抗性反馈改为分轨叠加：主流程动画保持在 track0，反馈动画走 track1。
+	if _is_track_anim_playing(1, &"hit_shell_small"):
+		return
+	if _anim_driver:
+		_anim_driver.play(1, &"hit_shell_small", false, AnimDriverSpine.PlayMode.OVERLAY)
+	elif _anim_mock:
+		_anim_mock.play(1, &"hit_shell_small", false)
+
+
 func anim_stop() -> void:
 	_current_anim = &""
 	_current_anim_finished = true
@@ -455,21 +473,8 @@ func _reflect_from_shell(hit: HitData) -> void:
 
 func _play_hit_shell_small_feedback() -> void:
 	# hit_shell_small：壳体无效受击短反馈。
-	# 若处于关键动作（攻击/缩壳/翻转/出壳）则不插播，仅闪白。
-	# 注：emerge_out 必须受保护——若被 hit_shell_small 覆盖，_tick_emerge 的完成条件
-	# （anim_is_finished("emerge_out")）将永远无法成立，导致 Act_InShellWait 永久 RUNNING。
-	var in_critical_anim: bool = (
-		anim_is_playing(&"attack_stone")
-		or anim_is_playing(&"attack_lick")
-		or anim_is_playing(&"retreat_in")
-		or anim_is_playing(&"normal_to_flip")
-		or anim_is_playing(&"flip_to_normal")
-		or anim_is_playing(&"emerge_out")
-		or mode == Mode.FLIPPED
-		or mode == Mode.RETREATING
-	)
-	if not in_critical_anim:
-		anim_play(&"hit_shell_small", false, true)
+	# 采用同一 skeleton 分轨叠加（track1），不覆盖主流程动画。
+	_play_hit_shell_small_overlay()
 	_flash_once()
 
 

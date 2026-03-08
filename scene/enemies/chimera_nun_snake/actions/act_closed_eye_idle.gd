@@ -20,7 +20,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	snake.velocity.x = 0.0
 	if snake.mode == ChimeraNunSnake.Mode.CLOSED_EYE:
 		# 等待抗性动画播放完毕再恢复 idle，防止 idle 立即覆盖 closed_eye_hit_resist
-		if snake.anim_is_playing(&"closed_eye_hit_resist"):
+		if snake.is_closed_eye_hit_resist_feedback_playing():
 			return RUNNING
 		if not snake.anim_is_playing(&"closed_eye_idle"):
 			snake.anim_play(&"closed_eye_idle", true)
