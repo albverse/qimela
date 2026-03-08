@@ -55,7 +55,7 @@ enum EyePhase {
 @export var nun_snake_stun_duration: float = 1.2
 # 修女蛇 stun 持续时长（秒）
 @export var stiff_attack_eye_hit_tail_sweep_hp_threshold: int = 3
-# stiff_attack 期间眼部受击后触发“闭眼+尾扫反击”的HP阈值（扣血后 <= 该值）
+# stiff_attack 期间眼部受击累计命中次数阈值（达到该次数后触发”闭眼+尾扫反击”）
 
 # ===== 攻击A：stiff_attack =====
 @export var stiff_attack_range: float = 80.0
@@ -132,6 +132,9 @@ var _hit_resist_playing: bool = false
 
 ## stiff_attack 期间眼部受击后，是否请求”闭眼+尾扫反击”
 var _stiff_eye_hit_tail_counter_requested: bool = false
+
+## stiff_attack 期间累计的眼部受击次数（达到阈值后才触发尾扫反击请求）
+var _stiff_eye_hit_count: int = 0
 
 ## 本帧下一次 apply_hit/on_chain_hit 视为 EyeHurtbox 命中（由 EyeHurtbox.get_host 在命中前写入）
 var _next_hit_is_eye: bool = false
@@ -476,6 +479,7 @@ func _abort_attack_chain() -> void:
 	closing_transition_lock = false
 	_hit_resist_playing = false
 	_stiff_eye_hit_tail_counter_requested = false
+	_stiff_eye_hit_count = 0
 	_next_hit_is_eye = false
 	_next_hit_eye_frame = -1
 	post_stun_tail_sweep_requested = false
@@ -679,9 +683,11 @@ func _process_eye_hurtbox_hit(hit: HitData) -> bool:
 		_enter_weak()
 		return true
 
-	# 优先级2：stiff_attack 期间眼部受击 → 立即请求闭眼尾扫（任意命中即中断）
-	if _current_anim == &"stiff_attack":
-		_stiff_eye_hit_tail_counter_requested = true
+	# 优先级2：stiff_attack 期间眼部受击 → 累计命中次数，达到阈值后请求闭眼尾扫
+	if _current_anim == &"stiff_attack" and not _stiff_eye_hit_tail_counter_requested:
+		_stiff_eye_hit_count += 1
+		if _stiff_eye_hit_count >= stiff_attack_eye_hit_tail_sweep_hp_threshold:
+			_stiff_eye_hit_tail_counter_requested = true
 		return true  # 早返回，不触发 stun，由 BT 消费此请求后执行闭眼尾扫
 
 	# 优先级3：光花/治愈爆炸来源 → 眩晕（非 stiff_attack 期间，或 hp > 反击阈值）
@@ -719,7 +725,14 @@ func consume_stiff_eye_hit_tail_counter_request() -> bool:
 	if not _stiff_eye_hit_tail_counter_requested:
 		return false
 	_stiff_eye_hit_tail_counter_requested = false
+	_stiff_eye_hit_count = 0
 	return true
+
+
+func reset_stiff_eye_hit_counter() -> void:
+	## 进入 stiff_attack 时重置眼部受击计数器
+	_stiff_eye_hit_count = 0
+	_stiff_eye_hit_tail_counter_requested = false
 
 
 func _is_guard_break_source(weapon_id: StringName) -> bool:
@@ -853,10 +866,16 @@ func is_player_in_range(target: Node2D, range_px: float) -> bool:
 	return global_position.distance_to(target.global_position) <= range_px
 
 
+## 朝向翻转死区：玩家水平距离小于此值时不切换朝向，防止中心踱步抖动
+const FACE_DEAD_ZONE: float = 10.0
+
 func face_toward(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var dir_x: float = target.global_position.x - global_position.x
+	# 死区：玩家处于判定中心附近时保持当前朝向，避免左右踱步
+	if abs(dir_x) < FACE_DEAD_ZONE:
+		return
 	if dir_x > 0.0:
 		if _spine_sprite != null:
 			_spine_sprite.scale.x = abs(_spine_sprite.scale.x)

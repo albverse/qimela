@@ -58,6 +58,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 				snake.opening_transition_lock = false
 				snake._enter_open_eye()
 				_sub_state = SubState.STIFF_ATTACK
+				snake.reset_stiff_eye_hit_counter()
 				snake.anim_play(&"stiff_attack", false)
 			return RUNNING
 
