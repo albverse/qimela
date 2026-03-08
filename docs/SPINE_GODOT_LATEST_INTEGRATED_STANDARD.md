@@ -1,8 +1,8 @@
-# Spine-Godot 最新方法整合规范（Godot 4.5+ / 2026-02-08）
+# Spine-Godot 最新方法整合规范（Godot 4.5+ / 2026-03-08）
 
-> **目的**：把「官方 spine-godot 最新用法」与项目内《SPINE_GODOT_API_STANDARD.md》的工程经验合并成一套可执行标准，降低“签名差异 / 信号不触发 / 坐标系翻车 / 动画卡死”的概率。  
-> **适用**：Godot 4.x（当前项目：4.5.1）+ spine-godot（GDExtension 或 engine module）  
-> **重要声明**：本文覆盖的是“项目必用/高频方法”，**不是穷举 API**；遇到未收录方法，必须回到官方文档核对后再使用。
+> **目的**：把「官方 spine-godot 最新用法」与项目内《SPINE_GODOT_API_STANDARD.md》的工程经验合并成一套可执行标准，降低”签名差异 / 信号不触发 / 坐标系翻车 / 动画卡死 / **动画切换残帧**”的概率。
+> **适用**：Godot 4.x（当前项目：4.5.1）+ spine-godot（GDExtension 或 engine module）
+> **重要声明**：本文覆盖的是”项目必用/高频方法”，**不是穷举 API**；遇到未收录方法，必须回到官方文档核对后再使用。
 
 ---
 
@@ -58,8 +58,96 @@
 **项目规则：任何 Spine 对象方法调用，都必须 `has_method()` 检查再调用。**
 
 ### 2.3 信号不可靠（必须双保险）
-`animation_*` 信号可能因为：动画被打断、场景重载导致连接丢失、update mode 配置错误等原因“看似不触发”。  
+`animation_*` 信号可能因为：动画被打断、场景重载导致连接丢失、update mode 配置错误等原因”看似不触发”。
 **项目规则：信号 + 轮询（poll）双保险，FSM 不允许只靠信号推进。**
+
+### 2.4 clearTrack / clearTracks 会冻结姿势（极易踩坑，已反复出错）
+
+> **2026-03-08 紧急补充**：此问题已导致修女蛇（ChimeraNunSnake）动画切换残帧 bug，
+> 且影响范围覆盖所有使用 `REPLACE_TRACK` 模式的实体。此条为 **最高优先级禁区**。
+
+**官方明确说明（Spine 官方论坛 + 文档）：**
+
+1. **`clearTrack()` / `clearTracks()` 不会把骨架恢复到初始姿势。**
+   调用后，骨架会 **保持当前姿势**（冻结在上一动画最后一帧），不会自动回到 setup pose。
+
+2. **如果要把动画混回 setup pose，应使用：**
+   - `setEmptyAnimation(track, mixDuration)` — 混出到空（推荐，平滑过渡）
+   - `addEmptyAnimation(track, mixDuration, delay)` — 排队混出
+   - `setToSetupPose()` — 硬重置到 setup pose（立即生效，无混合）
+
+3. **`set_animation()` 本身已具备替换当前轨道动画的能力。**
+   无需先 `clearTrack()` 再 `set_animation()`。直接调用 `set_animation()` 就会自动替换。
+
+**项目禁令：**
+```gdscript
+# ❌ 绝对禁止：clear_track + set_animation 连续调用
+anim_state.clear_track(0)
+anim_state.set_animation(“new_anim”, true, 0)
+# 后果：骨架冻结在上一动画最后一帧，新动画从冻结姿势混入，产生残帧/残影
+
+# ✅ 正确：直接 set_animation 替换
+anim_state.set_animation(“new_anim”, true, 0)
+# set_animation 自动处理旧动画的替换，无需手动 clear
+
+# ✅ 正确：需要停止某轨道时，用 set_empty_animation
+anim_state.set_empty_animation(track, 0.0)  # mix=0 立即清空
+# 或
+anim_state.set_empty_animation(track, 0.1)  # mix=0.1 平滑淡出
+```
+
+**受影响的实体（2026-03-08 已修复）：**
+- ChimeraNunSnake（修女蛇）— 所有过渡动画链路
+- StoneEyeBug（石眼虫）
+- StoneMaskBird（石面鸟）
+- Mollusc（软体怪）
+- ChimeraGhostHandL（幽灵手）
+- Player（玩家 EXCLUSIVE 模式）
+
+### 2.5 animation_completed vs animation_ended 语义区别（容易混淆）
+
+> **2026-03-08 补充**：之前项目错误地将 `animation_ended` 作为主信号，已修正。
+
+**官方明确说明：**
+
+| 信号 | 语义 | 适用场景 |
+|------|------|---------|
+| `animation_completed` | **动画播放完成一次**（loop 动画每完成一圈触发一次） | 判定”动画播完” → 切换下一段 |
+| `animation_ended` | **entry 不再被应用**（与 mix out、被替换、被 clear 有关） | 仅用于观测/日志 |
+| `animation_interrupted` | **动画被打断**（同轨道切新动画、清轨等） | 仅用于观测/日志 |
+
+**项目规则：**
+- **主信号**必须使用 `animation_completed`（表示”动画真正播完一次”）
+- `animation_ended` 仅用于观测日志，不作为状态机推进依据
+- **不要**用 `animation_ended` 判定”动画播完”，其触发时机与 mix/替换/clear 有关，不等于”播到最后一帧”
+
+```gdscript
+# ❌ 错误：用 animation_ended 当”播完”信号
+sprite.animation_ended.connect(_on_animation_completed)
+
+# ✅ 正确：用 animation_completed 当”播完”信号
+sprite.animation_completed.connect(_on_animation_completed)
+# animation_ended 仅做观测
+sprite.animation_ended.connect(_on_animation_ended_observe)
+```
+
+### 2.6 多 track 高轨覆盖低轨（分层动画陷阱）
+
+**官方明确说明：**
+在分层动画（layered animations）中，**更高的 track 会覆盖更低 track 对同一骨骼属性的效果**。
+
+**排查清单：**
+- 如果两个动画在不同 track 且视觉表现异常，优先检查是否存在高轨压低轨
+- 同一状态机的前后动画应统一使用同一 track
+- 仅在确实需要叠加（如 locomotion + action overlay）时才使用多 track
+
+### 2.7 Godot 4.5.1 已知问题备忘
+
+| 问题 | 状态 | 应对 |
+|------|------|------|
+| `.json` 导入异常 | 官方已确认 issue | 使用 `.spine-json` 扩展名 |
+| 下载链接异常 | 官方已知 | 走 GitHub Actions 或 GDExtension |
+| GDExtension vs Engine module 行为差异 | 持续维护中 | 排查时明确标注使用的构建类型 |
 
 ---
 
@@ -78,7 +166,7 @@
 
 ### 3.2 必须写在适配层文件头的版本对齐标记
 ```
-DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-02-08）
+DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-03-08）
 EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 ```
 
@@ -90,10 +178,16 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 - 死亡态动画裁决：`Die` 必须抢占 locomotion 与手动 chain 触发，避免在死亡帧被 `jump_*` 或 `chain_*` 覆盖。
 
 
-### 3.4 项目对齐状态（2026-02-09）
+### 3.4 项目对齐状态（2026-03-08）
 - `AnimDriverSpine.setup()` 已执行初始化 6 项检查中的关键项，并新增 **Update Mode 检查**：当检测为 Manual 时，在每帧 `_physics_process` 主动调用 `update_skeleton()/updateSkeleton()`。
 - `AnimDriverSpine` 已补全适配层最小职责：`setup/play/queue/stop/stop_all/get_bone_world_position`。
 - Spine 方法调用已按 snake/camel 双风格做 `has_method()` 兼容（包含 `get_animation_state/getAnimationState`、`set_animation/setAnimation` 等）。
+- **2026-03-08 关键修复**：
+  - `REPLACE_TRACK` 模式不再调用 `clear_track()`，直接使用 `set_animation()` 替换（修复动画切换残帧）。
+  - `EXCLUSIVE` 模式改用 `set_empty_animation()` 清空其他轨道（不再用 `clear_tracks()`）。
+  - `stop()` / `stop_all()` 统一使用 `set_empty_animation()` / `set_to_setup_pose()`，禁止裸 `clear_track`。
+  - 主信号从 `animation_ended` 改为 `animation_completed`（官方推荐语义）。
+  - 新增 `_empty_all_tracks_except()` 和 `_reset_to_setup_pose()` 辅助方法。
 
 ---
 
@@ -127,14 +221,18 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 
 #### SS 信号（Signals）
 - `animation_started(track_entry)`：某轨道开始播放某动画时触发（用于日志/状态机同步）。
-- `animation_interrupted(track_entry)`：动画被打断（同轨道切新动画、清轨等）。
-- `animation_completed(track_entry)`：**一次 loop 完成**触发。  
-  - **注意**：loop 动画会周期性触发，不要把它当作“结束”。
-- `animation_ended(track_entry)`：该 entry 不会再被应用（更接近“真正结束”）。
+- `animation_interrupted(track_entry)`：动画被打断（同轨道切新动画、清轨等）。仅用于观测。
+- `animation_completed(track_entry)`：**动画播放完成一次**。
+  - **注意**：loop 动画每完成一圈触发一次，非 loop 动画播完触发一次。
+  - **✅ 项目主信号**：判定”动画播完 → 切下一段”必须用此信号。
+- `animation_ended(track_entry)`：该 entry 不再被应用。
+  - **⚠️ 语义陷阱**：这 **不是** “动画播到最后一帧”！与 mix out、被替换、被 clear 等操作有关。
+  - **🚫 项目禁令**：**禁止用作”动画播完”的判定信号**。仅做观测日志。
+  - 详见 §2.5 完整说明。
 - `animation_disposed(track_entry)`：entry 被内部回收/释放。
 - `animation_event(track_entry, event)`：Spine 事件时间点回调（可做音效、打点等）。
 
-> **项目硬规则**：信号只做“加速”，轮询负责“兜底”；不允许状态机只靠信号推进。
+> **项目硬规则**：信号只做”加速”，轮询负责”兜底”；不允许状态机只靠信号推进。
 
 ---
 
@@ -158,11 +256,15 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 
 #### AS.clear_track(track) / AS.clearTrack(track)
 - **作用**：立即清空指定轨道。
-- **副作用**：骨架会“停在最后姿势”（常见“停在最后一帧”来源）。
-- **项目规则**：**动作层（常用 track1）不推荐用它作为停止方式。**
+- **⚠️ 官方明确行为**：骨架会 **保持当前姿势（冻结在最后一帧）**，**不会**回到 setup pose。
+- **🚫 项目禁令**：**禁止在切换动画前调用**。`set_animation()` 已具备替换能力。
+- **🚫 项目禁令**：**禁止用作停止方式**。停止请用 `set_empty_animation(track, mix)`。
+- 详见 §2.4 完整说明。
 
 #### AS.clear_tracks() / AS.clearTracks()
 - **作用**：立即清空所有轨道。
+- **⚠️ 同上**：所有轨道的骨架姿势会冻结，不回 setup pose。
+- **🚫 项目禁令**：停止所有轨道请用逐轨 `set_empty_animation()` + `set_to_setup_pose()`。
 
 #### AS.set_empty_animation(track, mix) / AS.setEmptyAnimation(...)
 - **作用**：把指定轨道混出到“空动画”，让姿势平滑回归（通常回 setup pose 的方向）。
@@ -315,19 +417,24 @@ func _poll(anim_state: Object) -> void:
 ---
 
 ## 8. 资源导入（容易忽略但会导致 get_animation_state=null）
-- 优先用 `.skel`（二进制），更小更快；如果用 JSON，扩展名建议 `.spine-json`（避免被当普通 json）。  
-- `.atlas` 与贴图必须配套，导入后生成 `SkeletonData` 资源再赋给 SS。  
+- 优先用 `.skel`（二进制），更小更快；如果用 JSON，**扩展名必须用 `.spine-json`**（Godot 4.5.1 存在 `.json` 导入问题，官方已确认 issue）。
+- `.atlas` 与贴图必须配套，导入后生成 `SkeletonData` 资源再赋给 SS。
 - 若出现 `get_animation_state()==null`：先排查导入链路与资源绑定。
+- **Godot 4.5.1 注意**：排查时应明确使用的是 GDExtension 版还是 Engine module 版，两者行为可能有差异。
 
 ---
 
 ## 9. 强制规则总结（可直接贴到项目 README）
-1) **必须做 Doc-Check**：官方文档核对 + 本规范核对  
-2) **必须做签名探测**：禁止硬编码参数顺序  
-3) **必须做命名兼容**：snake/camel 都要兼容  
-4) **必须做轮询兜底**：信号不作为唯一真相  
-5) **动作层停止用 empty 混出**：避免停在最后一帧  
+1) **必须做 Doc-Check**：官方文档核对 + 本规范核对
+2) **必须做签名探测**：禁止硬编码参数顺序
+3) **必须做命名兼容**：snake/camel 都要兼容
+4) **必须做轮询兜底**：信号不作为唯一真相
+5) **动作层停止用 empty 混出**：避免停在最后一帧
 6) **骨骼坐标要验证坐标系**：优先 Godot 空间接口；必要时 Y 取负
+7) **🚫 禁止 clearTrack + setAnimation 连续调用**：set_animation 自身已替换，clear 会冻结姿势（§2.4）
+8) **🚫 禁止用 animation_ended 判定"动画播完"**：必须用 animation_completed（§2.5）
+9) **停止轨道/全部轨道**：必须用 set_empty_animation / set_to_setup_pose，禁止裸 clear_track
+10) **过渡动画→循环动画**：同 track 直接 set_animation，不 clear，不手写 timer 猜时机
 
 ---
 
