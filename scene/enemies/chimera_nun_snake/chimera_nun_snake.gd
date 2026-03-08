@@ -133,6 +133,11 @@ var _hit_resist_playing: bool = false
 ## stiff_attack 期间眼部受击后，是否请求”闭眼+尾扫反击”
 var _stiff_eye_hit_tail_counter_requested: bool = false
 
+## 本帧下一次 apply_hit/on_chain_hit 视为 EyeHurtbox 命中（由 EyeHurtbox.get_host 在命中前写入）
+var _next_hit_is_eye: bool = false
+## Eye 命中标记写入帧号；仅同一 physics 帧内有效，防止陈旧标记污染后续命中
+var _next_hit_eye_frame: int = -1
+
 ## STUN 结束时玩家仍在范围内，请求立即执行尾扫反击
 var post_stun_tail_sweep_requested: bool = false
 
@@ -448,6 +453,8 @@ func _abort_attack_chain() -> void:
 	closing_transition_lock = false
 	_hit_resist_playing = false
 	_stiff_eye_hit_tail_counter_requested = false
+	_next_hit_is_eye = false
+	_next_hit_eye_frame = -1
 	post_stun_tail_sweep_requested = false
 
 
@@ -595,6 +602,11 @@ func get_eye_socket_position() -> Vector2:
 # =============================================================================
 
 func apply_hit(hit: HitData) -> bool:
+	# 读取并立即清除 EyeHurtbox 命中标记（由 NunSnakeEyeHurtbox.get_host 在本帧命中前写入）
+	var is_eye_hit: bool = _next_hit_is_eye and _next_hit_eye_frame == Engine.get_physics_frames()
+	_next_hit_is_eye = false
+	_next_hit_eye_frame = -1
+
 	if hit == null:
 		return false
 	if not has_hp or hp <= 0:
@@ -604,10 +616,12 @@ func apply_hit(hit: HitData) -> bool:
 		Mode.CLOSED_EYE:
 			return _apply_hit_closed_eye(hit)
 		Mode.OPEN_EYE, Mode.GUARD_BREAK:
-			# 主 Hurtbox 在睁眼阶段命中无效（不扣血），仅闪白
-			# 有效伤害只走 apply_hit_eye_hurtbox（EyeHurtbox 弱点盒路由）
+			# 睁眼系：只有 EyeHurtbox 才是有效伤害入口；主 Hurtbox 只做抗性反馈
+			if is_eye_hit:
+				return _process_eye_hurtbox_hit(hit)
+			anim_play(&"closed_eye_hit_resist", false)
 			_flash_once()
-			return true
+			return false
 		Mode.WEAK, Mode.STUN:
 			return _apply_hit_weak_stun(hit)
 
@@ -666,10 +680,16 @@ func _apply_hit_weak_stun(hit: HitData) -> bool:
 
 
 func apply_hit_eye_hurtbox(hit: HitData) -> bool:
-	## 由 EyeHurtbox 专用脚本调用，路由到弱点受击逻辑
+	## 由 EyeHurtbox 专用脚本调用，路由到弱点受击逻辑（保留兼容入口）
 	if mode != Mode.OPEN_EYE and mode != Mode.GUARD_BREAK:
 		return false  # 闭眼时 EyeHurtbox 应该被禁用
 	return _process_eye_hurtbox_hit(hit)
+
+
+func _mark_next_hit_eye() -> void:
+	## 由 NunSnakeEyeHurtbox.get_host() 在命中前调用，标记本次 apply_hit/on_chain_hit 为眼部命中
+	_next_hit_is_eye = true
+	_next_hit_eye_frame = Engine.get_physics_frames()
 
 
 func consume_stiff_eye_hit_tail_counter_request() -> bool:
@@ -692,15 +712,25 @@ func _is_stun_source(weapon_id: StringName) -> bool:
 # =============================================================================
 
 func on_chain_hit(_player: Node, _slot: int) -> int:
+	# 读取并立即清除 EyeHurtbox 命中标记（由 NunSnakeEyeHurtbox.get_host 在本帧命中前写入）
+	var is_eye_hit: bool = _next_hit_is_eye and _next_hit_eye_frame == Engine.get_physics_frames()
+	_next_hit_is_eye = false
+	_next_hit_eye_frame = -1
+
 	# CLOSED_EYE：chain 只溶解，不建链，不扣血
 	if mode == Mode.CLOSED_EYE:
+		anim_play(&"closed_eye_hit_resist", false)
 		_flash_once()
 		return 0
 
-	# OPEN_EYE / GUARD_BREAK：chain 只对 EyeHurtbox 有效，主体无效
+	# OPEN_EYE / GUARD_BREAK：仅 EyeHurtbox 的 chain 命中有效；主 Hurtbox 命中只反馈不生效
 	if mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
-		var chain_hit: HitData = HitData.create(1, self, &"chain")
-		apply_hit_eye_hurtbox(chain_hit)
+		if is_eye_hit:
+			var chain_hit: HitData = HitData.create(1, self, &"chain")
+			apply_hit_eye_hurtbox(chain_hit)
+		else:
+			anim_play(&"closed_eye_hit_resist", false)
+			_flash_once()
 		return 0
 
 	# WEAK / STUN：可链接

@@ -12,8 +12,17 @@ class_name NunSnakeEyeHurtbox
 @export var host_path: NodePath = NodePath("..")
 
 
+func _ready() -> void:
+	# 与常规 Hurtbox 一致：必须进入 enemy_hurtbox 组，
+	# 才会被玩家武器与雷花命中分发系统识别。
+	add_to_group("enemy_hurtbox")
+
+
 func get_host() -> Node:
-	return get_node_or_null(host_path)
+	var host: Node = get_node_or_null(host_path)
+	if host != null and host.has_method("_mark_next_hit_eye"):
+		host.call("_mark_next_hit_eye")
+	return host
 
 
 func apply_hit(hit: HitData) -> bool:
