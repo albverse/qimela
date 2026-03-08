@@ -103,10 +103,19 @@ func _validate_rules() -> void:
 
 ---
 
-## 8. 版本历史
+## 8. 待实现融合规则（占位）
+
+| species_id | 状态 | 说明 |
+|------------|------|------|
+| `chimera_nun_snake` | 未实现 | 修女蛇奇美拉（LIGHT/MEDIUM）；融合组合与产物待定义 |
+
+---
+
+## 9. 版本历史
 
 | 日期 | 变更 |
 |------|------|
 | 2026-02-02 | 初始化文档，从fusion_registry.gd同步 |
 | 2026-02-02 | 添加 fly_light + hand_light → Chimera_StoneSnake 规则 |
 | 2026-03-03 | 添加 mollusc + stone_eyebug_shell → ChimeraGhostHandL 规则；新增石眼虫/软体虫/幽灵手奇美拉三实体 |
+| 2026-03-08 | 添加 chimera_nun_snake 融合规则占位（待实现） |
