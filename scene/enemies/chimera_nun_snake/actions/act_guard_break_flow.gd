@@ -68,8 +68,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			if snake.anim_is_finished(&"open_eye_to_close"):
 				snake.closing_transition_lock = false
 				snake._set_eye_hurtbox_enabled(false)
+				# 保持 mode = GUARD_BREAK 直至尾扫结束
+				# 提前改 CLOSED_EYE 会使 Cond_ModeGuardBreak 失败，
+				# SelectorReactive 会中断此动作导致尾扫永远不会播放
 				_sub_state = SubState.TAIL_TRANSITION
-				snake.mode = ChimeraNunSnake.Mode.CLOSED_EYE
 				snake.anim_play(&"tail_sweep_transition", false)
 			return RUNNING
 

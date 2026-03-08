@@ -130,8 +130,11 @@ var petrified_target_node: Node2D = null
 ## 闭眼抗性动画保护：防止被无效攻击反复打断
 var _hit_resist_playing: bool = false
 
-## stiff_attack 期间眼部受击后，是否请求“闭眼+尾扫反击”
+## stiff_attack 期间眼部受击后，是否请求”闭眼+尾扫反击”
 var _stiff_eye_hit_tail_counter_requested: bool = false
+
+## STUN 结束时玩家仍在范围内，请求立即执行尾扫反击
+var post_stun_tail_sweep_requested: bool = false
 
 ## 攻击命中窗口
 var _atk_hit_window_open: bool = false
@@ -434,6 +437,9 @@ func _restore_from_weak_nun_snake() -> void:
 func _restore_from_stun_nun_snake() -> void:
 	stunned_t = 0.0
 	_release_linked_chains()
+	# 若玩家仍在感知范围内，请求立即执行尾扫（蓝图：STUN 恢复压迫感）
+	var target: Node2D = detect_player_in_range(detect_player_radius)
+	post_stun_tail_sweep_requested = target != null
 	_enter_closed_eye()
 
 
@@ -442,6 +448,7 @@ func _abort_attack_chain() -> void:
 	closing_transition_lock = false
 	_hit_resist_playing = false
 	_stiff_eye_hit_tail_counter_requested = false
+	post_stun_tail_sweep_requested = false
 
 
 # =============================================================================
@@ -596,10 +603,11 @@ func apply_hit(hit: HitData) -> bool:
 	match mode:
 		Mode.CLOSED_EYE:
 			return _apply_hit_closed_eye(hit)
-		Mode.OPEN_EYE:
-			return _apply_hit_open_eye(hit)
-		Mode.GUARD_BREAK:
-			return _apply_hit_open_eye(hit)  # 同 OPEN_EYE 规则
+		Mode.OPEN_EYE, Mode.GUARD_BREAK:
+			# 主 Hurtbox 在睁眼阶段命中无效（不扣血），仅闪白
+			# 有效伤害只走 apply_hit_eye_hurtbox（EyeHurtbox 弱点盒路由）
+			_flash_once()
+			return true
 		Mode.WEAK, Mode.STUN:
 			return _apply_hit_weak_stun(hit)
 
@@ -621,9 +629,8 @@ func _apply_hit_closed_eye(hit: HitData) -> bool:
 	return false
 
 
-func _apply_hit_open_eye(hit: HitData) -> bool:
-	# 仅 EyeHurtbox 命中有效（此处由 EyeHurtbox 路由调用）
-	# 如果是通过主 Hurtbox 进来的，无效
+func _process_eye_hurtbox_hit(hit: HitData) -> bool:
+	# EyeHurtbox 弱点盒受击逻辑（仅由 apply_hit_eye_hurtbox 调用）
 	if hp_locked:
 		_flash_once()
 		return true
@@ -631,14 +638,17 @@ func _apply_hit_open_eye(hit: HitData) -> bool:
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
 
+	# 优先级1：到达 weak 阈值 → 立即进入 WEAK
 	if hp <= weak_hp:
 		_enter_weak()
 		return true
 
+	# 优先级2：stiff_attack 期间眼部受击，hp ≤ 反击阈值 → 请求闭眼尾扫
 	if _current_anim == &"stiff_attack" and hp <= stiff_attack_eye_hit_tail_sweep_hp_threshold:
 		_stiff_eye_hit_tail_counter_requested = true
+		return true  # 早返回，不触发 stun，由 BT 消费此请求后执行闭眼尾扫
 
-	# 光花/治愈爆炸可触发 STUN
+	# 优先级3：光花/治愈爆炸来源 → 眩晕（非 stiff_attack 期间，或 hp > 反击阈值）
 	if _is_stun_source(hit.weapon_id):
 		_enter_stun()
 		return true
@@ -657,10 +667,10 @@ func _apply_hit_weak_stun(hit: HitData) -> bool:
 
 
 func apply_hit_eye_hurtbox(hit: HitData) -> bool:
-	## 由 EyeHurtbox 专用脚本调用，路由到睁眼受击逻辑
+	## 由 EyeHurtbox 专用脚本调用，路由到弱点受击逻辑
 	if mode != Mode.OPEN_EYE and mode != Mode.GUARD_BREAK:
 		return false  # 闭眼时 EyeHurtbox 应该被禁用
-	return _apply_hit_open_eye(hit)
+	return _process_eye_hurtbox_hit(hit)
 
 
 func consume_stiff_eye_hit_tail_counter_request() -> bool:
