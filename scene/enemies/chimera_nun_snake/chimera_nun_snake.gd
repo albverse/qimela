@@ -483,6 +483,10 @@ func _set_main_hurtbox_open_eye_config() -> void:
 func _sync_hitboxes_to_bones() -> void:
 	if _anim_driver == null:
 		return
+	if _eye_hurtbox != null:
+		var eye_pos: Vector2 = _anim_driver.get_bone_world_position("bone_eye_socket")
+		if eye_pos != Vector2.ZERO:
+			_eye_hurtbox.global_position = eye_pos
 	if _tail_sweep_hitbox != null:
 		var tail_pos: Vector2 = _anim_driver.get_bone_world_position("bone_tail_hit")
 		if tail_pos != Vector2.ZERO:
