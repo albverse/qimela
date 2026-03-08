@@ -12,13 +12,16 @@ class_name ActNunSnakeOpenEyeAttackChain
 ## =============================================================================
 
 enum SubState {
-	CLOSE_TO_OPEN = 0,
-	STIFF_ATTACK = 1,
-	OPEN_EYE_IDLE = 2,
-	SHOOT_EYE_START = 3,
-	SHOOT_EYE_LOOP = 4,
-	SHOOT_EYE_END = 5,
-	OPEN_EYE_TO_CLOSE = 6,
+	CLOSE_TO_OPEN,
+	STIFF_ATTACK,
+	STIFF_ATTACK_COUNTER_CLOSE,
+	STIFF_ATTACK_COUNTER_TAIL_TRANSITION,
+	STIFF_ATTACK_COUNTER_TAIL_SWEEP,
+	OPEN_EYE_IDLE,
+	SHOOT_EYE_START,
+	SHOOT_EYE_LOOP,
+	SHOOT_EYE_END,
+	OPEN_EYE_TO_CLOSE,
 }
 
 var _sub_state: int = SubState.CLOSE_TO_OPEN
@@ -59,10 +62,35 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return RUNNING
 
 		SubState.STIFF_ATTACK:
+			if snake.consume_stiff_eye_hit_tail_counter_request():
+				snake.closing_transition_lock = true
+				_sub_state = SubState.STIFF_ATTACK_COUNTER_CLOSE
+				snake.anim_play(&"open_eye_to_close", false)
+				return RUNNING
 			if snake.anim_is_finished(&"stiff_attack"):
 				_sub_state = SubState.OPEN_EYE_IDLE
 				_idle_start_sec = ChimeraNunSnake.now_sec()
 				snake.anim_play(&"open_eye_idle", true)
+			return RUNNING
+
+		SubState.STIFF_ATTACK_COUNTER_CLOSE:
+			if snake.anim_is_finished(&"open_eye_to_close"):
+				snake.closing_transition_lock = false
+				snake._enter_closed_eye()
+				_sub_state = SubState.STIFF_ATTACK_COUNTER_TAIL_TRANSITION
+				snake.anim_play(&"tail_sweep_transition", false)
+			return RUNNING
+
+		SubState.STIFF_ATTACK_COUNTER_TAIL_TRANSITION:
+			if snake.anim_is_finished(&"tail_sweep_transition"):
+				_sub_state = SubState.STIFF_ATTACK_COUNTER_TAIL_SWEEP
+				snake.anim_play(&"tail_sweep", false)
+			return RUNNING
+
+		SubState.STIFF_ATTACK_COUNTER_TAIL_SWEEP:
+			if snake.anim_is_finished(&"tail_sweep"):
+				snake.start_attack_cooldown()
+				return SUCCESS
 			return RUNNING
 
 		SubState.OPEN_EYE_IDLE:

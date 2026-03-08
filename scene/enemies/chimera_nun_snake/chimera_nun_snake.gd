@@ -31,49 +31,81 @@ enum EyePhase {
 
 # ===== 通用参数 =====
 @export var detect_player_radius: float = 240.0
+# 玩家检测半径（像素）
 @export var detect_attack_target_radius: float = 240.0
+# 攻击目标检测半径（像素）
 @export var closed_walk_speed: float = 90.0
+# 闭眼常规移动速度（像素/秒）
 @export var closed_run_speed: float = 130.0
+# 闭眼高速移动速度（像素/秒）
 @export var petrified_target_chase_speed: float = 150.0
+# 追击石化目标速度（像素/秒）
 
 # ===== 状态参数 =====
 @export var guard_break_duration_sec: float = 0.8
+# 破防暴露持续时长（秒）
 @export var open_eye_idle_timeout: float = 1.2
+# 僵直攻击结束后，开眼待机到射眼的停留时长（秒）
 @export var closed_eye_poll_interval: float = 0.1
+# 闭眼状态的感知轮询间隔（秒）
 @export var weak_eye_recall_check_interval: float = 1.0
+# weak期间检查眼球召回状态的间隔（秒）
 @export var nun_snake_weak_duration: float = 2.5
+# 修女蛇 weak 持续时长（秒）
 @export var nun_snake_stun_duration: float = 1.2
+# 修女蛇 stun 持续时长（秒）
+@export var stiff_attack_eye_hit_tail_sweep_hp_threshold: int = 3
+# stiff_attack 期间眼部受击后触发“闭眼+尾扫反击”的HP阈值（扣血后 <= 该值）
 
 # ===== 攻击A：stiff_attack =====
 @export var stiff_attack_range: float = 80.0
+# 僵直攻击有效距离（像素）
 @export var stiff_attack_damage: int = 1
+# 僵直攻击伤害
 @export var stiff_attack_player_stun_sec: float = 0.5
+# 僵直攻击命中玩家后附加僵直时间（秒）
 
 # ===== 攻击B：shoot_eye =====
 @export var eye_projectile_speed: float = 420.0
+# 眼球飞行速度（像素/秒）
 @export var eye_projectile_hover_sec: float = 0.5
+# 每次追踪间的悬停时间（秒）
 @export var eye_projectile_retarget_count: int = 3
+# 眼球重新锁定次数
 @export var eye_projectile_invincible: bool = true
+# 发射出去的眼球是否无敌（通常为 true）
 @export var eye_return_speed: float = 700.0
+# 眼球返航速度（像素/秒）
 @export var eye_projectile_max_lifetime_sec: float = 10.0
+# 眼球最大生存时长（秒）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
+# 锤地攻击范围（像素）
 @export var ground_pound_damage: int = 1
+# 锤地伤害
 
 # ===== 攻击D：tail_sweep =====
 @export var tail_sweep_range: float = 140.0
+# 甩尾攻击范围（像素）
 @export var tail_sweep_knockback_px: float = 200.0
+# 甩尾基础击退距离（像素）
 @export var tail_sweep_execute_petrified: bool = true
+# 甩尾是否可处决石化玩家
 
 # ===== 攻击冷却 =====
 @export var attack_cooldown_sec: float = 1.0
+# 主要攻击链冷却时间（秒）
 
 # ===== 石化参数（玩家） =====
 @export var stone_recover_enabled: bool = true
+# 玩家石化后是否允许自动恢复
 @export var stone_auto_recover_sec: float = 3.0
+# 玩家石化自动恢复时间（秒）
 @export var stone_forced_death_sec: float = 10.0
+# 玩家石化强制死亡时间（秒）
 @export var stone_hurt_kill: bool = true
+# 玩家石化中是否允许被受击直接处决
 
 # ===== 内部状态（BT 叶节点直接读写） =====
 var mode: int = Mode.CLOSED_EYE
@@ -97,6 +129,9 @@ var petrified_target_node: Node2D = null
 
 ## 闭眼抗性动画保护：防止被无效攻击反复打断
 var _hit_resist_playing: bool = false
+
+## stiff_attack 期间眼部受击后，是否请求“闭眼+尾扫反击”
+var _stiff_eye_hit_tail_counter_requested: bool = false
 
 ## 攻击命中窗口
 var _atk_hit_window_open: bool = false
@@ -192,6 +227,8 @@ func _physics_process(dt: float) -> void:
 	# Mock 驱动 tick
 	if _anim_mock:
 		_anim_mock.tick(dt)
+
+	_sync_hitboxes_to_bones()
 
 	# WEAK 计时
 	if mode == Mode.WEAK:
@@ -404,6 +441,7 @@ func _abort_attack_chain() -> void:
 	opening_transition_lock = false
 	closing_transition_lock = false
 	_hit_resist_playing = false
+	_stiff_eye_hit_tail_counter_requested = false
 
 
 # =============================================================================
@@ -422,12 +460,37 @@ func _set_eye_hurtbox_enabled(enabled: bool) -> void:
 func _set_main_hurtbox_defense_config() -> void:
 	# 闭眼：主 Hurtbox 存在但不参与有效伤害
 	# collision_layer 保持，用于链条溶解检测
-	pass
+	if _hurtbox == null:
+		return
+	if _hurtbox_original_layer >= 0:
+		_hurtbox.collision_layer = _hurtbox_original_layer
+		_hurtbox_original_layer = -1
+	_hurtbox.set_deferred("monitoring", true)
+	_hurtbox.set_deferred("monitorable", true)
 
 
 func _set_main_hurtbox_open_eye_config() -> void:
-	# 睁眼：主 Hurtbox 无效，只有 EyeHurtbox 有效
-	pass
+	# 睁眼：主 Hurtbox 仅用于链条命中路由，不参与普通伤害生效
+	if _hurtbox == null:
+		return
+	if _hurtbox_original_layer >= 0:
+		_hurtbox.collision_layer = _hurtbox_original_layer
+		_hurtbox_original_layer = -1
+	_hurtbox.set_deferred("monitoring", true)
+	_hurtbox.set_deferred("monitorable", true)
+
+
+func _sync_hitboxes_to_bones() -> void:
+	if _anim_driver == null:
+		return
+	if _eye_hurtbox != null:
+		var eye_pos: Vector2 = _anim_driver.get_bone_world_position("bone_eye_socket")
+		if eye_pos != Vector2.ZERO:
+			_eye_hurtbox.global_position = eye_pos
+	if _tail_sweep_hitbox != null:
+		var tail_pos: Vector2 = _anim_driver.get_bone_world_position("bone_tail_hit")
+		if tail_pos != Vector2.ZERO:
+			_tail_sweep_hitbox.global_position = tail_pos
 
 
 # =============================================================================
@@ -572,6 +635,9 @@ func _apply_hit_open_eye(hit: HitData) -> bool:
 		_enter_weak()
 		return true
 
+	if _current_anim == &"stiff_attack" and hp <= stiff_attack_eye_hit_tail_sweep_hp_threshold:
+		_stiff_eye_hit_tail_counter_requested = true
+
 	# 光花/治愈爆炸可触发 STUN
 	if _is_stun_source(hit.weapon_id):
 		_enter_stun()
@@ -597,12 +663,19 @@ func apply_hit_eye_hurtbox(hit: HitData) -> bool:
 	return _apply_hit_open_eye(hit)
 
 
+func consume_stiff_eye_hit_tail_counter_request() -> bool:
+	if not _stiff_eye_hit_tail_counter_requested:
+		return false
+	_stiff_eye_hit_tail_counter_requested = false
+	return true
+
+
 func _is_guard_break_source(weapon_id: StringName) -> bool:
 	return weapon_id in GUARD_BREAK_SOURCES
 
 
 func _is_stun_source(weapon_id: StringName) -> bool:
-	return weapon_id == &"lightning_flower" or weapon_id == &"lightflower" or weapon_id == &"healing_burst"
+	return weapon_id == &"lightning_flower" or weapon_id == &"lightflower" or weapon_id == &"lightning_flower_release" or weapon_id == &"healing_burst"
 
 
 # =============================================================================
@@ -617,7 +690,8 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 
 	# OPEN_EYE / GUARD_BREAK：chain 只对 EyeHurtbox 有效，主体无效
 	if mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
-		_flash_once()
+		var chain_hit: HitData = HitData.create(1, self, &"chain")
+		apply_hit_eye_hurtbox(chain_hit)
 		return 0
 
 	# WEAK / STUN：可链接
@@ -653,6 +727,16 @@ func apply_healing_burst_stun() -> void:
 	if mode == Mode.CLOSED_EYE:
 		_enter_guard_break()
 	elif mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
+		_enter_stun()
+
+
+func _on_healing_burst(light_energy: float) -> void:
+	super._on_healing_burst(light_energy)
+	if light_energy <= 0.0:
+		return
+	if mode == Mode.WEAK or mode == Mode.STUN:
+		return
+	if mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
 		_enter_stun()
 
 
