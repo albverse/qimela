@@ -136,6 +136,45 @@ sprite.animation_ended.connect(_on_animation_ended_observe)
 **官方明确说明：**
 在分层动画（layered animations）中，**更高的 track 会覆盖更低 track 对同一骨骼属性的效果**。
 
+#### 2.6.1 官方定义补充（AnimationState / tracks / layering）
+
+- `AnimationState` 的核心职责包括：
+  - 随时间推进并应用动画；
+  - 播放队列（`add_animation`）；
+  - 动画混合（crossfade）；
+  - 多轨叠加到同一 skeleton（layering）。
+- `tracks` 的官方语义：动画可在不同轨道同时作用到同一 skeleton；高轨可叠加并覆盖低轨冲突部分。
+
+#### 2.6.2 分轨叠加规则（项目落地版）
+
+- **规则 A：高轨只覆盖“自己打了 key 的属性”**。
+  - 若高轨动画未给某骨骼/槽位/属性打 key，则该部分继续沿用低轨结果。
+- **规则 B：tracks 本来就是分层设计**。
+  - 典型执行顺序：`track 0` 先给出基础姿势，`track 1` 再叠加并覆盖其已 keyed 的部分。
+- **规则 C：想让高轨真正压住低轨，必须给目标属性打 key**。
+  - 如 `aim/attack/upper_body` 未对目标骨骼或 slot 打 key，则不会出现完整上层覆盖。
+
+#### 2.6.3 官方典型用法（部位分层）
+
+常见结构：
+
+- `track 0`：`idle / walk / run`（基础层）
+- `track 1`：`aim / attack / blink / upper_body`（覆盖层）
+
+示例：
+
+```gdscript
+var state = $SpineSprite.get_animation_state()
+
+state.set_animation("run", true, 0)      # 基础层
+state.set_animation("aim_gun", true, 1)  # 覆盖层
+```
+
+#### 2.6.4 限制与注意点（官方实践向）
+
+- 当高轨之间频繁切换（例如 `track1: B -> C`）时，可能出现过渡期“dip”观感（B 影响减弱、C 影响增强的叠加过渡）。
+- `additive`（加法叠加）并非普通 layering 的默认模式；它对 setup/reset 条件要求更严格，必须按资源与运行时约束单独验证。
+
 **排查清单：**
 - 如果两个动画在不同 track 且视觉表现异常，优先检查是否存在高轨压低轨
 - 同一状态机的前后动画应统一使用同一 track
@@ -246,7 +285,7 @@ EXPECTED: set_animation(animation_name, loop, track) 但保留探测兼容
 - **常见坑**：参数顺序错会直接报类型错误，或“看似没播放”。
 
 #### AS.add_animation(...)
-- **作用**：把动画排到队列里，前一个播放结束后自动接上，返回 **TE**。
+- **作用**：把动画排到队列里，前一个播放结束后自动接上，返回 **TE**（可继续配置本次播放，如 reverse）。
 - **常见形式**：`add_animation(animation_name, delay_seconds, loop, track)`  
   （具体顺序以官方文档与签名探测为准）
 
@@ -440,4 +479,3 @@ func _poll(anim_state: Object) -> void:
 
 ## 附：原始项目文档整合来源
 - `/mnt/data/SPINE_GODOT_API_STANDARD.md`（项目经验版；已在本文中纠偏与补强）
-
