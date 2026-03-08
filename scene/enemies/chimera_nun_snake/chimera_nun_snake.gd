@@ -295,6 +295,29 @@ func anim_is_finished(anim_name: StringName) -> bool:
 	return _current_anim == anim_name and _current_anim_finished
 
 
+func _is_track_anim_playing(track: int, anim_name: StringName) -> bool:
+	if _anim_driver:
+		return _anim_driver.get_current_anim(track) == anim_name
+	if _anim_mock:
+		return _anim_mock.get_current_anim(track) == anim_name
+	return false
+
+
+func play_closed_eye_hit_resist_feedback() -> void:
+	# 反馈动画使用分轨叠加：主流程动画保持在 track0，抗性反馈走 track1。
+	# 要求：同一 skeleton 同时播放，不烘回主动画。
+	if _is_track_anim_playing(1, &"closed_eye_hit_resist"):
+		return
+	if _anim_driver:
+		_anim_driver.play(1, &"closed_eye_hit_resist", false, AnimDriverSpine.PlayMode.OVERLAY)
+	elif _anim_mock:
+		_anim_mock.play(1, &"closed_eye_hit_resist", false)
+
+
+func is_closed_eye_hit_resist_feedback_playing() -> bool:
+	return _is_track_anim_playing(1, &"closed_eye_hit_resist")
+
+
 func anim_stop() -> void:
 	_current_anim = &""
 	_current_anim_finished = true
@@ -619,7 +642,7 @@ func apply_hit(hit: HitData) -> bool:
 			# 睁眼系：只有 EyeHurtbox 才是有效伤害入口；主 Hurtbox 只做抗性反馈
 			if is_eye_hit:
 				return _process_eye_hurtbox_hit(hit)
-			anim_play(&"closed_eye_hit_resist", false)
+			play_closed_eye_hit_resist_feedback()
 			_flash_once()
 			return false
 		Mode.WEAK, Mode.STUN:
@@ -637,7 +660,7 @@ func _apply_hit_closed_eye(hit: HitData) -> bool:
 
 	# 普通攻击无效 —— 播放抗性反馈
 	# anim_play 内部有重复检测，playing 时不会重置；结束后下次命中可重新播放
-	anim_play(&"closed_eye_hit_resist", false)
+	play_closed_eye_hit_resist_feedback()
 	_flash_once()
 	return false
 
@@ -719,7 +742,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 
 	# CLOSED_EYE：chain 只溶解，不建链，不扣血
 	if mode == Mode.CLOSED_EYE:
-		anim_play(&"closed_eye_hit_resist", false)
+		play_closed_eye_hit_resist_feedback()
 		_flash_once()
 		return 0
 
@@ -729,7 +752,7 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 			var chain_hit: HitData = HitData.create(1, self, &"chain")
 			apply_hit_eye_hurtbox(chain_hit)
 		else:
-			anim_play(&"closed_eye_hit_resist", false)
+			play_closed_eye_hit_resist_feedback()
 			_flash_once()
 		return 0
 
