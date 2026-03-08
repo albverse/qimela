@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" path="res://scene/enemies/chimera_nun_snake/bt_chimera_nun_snake.tscn" id="bt_scene"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="enemy_hurtbox"]
 [ext_resource type="Script" uid="uid://uofdjsrl4etp" path="res://scene/enemies/chimera_nun_snake/nun_snake_eye_hurtbox.gd" id="eye_hurtbox_script"]
-[ext_resource type="Script" uid="uid://b8mh1qy12xucu" path="res://scene/enemies/chimera_nun_snake/chimera_nun_snake.gd" id="main_script"]
+[ext_resource type="Script" uid="uid://386pdc65ox4n" path="res://scene/enemies/chimera_nun_snake/chimera_nun_snake.gd" id="main_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0t4r1"]
 size = Vector2(110.5, 20)
@@ -112,7 +112,7 @@ position = Vector2(-15, -79)
 shape = SubResource("CircleShape2D_8vgbp")
 
 [node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("bt_scene")]
-blackboard = NodePath("@Node@21095")
+blackboard = NodePath("@Node@21169")
 actor = NodePath("..")
 
 [connection signal="body_entered" from="StiffAttackHitbox" to="." method="_on_stiff_attack_hitbox_body_entered"]

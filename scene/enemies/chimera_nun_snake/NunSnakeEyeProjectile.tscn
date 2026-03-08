@@ -1,18 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3 uid="uid://c43yqyihsqene"]
 
-[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/nun_snake_eye_projectile.gd" id="projectile_script"]
+[ext_resource type="Texture2D" uid="uid://cvccc3y6mbhhj" path="res://scene/enemies/chimera_nun_snake/spine_art/eye.png" id="2_mfj87"]
+[ext_resource type="Script" uid="uid://1toofg6xv8qi" path="res://scene/enemies/chimera_nun_snake/nun_snake_eye_projectile.gd" id="projectile_script"]
 
-; =============================================================================
-; NunSnakeEyeProjectile（眼球子弹 — 独立实例）
-; collision_layer = 0   # 不可被命中
-; collision_mask = 2    # PlayerBody(2) / Inspector 第2层
-; =============================================================================
+[sub_resource type="CircleShape2D" id="CircleShape2D_4c7tr"]
+radius = 12.0
+
 [node name="NunSnakeEyeProjectile" type="Area2D"]
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("projectile_script")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_4c7tr")
 
-; SpineSprite 占位（之后替换为眼球 Spine 动画）
-[node name="SpineSprite" type="Node2D" parent="."]
+[node name="SpineSprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_mfj87")

@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://dmiy418r7edkc"
+path="res://.godot/imported/skeleton.atlas-d5ad919b845d26dc13a991053f8698d0.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/chimera_nun_snake/spine_art/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-d5ad919b845d26dc13a991053f8698d0.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"
