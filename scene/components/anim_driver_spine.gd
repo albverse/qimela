@@ -106,20 +106,20 @@ func _detect_api_signature(anim_state: Object) -> void:
 func _connect_signals() -> void:
 	## 主信号：animation_completed（官方推荐：表示动画播完一次）
 	## 观测信号：animation_ended / animation_interrupted（日志与排障）
-	## 官方说明：animation_ended 的语义不是”播完”，而是 entry 不再被应用（mix out、被替换等），
-	## 因此不适合作为”动画播完一次”的判定信号。
-	if _spine_sprite.has_signal(“animation_completed”):
+	## 官方说明：animation_ended 的语义不是"播完"，而是 entry 不再被应用（mix out、被替换等），
+	## 因此不适合作为"动画播完一次"的判定信号。
+	if _spine_sprite.has_signal("animation_completed"):
 		_spine_sprite.animation_completed.connect(_on_animation_completed)
-		if debug_log: print(“[AnimDriverSpine] Connected animation_completed signal (preferred)”)
-	elif _spine_sprite.has_signal(“animation_ended”):
+		if debug_log: print("[AnimDriverSpine] Connected animation_completed signal (preferred)")
+	elif _spine_sprite.has_signal("animation_ended"):
 		_spine_sprite.animation_ended.connect(_on_animation_completed)
-		if debug_log: print(“[AnimDriverSpine] Connected animation_ended signal (fallback)”)
+		if debug_log: print("[AnimDriverSpine] Connected animation_ended signal (fallback)")
 	else:
-		push_warning(“[AnimDriverSpine] No animation end signal, polling only”)
+		push_warning("[AnimDriverSpine] No animation end signal, polling only")
 
-	if _spine_sprite.has_signal(“animation_ended”):
+	if _spine_sprite.has_signal("animation_ended"):
 		_spine_sprite.animation_ended.connect(_on_animation_ended_observe)
-	if _spine_sprite.has_signal(“animation_interrupted”):
+	if _spine_sprite.has_signal("animation_interrupted"):
 		_spine_sprite.animation_interrupted.connect(_on_animation_interrupted_observe)
 
 
