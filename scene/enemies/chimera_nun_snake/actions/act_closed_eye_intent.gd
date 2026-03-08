@@ -60,7 +60,9 @@ func _tick_select(snake: ChimeraNunSnake, target: Node2D) -> int:
 	# 在 stiff_attack_range → 选择开眼攻击链（交由 ActOpenEyeAttackChain 处理）
 	if h_dist <= snake.stiff_attack_range:
 		snake.face_toward(target)
-		return SUCCESS  # SUCCESS 让 Selector 进入下一个分支（OpenEye）
+		# 预设 mode=OPEN_EYE，使 Seq_OpenEyeAttack 的 Cond_ModeOpenEye 在下一帧通过
+		snake.mode = ChimeraNunSnake.Mode.OPEN_EYE
+		return SUCCESS
 
 	# 在 ground_pound_range → 闭眼锤地
 	if h_dist <= snake.ground_pound_range:
@@ -93,8 +95,7 @@ func _tick_walking(snake: ChimeraNunSnake, target: Node2D) -> int:
 	snake.face_toward(target)
 	var dir_x: float = sign(target.global_position.x - snake.global_position.x)
 	snake.velocity.x = dir_x * snake.closed_walk_speed
-	snake.velocity.y += snake.get_physics_process_delta_time() * 1500.0  # gravity
-	snake.move_and_slide()
+	# gravity + move_and_slide handled by chimera_nun_snake._physics_process
 	return RUNNING
 
 

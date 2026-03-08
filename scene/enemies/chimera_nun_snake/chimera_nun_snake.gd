@@ -203,6 +203,13 @@ func _physics_process(dt: float) -> void:
 				stunned_t = 0.0
 				_restore_from_stun_nun_snake()
 
+	# 重力（始终施加，避免初始悬浮）
+	if not is_on_floor():
+		velocity.y += dt * 1500.0  # gravity
+	else:
+		velocity.y = max(velocity.y, 0.0)
+	move_and_slide()
+
 	# 不调用 super._physics_process()：
 	# MonsterBase 的 weak/stunned_t 系统由我们自己的 mode 系统替代。
 	# BeehaveTree 的 tick 由其自身 _physics_process 驱动。
@@ -403,7 +410,7 @@ func _set_eye_hurtbox_enabled(enabled: bool) -> void:
 	for child in _eye_hurtbox.get_children():
 		var cs: CollisionShape2D = child as CollisionShape2D
 		if cs != null:
-			cs.disabled = not enabled
+			cs.set_deferred("disabled", not enabled)
 
 
 func _set_main_hurtbox_defense_config() -> void:
@@ -435,12 +442,12 @@ func _enable_current_attack_hitbox(enabled: bool) -> void:
 func _set_hitbox_enabled(hitbox: Area2D, enabled: bool) -> void:
 	if hitbox == null:
 		return
-	hitbox.monitoring = enabled
-	hitbox.monitorable = enabled
+	hitbox.set_deferred("monitoring", enabled)
+	hitbox.set_deferred("monitorable", enabled)
 	for child in hitbox.get_children():
 		var cs: CollisionShape2D = child as CollisionShape2D
 		if cs != null:
-			cs.disabled = not enabled
+			cs.set_deferred("disabled", not enabled)
 
 
 func force_close_all_hitboxes() -> void:

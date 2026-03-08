@@ -98,8 +98,7 @@ func _tick_chasing(snake: ChimeraNunSnake, target: Node2D) -> int:
 	# 闭眼高速追击
 	var dir_x: float = sign(target.global_position.x - snake.global_position.x)
 	snake.velocity.x = dir_x * snake.petrified_target_chase_speed
-	snake.velocity.y += snake.get_physics_process_delta_time() * 1500.0  # gravity
-	snake.move_and_slide()
+	# gravity + move_and_slide handled by chimera_nun_snake._physics_process
 	return RUNNING
 
 
