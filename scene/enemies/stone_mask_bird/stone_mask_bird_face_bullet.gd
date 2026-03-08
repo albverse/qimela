@@ -85,6 +85,8 @@ func _on_collide(collision: KinematicCollision2D) -> void:
 		return
 	if _owner_bird != null and collider == _owner_bird:
 		return
+	if _owner_bird != null and collider == _owner_bird:
+		return
 	_done = true
 	# 命中玩家 → apply_hit；命中地形等 → 直接消失
 	if collider.is_in_group("player"):
