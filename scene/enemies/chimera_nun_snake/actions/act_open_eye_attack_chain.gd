@@ -1,0 +1,114 @@
+extends ActionLeaf
+class_name ActNunSnakeOpenEyeAttackChain
+
+## =============================================================================
+## OPEN_EYE 固定攻击链
+## =============================================================================
+## close_to_open → stiff_attack → open_eye_idle (timeout) →
+## shoot_eye_start → shoot_eye_loop → shoot_eye_end →
+## open_eye_to_close → CLOSED_EYE
+##
+## 除非中途被 WEAK/STUN 打断。
+## =============================================================================
+
+enum SubState {
+	CLOSE_TO_OPEN = 0,
+	STIFF_ATTACK = 1,
+	OPEN_EYE_IDLE = 2,
+	SHOOT_EYE_START = 3,
+	SHOOT_EYE_LOOP = 4,
+	SHOOT_EYE_END = 5,
+	OPEN_EYE_TO_CLOSE = 6,
+}
+
+var _sub_state: int = SubState.CLOSE_TO_OPEN
+var _idle_start_sec: float = 0.0
+## 是否已发射眼球（防止重复）
+var _eye_shot_spawned: bool = false
+
+
+func before_run(actor: Node, _blackboard: Blackboard) -> void:
+	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
+	if snake == null:
+		return
+	_sub_state = SubState.CLOSE_TO_OPEN
+	_idle_start_sec = 0.0
+	_eye_shot_spawned = false
+	snake.opening_transition_lock = true
+	snake.anim_play(&"close_to_open", false)
+
+
+func tick(actor: Node, _blackboard: Blackboard) -> int:
+	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
+	if snake == null:
+		return FAILURE
+
+	# WEAK/STUN 中断
+	if snake.mode == ChimeraNunSnake.Mode.WEAK or snake.mode == ChimeraNunSnake.Mode.STUN:
+		return FAILURE
+
+	snake.velocity = Vector2.ZERO
+
+	match _sub_state:
+		SubState.CLOSE_TO_OPEN:
+			if snake.anim_is_finished(&"close_to_open"):
+				snake.opening_transition_lock = false
+				snake._enter_open_eye()
+				_sub_state = SubState.STIFF_ATTACK
+				snake.anim_play(&"stiff_attack", false)
+			return RUNNING
+
+		SubState.STIFF_ATTACK:
+			if snake.anim_is_finished(&"stiff_attack"):
+				_sub_state = SubState.OPEN_EYE_IDLE
+				_idle_start_sec = ChimeraNunSnake.now_sec()
+				snake.anim_play(&"open_eye_idle", true)
+			return RUNNING
+
+		SubState.OPEN_EYE_IDLE:
+			var elapsed: float = ChimeraNunSnake.now_sec() - _idle_start_sec
+			if elapsed >= snake.open_eye_idle_timeout:
+				_sub_state = SubState.SHOOT_EYE_START
+				snake.anim_play(&"shoot_eye_start", false)
+			return RUNNING
+
+		SubState.SHOOT_EYE_START:
+			# eye_shoot_spawn 事件会在此动画中触发
+			if snake.anim_is_finished(&"shoot_eye_start"):
+				_sub_state = SubState.SHOOT_EYE_LOOP
+				snake.anim_play(&"shoot_eye_loop", true)
+			return RUNNING
+
+		SubState.SHOOT_EYE_LOOP:
+			# 等待眼球返航
+			if snake.eye_phase == ChimeraNunSnake.EyePhase.SOCKETED:
+				_sub_state = SubState.SHOOT_EYE_END
+				snake.anim_play(&"shoot_eye_end", false)
+			return RUNNING
+
+		SubState.SHOOT_EYE_END:
+			if snake.anim_is_finished(&"shoot_eye_end"):
+				_sub_state = SubState.OPEN_EYE_TO_CLOSE
+				snake.closing_transition_lock = true
+				snake.anim_play(&"open_eye_to_close", false)
+			return RUNNING
+
+		SubState.OPEN_EYE_TO_CLOSE:
+			if snake.anim_is_finished(&"open_eye_to_close"):
+				snake.closing_transition_lock = false
+				snake._enter_closed_eye()
+				return SUCCESS
+			return RUNNING
+
+	return RUNNING
+
+
+func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	var snake: ChimeraNunSnake = actor as ChimeraNunSnake
+	if snake != null:
+		snake.opening_transition_lock = false
+		snake.closing_transition_lock = false
+		snake.force_close_all_hitboxes()
+	_sub_state = SubState.CLOSE_TO_OPEN
+	_eye_shot_spawned = false
+	super(actor, blackboard)

@@ -77,6 +77,14 @@ var _external_control_frozen: bool = false  # 由奇美拉等外部实体控制�
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
 
+# ── 石化状态（PETRIFIED） ──
+var _petrified: bool = false
+var _petrified_timer: float = 0.0
+var _petrified_total_timer: float = 0.0
+var _petrified_auto_recover_sec: float = 3.0
+var _petrified_forced_death_sec: float = 10.0
+var _petrified_recover_enabled: bool = true
+
 # ── 组件引用 ──
 var movement: PlayerMovement = null
 var loco_fsm: PlayerLocomotionFSM = null
@@ -185,6 +193,9 @@ func _physics_process(dt: float) -> void:
 	if chain_sys.has_method("tick"):
 		chain_sys.call("tick", dt)
 
+	# === 石化 tick ===
+	_tick_petrified(dt)
+
 	# === 8) 提交链条发射请求（延迟到状态机/血量更新之后，避免同帧竞态） ===
 	_commit_pending_chain_fire()
 	_block_chain_fire_this_frame = false
@@ -192,6 +203,8 @@ func _physics_process(dt: float) -> void:
 
 func _is_chain_fire_blocked() -> bool:
 	if _block_chain_fire_this_frame:
+		return true
+	if _petrified:
 		return true
 	if health != null and health.hp <= 0:
 		return true
@@ -233,6 +246,8 @@ func _commit_pending_chain_fire() -> void:
 # ── 输入转发 ──
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _petrified:
+		return  # 石化中禁止所有输入
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return
 
@@ -482,6 +497,8 @@ func get_action_state() -> StringName:
 	return action_fsm.state_name() if action_fsm != null else &"None"
 
 func is_horizontal_input_locked() -> bool:
+	if _petrified:
+		return true
 	if _player_locked or _external_control_frozen:
 		return true
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
@@ -514,6 +531,10 @@ func is_external_control_frozen() -> bool:
 	return _external_control_frozen
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
+	# 石化中被伤害 → 即死处决
+	if _petrified:
+		execute_petrified_death()
+		return
 	if health != null:
 		health.apply_damage(amount, source_global_pos)
 
@@ -659,6 +680,74 @@ func _consume_all_healing_sprites_on_death() -> void:
 		elif sp.has_method("consume"):
 			sp.call("consume")
 	log_msg("HEAL", "clear all healing sprites on die")
+
+
+# ── 石化状态（PETRIFIED）──
+
+func apply_petrify(recover_enabled: bool = true, auto_recover_sec: float = 3.0, forced_death_sec: float = 10.0) -> void:
+	## 由修女蛇眼球命中时调用，进入石化状态
+	if _petrified:
+		return  # 已经石化
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		return
+	_petrified = true
+	_petrified_timer = 0.0
+	_petrified_total_timer = 0.0
+	_petrified_recover_enabled = recover_enabled
+	_petrified_auto_recover_sec = auto_recover_sec
+	_petrified_forced_death_sec = forced_death_sec
+	_player_locked = true
+	velocity = Vector2.ZERO
+	# TODO: 播放 petrify_enter 动画（Spine 动画就绪后替换）
+	log_msg("PETRIFY", "enter petrified (recover=%s auto=%.1fs death=%.1fs)" % [
+		str(recover_enabled), auto_recover_sec, forced_death_sec])
+
+
+func is_petrified() -> bool:
+	return _petrified
+
+
+func _tick_petrified(dt: float) -> void:
+	if not _petrified:
+		return
+	_petrified_timer += dt
+	_petrified_total_timer += dt
+
+	# 强制死亡超时
+	if _petrified_total_timer >= _petrified_forced_death_sec:
+		execute_petrified_death()
+		return
+
+	# 自动恢复
+	if _petrified_recover_enabled and _petrified_timer >= _petrified_auto_recover_sec:
+		_exit_petrified()
+		return
+
+
+func _exit_petrified() -> void:
+	if not _petrified:
+		return
+	_petrified = false
+	_petrified_timer = 0.0
+	_petrified_total_timer = 0.0
+	_player_locked = false
+	# TODO: 播放 petrify_exit 动画
+	log_msg("PETRIFY", "exit petrified (recovered)")
+
+
+func execute_petrified_death() -> void:
+	## 石化中被处决或超时：立即死亡
+	if not _petrified:
+		return
+	_petrified = false
+	_petrified_timer = 0.0
+	_petrified_total_timer = 0.0
+	if health != null:
+		health.hp = 0
+	# TODO: 播放 die_by_stone 动画
+	if action_fsm != null:
+		action_fsm.on_damaged()  # 触发 DIE 状态
+	log_msg("PETRIFY", "petrified death (die_by_stone)")
 
 
 func on_die_entered() -> void:

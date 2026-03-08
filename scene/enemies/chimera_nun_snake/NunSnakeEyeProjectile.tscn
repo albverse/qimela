@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/nun_snake_eye_projectile.gd" id="projectile_script"]
+
+; =============================================================================
+; NunSnakeEyeProjectile（眼球子弹 — 独立实例）
+; collision_layer = 0   # 不可被命中
+; collision_mask = 2    # PlayerBody(2) / Inspector 第2层
+; =============================================================================
+[node name="NunSnakeEyeProjectile" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("projectile_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+
+; SpineSprite 占位（之后替换为眼球 Spine 动画）
+[node name="SpineSprite" type="Node2D" parent="."]
