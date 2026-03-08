@@ -470,14 +470,14 @@ func _set_main_hurtbox_defense_config() -> void:
 
 
 func _set_main_hurtbox_open_eye_config() -> void:
-	# 睁眼：主 Hurtbox 无效，只有 EyeHurtbox 有效
+	# 睁眼：主 Hurtbox 仅用于链条命中路由，不参与普通伤害生效
 	if _hurtbox == null:
 		return
-	if _hurtbox_original_layer < 0:
-		_hurtbox_original_layer = _hurtbox.collision_layer
-	_hurtbox.collision_layer = 0
-	_hurtbox.monitoring = false
-	_hurtbox.monitorable = false
+	if _hurtbox_original_layer >= 0:
+		_hurtbox.collision_layer = _hurtbox_original_layer
+		_hurtbox_original_layer = -1
+	_hurtbox.monitoring = true
+	_hurtbox.monitorable = true
 
 
 func _sync_hitboxes_to_bones() -> void:
@@ -723,6 +723,16 @@ func apply_healing_burst_stun() -> void:
 	if mode == Mode.CLOSED_EYE:
 		_enter_guard_break()
 	elif mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
+		_enter_stun()
+
+
+func _on_healing_burst(light_energy: float) -> void:
+	super._on_healing_burst(light_energy)
+	if light_energy <= 0.0:
+		return
+	if mode == Mode.WEAK or mode == Mode.STUN:
+		return
+	if mode == Mode.OPEN_EYE or mode == Mode.GUARD_BREAK:
 		_enter_stun()
 
 
