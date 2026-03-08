@@ -1,17 +1,21 @@
 extends Node
 class_name AnimDriverSpine
 
-## Spine 动画驱动器（2026-02-08 官方标准版）
+## Spine 动画驱动器（2026-03-08 官方标准版）
 ##
-## DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-02-08）
+## DOC_CHECK: spine-godot Runtime Documentation 已核对（2026-03-08）
 ## 官方签名：set_animation(animation_name, loop, track)
 ## 核心策略：信号 + 轮询双保险
 ##
 ## 关键修正：
 ## 1. 按 TYPE 探测签名（不依赖参数名）
-## 2. 使用 animation_ended 作为主信号（completed/interrupted 仅用于观测）
+## 2. 使用 animation_completed 作为主信号（官方推荐，表示动画播完一次）
+##    animation_ended 语义不同（entry 不再被应用，与 mix out/替换有关），仅用于观测
 ## 3. 轮询不持有 TE，只记录 instance_id 去重
 ## 4. 骨骼坐标优先用 get_global_bone_transform
+## 5. REPLACE_TRACK 不再调用 clear_track()（官方：clear_track 会保留最后姿势，不回 setup pose）
+##    set_animation() 本身已具备替换当前轨道动画的能力，无需先 clear
+## 6. stop/stop_all 统一使用 set_empty_animation / set_to_setup_pose，避免骨架冻结
 
 signal anim_completed(track: int, anim_name: StringName)
 
@@ -100,20 +104,22 @@ func _detect_api_signature(anim_state: Object) -> void:
 
 
 func _connect_signals() -> void:
-	## 主信号：animation_ended（官方语义更接近“真正结束”）
-	## 观测信号：animation_completed / animation_interrupted（日志与排障）
-	if _spine_sprite.has_signal("animation_ended"):
-		_spine_sprite.animation_ended.connect(_on_animation_completed)
-		if debug_log: print("[AnimDriverSpine] Connected animation_ended signal (preferred)")
-	elif _spine_sprite.has_signal("animation_completed"):
+	## 主信号：animation_completed（官方推荐：表示动画播完一次）
+	## 观测信号：animation_ended / animation_interrupted（日志与排障）
+	## 官方说明：animation_ended 的语义不是”播完”，而是 entry 不再被应用（mix out、被替换等），
+	## 因此不适合作为”动画播完一次”的判定信号。
+	if _spine_sprite.has_signal(“animation_completed”):
 		_spine_sprite.animation_completed.connect(_on_animation_completed)
-		if debug_log: print("[AnimDriverSpine] Connected animation_completed signal (fallback)")
+		if debug_log: print(“[AnimDriverSpine] Connected animation_completed signal (preferred)”)
+	elif _spine_sprite.has_signal(“animation_ended”):
+		_spine_sprite.animation_ended.connect(_on_animation_completed)
+		if debug_log: print(“[AnimDriverSpine] Connected animation_ended signal (fallback)”)
 	else:
-		push_warning("[AnimDriverSpine] No animation end signal, polling only")
+		push_warning(“[AnimDriverSpine] No animation end signal, polling only”)
 
-	if _spine_sprite.has_signal("animation_completed"):
-		_spine_sprite.animation_completed.connect(_on_animation_completed_observe)
-	if _spine_sprite.has_signal("animation_interrupted"):
+	if _spine_sprite.has_signal(“animation_ended”):
+		_spine_sprite.animation_ended.connect(_on_animation_ended_observe)
+	if _spine_sprite.has_signal(“animation_interrupted”):
 		_spine_sprite.animation_interrupted.connect(_on_animation_interrupted_observe)
 
 
@@ -239,7 +245,7 @@ func _on_animation_completed(track_entry, _arg2 = null, _arg3 = null) -> void:
 	_on_track_completed(track_id, entry)
 
 
-func _on_animation_completed_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
+func _on_animation_ended_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
 	var entry = _extract_track_entry(track_entry, _arg2, _arg3)
 	if entry == null:
 		return
@@ -248,7 +254,7 @@ func _on_animation_completed_observe(track_entry, _arg2 = null, _arg3 = null) ->
 		track_id = entry.get_track_index()
 	elif entry.has_method("getTrackIndex"):
 		track_id = entry.getTrackIndex()
-	if debug_log: print("[AnimDriverSpine] signal observed: animation_completed track=%d" % track_id)
+	if debug_log: print("[AnimDriverSpine] signal observed: animation_ended track=%d" % track_id)
 
 
 func _on_animation_interrupted_observe(track_entry, _arg2 = null, _arg3 = null) -> void:
@@ -317,10 +323,14 @@ func play(track: int, anim_name: StringName, loop: bool, mode: int = PlayMode.OV
 		PlayMode.OVERLAY:
 			_play_animation(track, anim_name, loop)
 		PlayMode.EXCLUSIVE:
-			_clear_all_tracks()
+			# 清空其他轨道（用 set_empty_animation 避免冻结姿势），然后在目标轨道播放。
+			# 官方：clear_track/clear_tracks 会保留最后姿势，不回 setup pose。
+			_empty_all_tracks_except(track)
 			_play_animation(track, anim_name, loop)
 		PlayMode.REPLACE_TRACK:
-			_clear_track(track)
+			# 官方：set_animation() 本身就会替换当前轨道上的动画，无需先 clear_track。
+			# clear_track() 会将骨架冻结在上一动画最后一帧（官方明确行为），
+			# 导致新动画从冻结姿势混入，产生视觉残留（残帧/残影）。
 			_play_animation(track, anim_name, loop)
 
 
@@ -382,16 +392,20 @@ func _play_animation(track: int, anim_name: StringName, loop: bool) -> void:
 func stop(track: int) -> void:
 	if _spine_sprite == null:
 		return
-	if track == 1:
-		_mix_out_track(track, track1_mix_out_duration)
-	else:
-		_clear_track(track)
+	# 官方：clear_track() 会保留最后姿势，不回 setup pose。
+	# 统一使用 set_empty_animation 混出，避免骨架冻结在最后一帧。
+	var mix_dur: float = track1_mix_out_duration if track == 1 else 0.0
+	_mix_out_track(track, mix_dur)
 	_track_states.erase(track)
 	_completed_entry_id.erase(track)
 
 
 func stop_all() -> void:
-	_clear_all_tracks()
+	# 官方：clear_tracks() 会保留最后姿势。
+	# 逐轨 empty 混出 + 重置 setup pose，确保骨架干净。
+	for track_id in _track_states.keys():
+		_mix_out_track(track_id, 0.0)
+	_reset_to_setup_pose()
 	_track_states.clear()
 	_completed_entry_id.clear()
 
@@ -423,6 +437,9 @@ func _clear_track(track: int) -> void:
 
 
 func _clear_all_tracks() -> void:
+	## 注意：此方法保留仅供内部极端情况使用。
+	## 官方：clear_tracks() 会保留最后姿势，不回 setup pose。
+	## 一般场景应使用 _empty_all_tracks_except() 或 stop_all()。
 	var anim_state = _get_animation_state()
 	if anim_state == null:
 		return
@@ -431,6 +448,35 @@ func _clear_all_tracks() -> void:
 		anim_state.clear_tracks()
 	elif anim_state.has_method("clearTracks"):
 		anim_state.clearTracks()
+
+
+func _empty_all_tracks_except(keep_track: int) -> void:
+	## 将所有已跟踪轨道（除 keep_track）混出到空动画，避免冻结姿势。
+	for track_id in _track_states.keys():
+		if track_id == keep_track:
+			continue
+		_mix_out_track(track_id, 0.0)
+		_track_states.erase(track_id)
+		_completed_entry_id.erase(track_id)
+
+
+func _reset_to_setup_pose() -> void:
+	## 将骨架硬重置到 setup pose（初始姿态）。
+	## 官方：clear_track/clear_tracks 不会自动回 setup pose，必须手动调用。
+	if _spine_sprite == null:
+		return
+	var skeleton = null
+	if _spine_sprite.has_method("get_skeleton"):
+		skeleton = _spine_sprite.get_skeleton()
+	elif _spine_sprite.has_method("getSkeleton"):
+		skeleton = _spine_sprite.getSkeleton()
+	if skeleton == null:
+		return
+	if skeleton.has_method("set_to_setup_pose"):
+		skeleton.set_to_setup_pose()
+	elif skeleton.has_method("setToSetupPose"):
+		skeleton.setToSetupPose()
+	if debug_log: print("[AnimDriverSpine] reset to setup pose")
 
 
 ## === 查询 API ===
