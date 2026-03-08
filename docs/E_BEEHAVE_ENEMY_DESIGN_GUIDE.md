@@ -215,3 +215,237 @@
 ---
 
 *配套文档：`BEEHAVE_REFERENCE.md` — Beehave 2.9.x API 参考*
+
+---
+
+## 附录A：基于实际 `addons/beehave` 插件源码核对后的修订（Beehave 2.9.2 / Godot 4.5）
+
+> 本节不是概念猜测，而是对当前项目中 `addons.zip` 内真实插件脚本逐项核对后的结论。以后 AI 按本指南生成行为树时，应优先遵守本节。
+
+### A-1. 已核对的实际脚本范围
+
+已核对的实际脚本包括：
+
+- `nodes/beehave_tree.gd`
+- `nodes/beehave_node.gd`
+- `nodes/decorators/*.gd`
+- `nodes/composites/*.gd`
+- `nodes/leaves/action.gd`
+- `nodes/leaves/condition.gd`
+
+结论：当前 zip 内插件结构与 **Beehave 2.9.2 / Godot 4.5** 主线一致，前文对大方向的判断基本成立，但下面这些细节必须修正或补充。
+
+---
+
+### A-2. 需要修正的理解（以源码为准）
+
+#### 1）`RandomizedComposite` 不是"只存在于类图上的虚影"
+
+它在实际插件里确实有独立脚本：`nodes/composites/randomized_composite.gd`。
+它的作用不是直接拿来做业务节点，而是给 `SequenceRandomComposite` / `SelectorRandomComposite` 提供：
+
+- `random_seed`
+- `use_weights`
+- 子节点权重属性 `Weights/<子节点名>`
+- `get_shuffled_children()` - 加权乱序
+- `_weighted_shuffle()`
+
+**设计结论：**
+- 如果敌人设计文案里只写"随机选择技能"，默认不代表等概率。
+- 若要控制某招更常被优先尝试，必须在实现时为随机子节点配置权重。
+- 因为权重是挂在子节点名上的，**节点命名必须稳定**，不要运行时乱改名。
+
+#### 2）`SequenceRandomComposite` / `SelectorRandomComposite` 的"随机"不是每帧重抽
+
+这两个节点都会先把当前子节点顺序洗成一个 `_children_bag`，然后在这轮执行过程中持续使用这份 bag。
+不是每次 `tick()` 都重新随机。
+
+**设计结论：**
+- 设计稿中写"随机顺序"时，应理解为：**一轮行为树执行内顺序固定，重新 reset 后才会再洗牌**。
+- 这对 Boss 很重要：一轮里不要指望它每帧都换主意。
+
+#### 3）`SequenceRandomComposite` 的恢复机制要按源码理解
+
+源码中存在两个开关：
+
+- `resume_on_failure`
+- `resume_on_interrupt`
+
+其真实含义是：
+
+- **失败后是否保留当前随机序列进度**
+- **被打断后是否保留当前随机序列进度**
+
+**设计结论：**
+- 如果设计上要求"这一轮随机出的步骤被打断后，下次继续刚才那一套"，应开启 `resume_on_interrupt`。
+- 如果设计上要求"某一步失败后，下次继续这轮剩余流程"，应开启 `resume_on_failure`。
+- 如果没有明确写这两点，默认应视为：**失败/打断后重新洗牌重来**。
+
+#### 4）`SelectorRandomComposite` 本质仍然是 Selector，不是随机播招器
+
+它仍然遵守 Selector 规则：
+
+- 遇到 `SUCCESS` 立即结束
+- 遇到 `RUNNING` 停在当前子节点
+- 只有前面尝试失败才会试后面
+
+**设计结论：**
+- "随机攻击池"要写成多个**独立可失败的技能序列**，而不是把所有技能糊成一个大动作。
+- 若某技能条件过宽，就算顺序随机，它仍会因为更容易成功而显得"总被选中"。
+- 所以敌人文案里必须把每个技能的触发条件写得互相区分，不能都写成"看到玩家就能放"。
+
+#### 5）`DelayDecorator` 用的是物理帧累积，不是系统绝对时间
+
+源码中 `DelayDecorator` 使用 `get_physics_process_delta_time()` 累加等待时间；
+而 `CooldownDecorator` 在 2.9.2 中使用的是 `Time.get_ticks_msec()`。
+
+**设计结论：**
+- `DelayDecorator` 更像"本分支连续运行了多久"，非常怕被中断。
+- `CooldownDecorator` 更像"真实时间冷却结束没"。
+- 但源码同时规定：**`CooldownDecorator.interrupt()` 会把冷却重置为 0**。
+  所以在 reactive 高优先级切分支的结构下，它仍然可能频繁失效。
+- 因此本指南原有建议继续成立：
+  **Boss 技能冷却优先写在 Action / actor 状态里自管理，不要把关键冷却完全押宝在 `CooldownDecorator` 上。**
+
+#### 6）`TimeLimiterDecorator` 是"运行时限"，不是"总流程时限"
+
+源码逻辑是：
+
+- `before_run()` 把计时清零
+- 每帧先累计时间，再 tick 子节点
+- 超时则 `interrupt(child)`，然后返回 `FAILURE`
+- 被打断也会重置计时
+
+**设计结论：**
+- 它只适合限制**单个持续动作**，例如追击、蓄力、长位移、等待动画事件。
+- 不适合做"跨分支共享倒计时"。
+- 设计稿里若写"最多追击 3 秒"，这是 `TimeLimiterDecorator` 的典型用法。
+- 若写"进入二阶段后 10 秒内不能再次放此招"，这不是它干的活，应写成 actor / blackboard 级冷却逻辑。
+
+#### 7）`AlwaysFailDecorator` / `InverterDecorator` / `UntilFailDecorator` 都不会改变 `RUNNING`
+
+源码非常明确：
+
+- `InverterDecorator` 只交换 `SUCCESS/FAILURE`
+- `AlwaysFailDecorator` 遇到 `RUNNING` 依然返回 `RUNNING`
+- `UntilFailDecorator` 遇到 `SUCCESS` 返回 `RUNNING`，遇到 `FAILURE` 才返回 `SUCCESS`
+
+**设计结论：**
+- 这些 Decorator 适合包**条件**或**短动作**。
+- 不要把它们当成"可以魔法般改写长动作语义"的万能包裹器。
+- 特别是 `AlwaysFailDecorator`：
+  它不会让一个长动作在 Selector 里"后台执行"；子节点只要还在 `RUNNING`，上层就仍会卡在这里。
+
+#### 8）`RepeaterDecorator` 真正的计数规则是"成功或失败结束一轮，RUNNING 不算一轮"
+
+源码行为：
+
+- 子节点 `RUNNING`：保持当前轮次，不加次数
+- 子节点结束（无论成功或失败）：会 `current_count += 1`
+- 若该次结果是 `FAILURE`：立刻整体 `FAILURE`
+- 达到 `repetitions` 才整体 `SUCCESS`
+
+**设计结论：**
+- 最稳妥的设计理解仍然是：**用它做固定次数的完整动作循环**。
+- 但由于源码是在子节点结束后先加次数，再判失败，AI 在实现时不要假定它是"只有 SUCCESS 才加数"的纯数学模型。
+- 真正落地时，若你想做"连发三次，每次必须成功才算一轮"，最好在动作节点里自己控制每轮成功条件，而不是把所有语义压给 `RepeaterDecorator`。
+
+#### 9）`SimpleParallelComposite` 的真实限制与行为
+
+源码确认：
+
+- **必须恰好两个子节点**
+- 第 0 个是主任务，决定整体结果
+- 第 1 个是副任务，结果通常不决定整体结果
+- `secondary_node_repeat_count = 0` 表示副任务无限循环
+- `delay_mode = true` 时，主任务结束后会等副任务完成当前动作段再返回主任务结果
+
+**设计结论：**
+- 它最适合：主行为 + 陪跑行为
+  例如：追击 + 持续朝向玩家、冲刺 + 持续喷特效。
+- 不适合：两个并列的重型攻击流程。
+- 设计稿里若写"追击时持续转脸朝向玩家"，这是它的经典使用场景。
+- 设计稿里若写"主攻击结束后，尾部特效必须自然收尾"，则应明确标注 `delay_mode: 是`。
+
+#### 10）`BeehaveTree` 的执行前提要写对
+
+源码确认：
+
+- Tree 只能有 **一个根子节点**
+- `process_thread` 有 `IDLE / PHYSICS / MANUAL`
+- `MANUAL` 模式不会自动 tick
+- `tick_rate` 是"隔多少帧 tick 一次"，不是秒
+- 当树整体状态不再 `RUNNING` 时，tree 会调用根节点 `after_run()` 并清空 `running_action`
+
+**设计结论：**
+- 本项目敌人 AI 默认应按 **PHYSICS** 线程理解。
+- 如果 AI 设计文案里有"每几秒检查一次"，不要写成 `tick_rate = 2秒` 这种错误语义。
+  `tick_rate` 只能表达帧数抽样；秒级节奏应交给条件/动作自己的时间逻辑。
+
+---
+
+### A-3. 插件源码中发现的真实瑕疵（写设计时要避开）
+
+#### 1）`RepeaterDecorator.get_class_name()` 写错了
+
+源码最后返回的是 `LimiterDecorator`，这显然是插件作者手滑：
+
+- `class_name RepeaterDecorator` 是对的
+- 但 `get_class_name()` push_back 的却是 `"LimiterDecorator"`
+
+**影响判断：**
+- 大多数正常使用场景问题不大，因为真正实例化靠 `class_name`。
+- 但若有调试界面、类型显示、或自写工具依赖 `get_class_name()`，这里可能出现名字错乱。
+
+#### 2）`DelayDecorator` 的缓存键名写成了 `time_limiter_*`
+
+源码里：
+
+- `DelayDecorator` 的 `cache_key = "time_limiter_%s" % self.get_instance_id()`
+
+这在功能上通常没问题，因为实例 id 不同；但命名明显是复制 `TimeLimiterDecorator` 后没改干净。
+
+**影响判断：**
+- 正常运行通常不受影响。
+- 但以后若你自己扩展 debug 输出或黑板可视化，看到这个键名不要误以为它真是 `TimeLimiterDecorator`。
+
+---
+
+### A-4. 以后让 AI 生成敌人行为树时，必须额外遵守的书写规则
+
+在本指南原有规则基础上，再追加下面 8 条：
+
+9. **若使用随机节点，必须说明是"随机顺序全部执行"还是"随机顺序择一执行"**
+   - 前者 = `SequenceRandomComposite`
+   - 后者 = `SelectorRandomComposite`
+
+10. **若使用随机节点，必要时补写"权重"**
+    - 例如：`权重: 冲刺3, 投射物1, 召唤1`
+    - 未写权重时，默认等权理解
+
+11. **若一个动作需要"被打断后继续当前轮"，必须在文案中明确写"中断后续跑"**
+    - 对应 `resume_on_interrupt`
+
+12. **若一个随机步骤链失败后需要从失败处继续，必须明确写"失败后续跑"**
+    - 对应 `resume_on_failure`
+
+13. **凡是持续时间、蓄力、长追击，必须写清"被打断后是否重置"**
+    - 不写这句，AI 默认按"会重置"理解
+
+14. **关键技能冷却不要只写"CooldownDecorator"四个字**
+    - 必须补一句：`冷却由动作内部管理` 或 `冷却允许被切分支重置`
+    - Boss 主技能默认采用前者
+
+15. **需要并行陪跑行为时，必须明确主任务 / 副任务**
+    - 示例：`主任务: 追击玩家`、`副任务: 持续朝向玩家`
+    - 若副任务需要自然收尾，再写：`副任务收尾: 是`
+
+16. **不要把"追击到位后停住等待"写成动作结束**
+    - 追击类 Action 在近战待机范围内应保持 `RUNNING` 或切到新的上层分支，
+      不应在刚到位那一帧就草率 `SUCCESS`，否则 Selector 会像抽风一样立刻乱跳。
+
+---
+
+### A-5. 推荐给 AI 的一句总原则
+
+> 任何 Beehave 节点的时间、冷却、随机、并行语义，都要优先按 `addons.zip` 中的真实源码理解；若文案与源码语义冲突，以源码行为为准，再回头修文案，不要硬拗插件去迁就描述。
