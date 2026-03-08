@@ -1,0 +1,120 @@
+[gd_scene load_steps=13 format=3 uid="uid://r45iudp3s86l"]
+
+[ext_resource type="SpineSkeletonDataResource" uid="uid://d3jqr5y1v357w" path="res://scene/enemies/chimera_nun_snake/spine_art/chimera_nun_snake.tres" id="2_d47qc"]
+[ext_resource type="PackedScene" path="res://scene/enemies/chimera_nun_snake/bt_chimera_nun_snake.tscn" id="bt_scene"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="enemy_hurtbox"]
+[ext_resource type="Script" uid="uid://uofdjsrl4etp" path="res://scene/enemies/chimera_nun_snake/nun_snake_eye_hurtbox.gd" id="eye_hurtbox_script"]
+[ext_resource type="Script" uid="uid://386pdc65ox4n" path="res://scene/enemies/chimera_nun_snake/chimera_nun_snake.gd" id="main_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0t4r1"]
+size = Vector2(110.5, 20)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ds5y2"]
+size = Vector2(33, 88)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_rii1j"]
+radius = 30.149628
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_0eqhm"]
+radius = 122.0041
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ttra3"]
+size = Vector2(403, 32)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ycp1v"]
+radius = 30.413813
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_8vgbp"]
+radius = 90.088844
+
+[node name="ChimeraNunSnake" type="CharacterBody2D"]
+collision_layer = 4
+script = ExtResource("main_script")
+attribute_type = 1
+size_tier = 1
+species_id = &"chimera_nun_snake"
+entity_type = 1
+max_hp = 5
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+skeleton_data_res = ExtResource("2_d47qc")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(1, -12)
+shape = SubResource("RectangleShape2D_0t4r1")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("enemy_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(-34, -43)
+shape = SubResource("RectangleShape2D_ds5y2")
+
+[node name="EyeHurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("eye_hurtbox_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="EyeHurtbox"]
+position = Vector2(-36, -122)
+shape = SubResource("CircleShape2D_rii1j")
+debug_color = Color(0.9600722, 1.8289685e-06, 0.52079093, 0.41960785)
+
+[node name="StiffAttackHitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StiffAttackHitbox"]
+position = Vector2(-20, -82)
+shape = SubResource("CircleShape2D_0eqhm")
+disabled = true
+debug_color = Color(0.49829024, 0.58218765, 1.92523e-07, 0.41960785)
+
+[node name="GroundPoundHitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundPoundHitbox"]
+position = Vector2(-53, -12)
+shape = SubResource("RectangleShape2D_ttra3")
+disabled = true
+debug_color = Color(0.9828394, 0, 0.36279765, 0.41960785)
+
+[node name="TailSweepHitbox" type="Area2D" parent="."]
+position = Vector2(0, -2)
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TailSweepHitbox"]
+position = Vector2(44, -20)
+shape = SubResource("CircleShape2D_ycp1v")
+disabled = true
+
+[node name="LightReceiver" type="Area2D" parent="."]
+position = Vector2(1, -5)
+collision_layer = 16
+collision_mask = 16
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+position = Vector2(-15, -79)
+shape = SubResource("CircleShape2D_8vgbp")
+
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("bt_scene")]
+blackboard = NodePath("@Node@21169")
+actor = NodePath("..")
+
+[connection signal="body_entered" from="StiffAttackHitbox" to="." method="_on_stiff_attack_hitbox_body_entered"]
+[connection signal="body_entered" from="GroundPoundHitbox" to="." method="_on_ground_pound_hitbox_body_entered"]
+[connection signal="body_entered" from="TailSweepHitbox" to="." method="_on_tail_sweep_hitbox_body_entered"]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene load_steps=27 format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scene/MonsterWalkB.tscn" id="8_walkb"]
 [ext_resource type="PackedScene" uid="uid://c2b8gjfqbjoca" path="res://scene/enemies/stone_eyebug/StoneEyeBug.tscn" id="9_4rqvp"]
 [ext_resource type="PackedScene" uid="uid://cw4fbesqxph7i" path="res://scene/MonsterFlyB.tscn" id="9_flyb"]
+[ext_resource type="PackedScene" uid="uid://r45iudp3s86l" path="res://scene/enemies/chimera_nun_snake/ChimeraNunSnake.tscn" id="10_4rqvp"]
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
 [ext_resource type="PackedScene" uid="uid://cndsohm8mmjw7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.tscn" id="16_gteh2"]
 [ext_resource type="PackedScene" path="res://scene/RestArea.tscn" id="17_rest_area"]
@@ -141,7 +142,7 @@ position = Vector2(-334, 557)
 shape = SubResource("RectangleShape2D_7qdox")
 
 [node name="CollisionShape2D4" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
-position = Vector2(1184, 455)
+position = Vector2(1304, 344)
 shape = SubResource("RectangleShape2D_7qdox")
 
 [node name="CollisionShape2D3" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
@@ -165,7 +166,10 @@ position = Vector2(396, 362)
 position = Vector2(132, 476)
 
 [node name="StoneEyeBug" parent="World/Floor (StaticBody2D)" instance=ExtResource("9_4rqvp")]
-position = Vector2(605, 582)
+position = Vector2(1257, 500)
+
+[node name="ChimeraNunSnake" parent="World/Floor (StaticBody2D)" instance=ExtResource("10_4rqvp")]
+position = Vector2(785, 353)
 
 [node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
 position = Vector2(484, 432)
@@ -206,4 +210,4 @@ position = Vector2(-128, 510)
 [node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
 
 [node name="StoneEyeBug" parent="." instance=ExtResource("9_4rqvp")]
-position = Vector2(248, 580)
+position = Vector2(-317, 430)

@@ -1,0 +1,96 @@
+[gd_scene load_steps=14 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_is_weak_or_stun.gd" id="cond_is_weak_or_stun"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_has_petrified_target.gd" id="cond_has_petrified_target"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_nun_snake_mode_is.gd" id="cond_mode_is"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/conditions/cond_detect_target.gd" id="cond_detect_target"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_handle_weak_or_stun.gd" id="act_handle_weak_or_stun"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_petrified_execution_chase.gd" id="act_petrified_execution_chase"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_guard_break_flow.gd" id="act_guard_break_flow"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_open_eye_attack_chain.gd" id="act_open_eye_attack_chain"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_closed_eye_intent.gd" id="act_closed_eye_intent"]
+[ext_resource type="Script" path="res://scene/enemies/chimera_nun_snake/actions/act_closed_eye_idle.gd" id="act_closed_eye_idle"]
+
+; =============================================================================
+; BeehaveTree 根节点
+; actor 自动取父节点（ChimeraNunSnake CharacterBody2D）
+; process_thread = PHYSICS（默认）
+; =============================================================================
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级从上到下：
+;   WeakOrStun > PetrifiedChase > GuardBreak > OpenEyeAttack > ClosedEyeReact > ClosedEyeIdle
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 1. Seq_WeakOrStun（优先级最高）---
+[node name="Seq_WeakOrStun" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsWeakOrStun" type="Node" parent="RootSelector/Seq_WeakOrStun"]
+script = ExtResource("cond_is_weak_or_stun")
+
+[node name="Act_HandleWeakOrStun" type="Node" parent="RootSelector/Seq_WeakOrStun"]
+script = ExtResource("act_handle_weak_or_stun")
+
+; --- 2. Seq_PetrifiedExecutionChase ---
+[node name="Seq_PetrifiedChase" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_HasPetrifiedTarget" type="Node" parent="RootSelector/Seq_PetrifiedChase"]
+script = ExtResource("cond_has_petrified_target")
+
+[node name="Act_PetrifiedChase" type="Node" parent="RootSelector/Seq_PetrifiedChase"]
+script = ExtResource("act_petrified_execution_chase")
+
+; --- 3. Seq_GuardBreak ---
+[node name="Seq_GuardBreak" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeGuardBreak" type="Node" parent="RootSelector/Seq_GuardBreak"]
+script = ExtResource("cond_mode_is")
+target_mode = 2
+
+[node name="Act_GuardBreakFlow" type="Node" parent="RootSelector/Seq_GuardBreak"]
+script = ExtResource("act_guard_break_flow")
+
+; --- 4. Seq_OpenEyeAttack ---
+[node name="Seq_OpenEyeAttack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeOpenEye" type="Node" parent="RootSelector/Seq_OpenEyeAttack"]
+script = ExtResource("cond_mode_is")
+target_mode = 1
+
+[node name="Act_OpenEyeAttackChain" type="Node" parent="RootSelector/Seq_OpenEyeAttack"]
+script = ExtResource("act_open_eye_attack_chain")
+
+; --- 5. Seq_ClosedEyeReact ---
+[node name="Seq_ClosedEyeReact" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ModeClosedEye" type="Node" parent="RootSelector/Seq_ClosedEyeReact"]
+script = ExtResource("cond_mode_is")
+target_mode = 0
+
+[node name="Cond_DetectTarget" type="Node" parent="RootSelector/Seq_ClosedEyeReact"]
+script = ExtResource("cond_detect_target")
+
+[node name="Act_ClosedEyeIntent" type="Node" parent="RootSelector/Seq_ClosedEyeReact"]
+script = ExtResource("act_closed_eye_intent")
+
+; --- 6. Act_ClosedEyeIdle（兜底）---
+[node name="Act_ClosedEyeIdle" type="Node" parent="RootSelector"]
+script = ExtResource("act_closed_eye_idle")

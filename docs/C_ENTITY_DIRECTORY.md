@@ -29,6 +29,7 @@
 | `chimera_a` | ChimeraA.tscn | chimera_a.gd | NORMAL | MEDIUM | ❌未设置 | 基础奇美拉（跟随型） |
 | `chimera_stone_snake` | Chimera_StoneSnake.tscn | chimera_stone_snake.gd | NORMAL | MEDIUM | stone_snake.png | 石蛇奇美拉（攻击型） |
 | `chimera_ghost_hand_l` | ChimeraGhostHandL.tscn | chimera_ghost_hand_l.gd | NORMAL | MEDIUM | ❌未设置 | 幽灵手奇美拉·左（链控飞行，鬼拳攻击；由 mollusc + stone_eyebug_shell 融合产生） |
+| `chimera_nun_snake` | enemies/chimera_nun_snake/ChimeraNunSnake.tscn | enemies/chimera_nun_snake/chimera_nun_snake.gd | LIGHT | MEDIUM | ❌未设置 | 修女蛇奇美拉（闭眼防御/睁眼攻击/石化眼球；Beehave BT驱动） |
 
 ---
 
