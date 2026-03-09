@@ -66,9 +66,9 @@ enum EyePhase {
 # 僵直攻击命中玩家后附加僵直时间（秒）
 
 # ===== 攻击B：shoot_eye =====
-@export var eye_projectile_speed: float = 420.0
+@export var eye_projectile_speed: float = 720.0
 # 眼球飞行速度（像素/秒）
-@export var eye_projectile_hover_sec: float = 0.5
+@export var eye_projectile_hover_sec: float = 0.0
 # 每次追踪间的悬停时间（秒）
 @export var eye_projectile_retarget_count: int = 3
 # 眼球重新锁定次数
@@ -78,13 +78,15 @@ enum EyePhase {
 # 眼球返航速度（像素/秒）
 @export var eye_projectile_max_lifetime_sec: float = 10.0
 # 眼球最大生存时长（秒）
-@export var eye_projectile_curve_amplitude: float = 36.0
+@export var eye_projectile_curve_amplitude: float = 96.0
 # 眼球蛇形轨迹振幅（像素）
 @export var eye_projectile_curve_cycles: float = 1.0
 # 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
 @export var eye_projectile_accel_exponent: float = 2.0
 # 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
-@export var eye_projectile_linear_decel_distance_px: float = 400.0
+@export var eye_projectile_linear_decel_speed: float = 720.0
+# 眼球在近距离直线指数减速模式下的飞行速度（像素/秒）
+@export var eye_projectile_linear_decel_distance_px: float = 100.0
 # 当眼球与玩家距离小于该阈值时，改为直线指数减速飞行（像素）
 
 # ===== 攻击C：ground_pound =====
@@ -602,7 +604,7 @@ func _spawn_eye_projectile() -> void:
 		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
 			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
 			eye_projectile_curve_amplitude, eye_projectile_curve_cycles,
-			eye_projectile_accel_exponent, eye_projectile_linear_decel_distance_px)
+			eye_projectile_accel_exponent, eye_projectile_linear_decel_distance_px, eye_projectile_linear_decel_speed)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet

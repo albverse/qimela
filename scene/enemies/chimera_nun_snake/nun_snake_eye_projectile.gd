@@ -21,15 +21,16 @@ enum Phase {
 var _phase: int = Phase.OUTBOUND
 var _target: Node2D = null
 var _owner_snake: Node2D = null
-var _speed: float = 420.0
-var _hover_sec: float = 0.5
+var _speed: float = 720.0
+var _hover_sec: float = 0.0
 var _retarget_count: int = 3
 var _return_speed: float = 700.0
 var _max_lifetime_sec: float = 10.0
-var _curve_amplitude: float = 36.0
+var _curve_amplitude: float = 96.0
 var _curve_cycles: float = 1.0
 var _accel_exponent: float = 2.0
-var _linear_decel_distance_px: float = 400.0
+var _linear_decel_distance_px: float = 100.0
+var _linear_decel_speed: float = 720.0
 
 var _remaining_retargets: int = 0
 var _hover_timer: float = 0.0
@@ -43,6 +44,7 @@ var _segment_len: float = 0.0
 var _segment_progress: float = 0.0
 var _curve_sign: float = 1.0
 var _segment_wave_scale: float = 1.0
+var _is_linear_decel_mode: bool = false
 
 
 func setup(
@@ -53,10 +55,11 @@ func setup(
 	retarget_count: int,
 	return_speed: float,
 	max_lifetime_sec: float,
-	curve_amplitude: float = 36.0,
+	curve_amplitude: float = 96.0,
 	curve_cycles: float = 1.0,
 	accel_exponent: float = 2.0,
-	linear_decel_distance_px: float = 400.0
+	linear_decel_distance_px: float = 100.0,
+	linear_decel_speed: float = 720.0
 ) -> void:
 	_target = target
 	_owner_snake = owner_snake
@@ -70,6 +73,7 @@ func setup(
 	_curve_cycles = max(curve_cycles, 0.0)
 	_accel_exponent = max(accel_exponent, 0.01)
 	_linear_decel_distance_px = max(linear_decel_distance_px, 0.0)
+	_linear_decel_speed = max(linear_decel_speed, 1.0)
 
 	# 初始飞行目标
 	if _target != null and is_instance_valid(_target):
@@ -117,6 +121,7 @@ func _physics_process(dt: float) -> void:
 func _process_fly(dt: float) -> void:
 	# 玩家距离较近时改为直线指数减速；较远则沿当前曲线模式飞行
 	var use_linear_decel: bool = _should_use_linear_decel()
+	_is_linear_decel_mode = use_linear_decel
 	if use_linear_decel:
 		_segment_wave_scale = 0.0
 	else:
@@ -213,7 +218,8 @@ func _advance_segment(dt: float) -> bool:
 	# 速度按“剩余距离比例”指数递减：起步快，接近终点明显减速
 	var remaining_ratio: float = clamp(remaining / _segment_len, 0.0, 1.0)
 	var speed_scale: float = exp(-_accel_exponent * (1.0 - remaining_ratio))
-	var cur_speed: float = max(_speed * speed_scale, 1.0)
+	var base_speed: float = _linear_decel_speed if _is_linear_decel_mode else _speed
+	var cur_speed: float = max(base_speed * speed_scale, 1.0)
 
 	var prev_pos: Vector2 = global_position
 	var delta_progress: float = (cur_speed * dt) / _segment_len
