@@ -85,7 +85,6 @@ func setup(
 func force_recall() -> void:
 	## 由修女蛇进入 WEAK/STUN 时调用
 	_phase = Phase.FORCE_RECALL
-	_begin_return_segment(1.0 / 1.5)
 
 
 func _ready() -> void:
@@ -148,38 +147,28 @@ func _process_hover(dt: float) -> void:
 
 func _start_return() -> void:
 	_phase = Phase.RETURNING
-	_begin_return_segment(1.0)
 	if _owner_snake != null and is_instance_valid(_owner_snake):
 		_owner_snake.eye_phase = ChimeraNunSnake.EyePhase.RETURNING
 
 
 func _process_return(dt: float) -> void:
-	# 返航同样使用曲线段 + 加速度曲线
+	# 返航保持直线，避免曲线路径在移动目标附近产生异常
 	var return_pos: Vector2 = _get_return_position()
+	var dir: Vector2 = global_position.direction_to(return_pos)
+	global_position += dir * _return_speed * dt
+
 	if global_position.distance_to(return_pos) <= 15.0:
-		_on_returned()
-		return
-	if return_pos.distance_to(_segment_end) > 24.0 and _segment_elapsed >= _segment_duration * 0.5:
-		_begin_return_segment(1.0)
-	if _advance_segment(dt):
 		_on_returned()
 
 
 func _process_force_recall(dt: float) -> void:
-	# 强制召回：同曲线返航，但时长缩短（更快）
+	# 强制召回同样使用直线返航，但速度更快
 	var return_pos: Vector2 = _get_return_position()
+	var dir: Vector2 = global_position.direction_to(return_pos)
+	global_position += dir * _return_speed * 1.5 * dt
+
 	if global_position.distance_to(return_pos) <= 15.0:
 		_on_returned()
-		return
-	if return_pos.distance_to(_segment_end) > 24.0 and _segment_elapsed >= _segment_duration * 0.35:
-		_begin_return_segment(1.0 / 1.5)
-	if _advance_segment(dt):
-		_on_returned()
-
-
-func _begin_return_segment(duration_scale: float) -> void:
-	var return_pos: Vector2 = _get_return_position()
-	_begin_motion_segment(return_pos, _return_segment_sec * max(duration_scale, 0.01), 0.75, true)
 
 
 func _begin_motion_segment(target_pos: Vector2, duration_sec: float, wave_scale: float, flip_curve: bool) -> void:
