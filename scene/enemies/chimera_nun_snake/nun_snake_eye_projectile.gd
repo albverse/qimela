@@ -21,16 +21,16 @@ enum Phase {
 var _phase: int = Phase.OUTBOUND
 var _target: Node2D = null
 var _owner_snake: Node2D = null
-var _speed: float = 720.0
+var _speed: float = 250.0
 var _retarget_count: int = 3
 var _return_speed: float = 700.0
-var _max_lifetime_sec: float = 10.0
-var _curve_amplitude: float = 96.0
-var _curve_cycles: float = 1.0
-var _curve_segment_length_px: float = 320.0
+var _max_lifetime_sec: float = 20.0
+var _curve_amplitude: float = 180.0
+var _curve_cycles: float = 2.0
+var _curve_segment_length_px: float = 520.0
 var _accel_exponent: float = 2.0
 var _linear_decel_distance_px: float = 100.0
-var _linear_decel_speed: float = 720.0
+var _linear_decel_speed: float = 520.0
 
 var _remaining_retargets: int = 0
 var _lifetime_timer: float = 0.0
@@ -44,6 +44,13 @@ var _segment_progress: float = 0.0
 var _curve_sign: float = 1.0
 var _segment_wave_scale: float = 1.0
 var _is_linear_decel_mode: bool = false
+var _segment_elapsed_sec: float = 0.0
+var _segment_duration_sec: float = 0.0
+var _curve_segment_index: int = 0
+var _segment_curve_amplitude: float = 0.0
+
+const CURVE_FAST_PHASE_TIME_RATIO: float = 0.78
+const CURVE_FAST_PHASE_DISPLACEMENT_RATIO: float = 0.88
 
 
 func setup(
@@ -53,12 +60,12 @@ func setup(
 	retarget_count: int,
 	return_speed: float,
 	max_lifetime_sec: float,
-	curve_amplitude: float = 96.0,
-	curve_cycles: float = 1.0,
-	curve_segment_length_px: float = 320.0,
+	curve_amplitude: float = 180.0,
+	curve_cycles: float = 2.0,
+	curve_segment_length_px: float = 520.0,
 	accel_exponent: float = 2.0,
 	linear_decel_distance_px: float = 100.0,
-	linear_decel_speed: float = 720.0
+	linear_decel_speed: float = 520.0
 ) -> void:
 	_target = target
 	_owner_snake = owner_snake
@@ -73,6 +80,7 @@ func setup(
 	_accel_exponent = max(accel_exponent, 0.01)
 	_linear_decel_distance_px = max(linear_decel_distance_px, 0.0)
 	_linear_decel_speed = max(linear_decel_speed, 1.0)
+	_curve_segment_index = 0
 
 	if not _start_next_attack_segment(true):
 		_start_return()
@@ -115,7 +123,7 @@ func _physics_process(dt: float) -> void:
 
 func _process_fly(dt: float) -> void:
 	# 飞行模式在每段路径开始时确定，避免阈值附近逐帧切换造成曲线路径漂移
-	# 速度按剩余距离指数递减推进到目标点（起步快、末端慢停）
+	# 抛物线段使用固定总时长前快后慢曲线，近身直线段保持原指数减速逻辑
 	if _advance_segment(dt):
 		global_position = _target_pos
 		if _remaining_retargets > 0:
@@ -154,6 +162,8 @@ func _start_next_attack_segment(is_initial: bool) -> bool:
 			return false
 		var curve_end: Vector2 = global_position + dir * _curve_segment_length_px
 		_begin_motion_segment(curve_end, 1.0, true)
+		_curve_segment_index += 1
+		_segment_curve_amplitude = _curve_amplitude * pow(0.5, float(_curve_segment_index - 1))
 		_refresh_segment_motion_mode(false)
 
 	if is_initial:
@@ -198,7 +208,10 @@ func _begin_motion_segment(target_pos: Vector2, wave_scale: float, flip_curve: b
 	_target_pos = target_pos
 	_segment_len = _segment_start.distance_to(_segment_end)
 	_segment_progress = 0.0
+	_segment_elapsed_sec = 0.0
 	_segment_wave_scale = max(wave_scale, 0.0)
+	_segment_duration_sec = _segment_len / max(_speed, 1.0)
+	_segment_curve_amplitude = 0.0
 	if flip_curve:
 		_curve_sign *= -1.0
 	if _segment_len > 1.0:
@@ -219,28 +232,33 @@ func _advance_segment(dt: float) -> bool:
 		_velocity = Vector2.ZERO
 		return true
 
-	# 速度按“剩余距离比例”指数递减：起步快，接近终点明显减速
-	var remaining_ratio: float = clamp(remaining / _segment_len, 0.0, 1.0)
-	var speed_scale: float = exp(-_accel_exponent * (1.0 - remaining_ratio))
-	var base_speed: float = _linear_decel_speed if _is_linear_decel_mode else _speed
-	var raw_speed: float = base_speed * speed_scale
-	# 指数递减速度低于 1 时直接归零（曲线/直线两种模式统一）
-	var cur_speed: float = raw_speed if raw_speed >= 1.0 else 0.0
-	if cur_speed <= 0.0:
-		_velocity = Vector2.ZERO
-		return false
-
 	var prev_pos: Vector2 = global_position
-	var delta_progress: float = (cur_speed * dt) / _segment_len
-	_segment_progress = min(_segment_progress + delta_progress, 1.0)
-	var t_raw: float = _segment_progress
+	var t_raw: float = 0.0
+	if _is_linear_decel_mode:
+		# 100px 内直线运动逻辑保持不变（指数递减推进）
+		var remaining_ratio: float = clamp(remaining / _segment_len, 0.0, 1.0)
+		var speed_scale: float = exp(-_accel_exponent * (1.0 - remaining_ratio))
+		var raw_speed: float = _linear_decel_speed * speed_scale
+		var cur_speed: float = raw_speed if raw_speed >= 1.0 else 0.0
+		if cur_speed <= 0.0:
+			_velocity = Vector2.ZERO
+			return false
+		var delta_progress: float = (cur_speed * dt) / _segment_len
+		_segment_progress = min(_segment_progress + delta_progress, 1.0)
+		t_raw = _segment_progress
+	else:
+		# 抛物线段使用固定总时长位移曲线：前快后慢，且在有限时间内精确到达终点
+		_segment_elapsed_sec = min(_segment_elapsed_sec + dt, _segment_duration_sec)
+		var time_ratio: float = 1.0 if _segment_duration_sec <= 0.0001 else _segment_elapsed_sec / _segment_duration_sec
+		t_raw = _eval_curve_displacement_ratio(time_ratio)
+		_segment_progress = t_raw
 
 	var base_pos: Vector2 = _segment_start.lerp(_segment_end, t_raw)
 	var dir: Vector2 = (_segment_end - _segment_start).normalized()
 	var normal: Vector2 = Vector2(-dir.y, dir.x)
 	var wave: float = 0.0
 	if _curve_amplitude > 0.0 and _curve_cycles > 0.0 and _segment_wave_scale > 0.0:
-		wave = sin(t_raw * TAU * _curve_cycles) * _curve_amplitude * _segment_wave_scale * _curve_sign
+		wave = sin(t_raw * TAU * _curve_cycles) * _segment_curve_amplitude * _segment_wave_scale * _curve_sign
 
 	global_position = base_pos + normal * wave
 	_velocity = (global_position - prev_pos) / max(dt, 0.0001)
@@ -249,6 +267,16 @@ func _advance_segment(dt: float) -> bool:
 		global_position = _segment_end
 		return true
 	return false
+
+
+func _eval_curve_displacement_ratio(time_ratio: float) -> float:
+	var t: float = clamp(time_ratio, 0.0, 1.0)
+	if t <= CURVE_FAST_PHASE_TIME_RATIO:
+		return t * (CURVE_FAST_PHASE_DISPLACEMENT_RATIO / CURVE_FAST_PHASE_TIME_RATIO)
+
+	var slow_t: float = (t - CURVE_FAST_PHASE_TIME_RATIO) / max(1.0 - CURVE_FAST_PHASE_TIME_RATIO, 0.0001)
+	var eased: float = 1.0 - pow(1.0 - slow_t, 2.0)
+	return lerp(CURVE_FAST_PHASE_DISPLACEMENT_RATIO, 1.0, eased)
 
 
 func _get_return_position() -> Vector2:
