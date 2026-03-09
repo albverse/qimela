@@ -26,6 +26,8 @@ var _hover_sec: float = 0.5
 var _retarget_count: int = 3
 var _return_speed: float = 700.0
 var _max_lifetime_sec: float = 10.0
+var _curve_amplitude: float = 36.0
+var _curve_cycles: float = 1.0
 
 var _remaining_retargets: int = 0
 var _hover_timer: float = 0.0
@@ -33,6 +35,11 @@ var _lifetime_timer: float = 0.0
 var _target_pos: Vector2 = Vector2.ZERO
 var _done: bool = false
 var _velocity: Vector2 = Vector2.ZERO
+var _segment_start: Vector2 = Vector2.ZERO
+var _segment_end: Vector2 = Vector2.ZERO
+var _segment_len: float = 0.0
+var _segment_progress: float = 0.0
+var _curve_sign: float = 1.0
 
 
 func setup(
@@ -42,7 +49,9 @@ func setup(
 	hover_sec: float,
 	retarget_count: int,
 	return_speed: float,
-	max_lifetime_sec: float
+	max_lifetime_sec: float,
+	curve_amplitude: float = 36.0,
+	curve_cycles: float = 1.0
 ) -> void:
 	_target = target
 	_owner_snake = owner_snake
@@ -52,11 +61,13 @@ func setup(
 	_remaining_retargets = retarget_count
 	_return_speed = return_speed
 	_max_lifetime_sec = max_lifetime_sec
+	_curve_amplitude = max(curve_amplitude, 0.0)
+	_curve_cycles = max(curve_cycles, 0.0)
 
 	# 初始飞行方向
 	if _target != null and is_instance_valid(_target):
 		_target_pos = _target.global_position
-		_velocity = (global_position.direction_to(_target_pos)) * _speed
+	_begin_fly_segment(_target_pos)
 	_phase = Phase.OUTBOUND
 
 
@@ -97,13 +108,26 @@ func _physics_process(dt: float) -> void:
 
 
 func _process_fly(dt: float) -> void:
-	# 飞向目标位置
-	var dir: Vector2 = global_position.direction_to(_target_pos)
-	_velocity = dir * _speed
-	global_position += _velocity * dt
+	# 眼球沿目标线前进，并叠加法线方向正弦偏移，形成蛇形S弯轨迹
+	if _segment_len <= 1.0:
+		global_position = _segment_end
+	else:
+		var prev_pos: Vector2 = global_position
+		var step_progress: float = (_speed * dt) / _segment_len
+		_segment_progress = min(_segment_progress + step_progress, 1.0)
+
+		var base_pos: Vector2 = _segment_start.lerp(_segment_end, _segment_progress)
+		var dir: Vector2 = (_segment_end - _segment_start).normalized()
+		var normal: Vector2 = Vector2(-dir.y, dir.x)
+		var wave: float = 0.0
+		if _curve_amplitude > 0.0 and _curve_cycles > 0.0:
+			wave = sin(_segment_progress * TAU * _curve_cycles) * _curve_amplitude * _curve_sign
+		global_position = base_pos + normal * wave
+		_velocity = (global_position - prev_pos) / max(dt, 0.0001)
 
 	# 到达目标附近
-	if global_position.distance_to(_target_pos) <= 10.0:
+	if _segment_progress >= 1.0 or global_position.distance_to(_target_pos) <= 10.0:
+		global_position = _target_pos
 		if _remaining_retargets > 0:
 			_phase = Phase.HOVER
 			_hover_timer = 0.0
@@ -119,11 +143,27 @@ func _process_hover(dt: float) -> void:
 		_remaining_retargets -= 1
 		if _target != null and is_instance_valid(_target):
 			_target_pos = _target.global_position
+		_begin_fly_segment(_target_pos)
 		_phase = Phase.RETARGET
 
 		# 更新 owner 的 eye_phase
 		if _owner_snake != null and is_instance_valid(_owner_snake):
 			_owner_snake.eye_phase = ChimeraNunSnake.EyePhase.RETARGETING
+
+
+
+
+func _begin_fly_segment(target_pos: Vector2) -> void:
+	_segment_start = global_position
+	_segment_end = target_pos
+	_target_pos = target_pos
+	_segment_len = _segment_start.distance_to(_segment_end)
+	_segment_progress = 0.0
+	_curve_sign *= -1.0
+	if _segment_len > 1.0:
+		_velocity = (_segment_end - _segment_start).normalized() * _speed
+	else:
+		_velocity = Vector2.ZERO
 
 
 func _start_return() -> void:

@@ -58,8 +58,10 @@ enum EyePhase {
 # stiff_attack 期间眼部受击后触发“闭眼+尾扫反击”的HP阈值（扣血后 <= 该值）
 
 # ===== 攻击A：stiff_attack =====
+@export var stiff_attack_detect_range: float = 120.0
+# 僵直攻击检测范围（像素，进入开眼攻击链判定）
 @export var stiff_attack_range: float = 80.0
-# 僵直攻击有效距离（像素）
+# 僵直攻击有效距离（像素，命中判定由 StiffAttackHitbox 决定）
 @export var stiff_attack_damage: int = 1
 # 僵直攻击伤害
 @export var stiff_attack_player_stun_sec: float = 0.5
@@ -78,6 +80,10 @@ enum EyePhase {
 # 眼球返航速度（像素/秒）
 @export var eye_projectile_max_lifetime_sec: float = 10.0
 # 眼球最大生存时长（秒）
+@export var eye_projectile_curve_amplitude: float = 36.0
+# 眼球蛇形轨迹振幅（像素）
+@export var eye_projectile_curve_cycles: float = 1.0
+# 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
@@ -592,7 +598,8 @@ func _spawn_eye_projectile() -> void:
 
 	if bullet.has_method("setup"):
 		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
-			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec)
+			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
+			eye_projectile_curve_amplitude, eye_projectile_curve_cycles)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet

@@ -9,7 +9,7 @@ class_name ActNunSnakeClosedEyeIntent
 ## - ground_pound → 保持 CLOSED_EYE，直接执行 ground_pound
 ##
 ## 意图选择规则：
-## - 玩家在 stiff_attack_range → 选 stiff_attack（进入攻击链）
+## - 玩家在 stiff_attack_detect_range → 选 stiff_attack（进入攻击链）
 ## - 玩家在 ground_pound_range → 选 ground_pound
 ## - 否则 → 闭眼移动接近
 ##
@@ -85,8 +85,8 @@ func _tick_select(snake: ChimeraNunSnake, target: Node2D) -> int:
 		snake.anim_play(&"closed_eye_walk", true)
 		return RUNNING
 
-	# 在 stiff_attack_range → 选择开眼攻击链（交由 ActOpenEyeAttackChain 处理）
-	if h_dist <= snake.stiff_attack_range:
+	# 在 stiff_attack_detect_range → 选择开眼攻击链（交由 ActOpenEyeAttackChain 处理）
+	if h_dist <= snake.stiff_attack_detect_range:
 		snake.face_toward(target)
 		# 预设 mode=OPEN_EYE，使 Seq_OpenEyeAttack 的 Cond_ModeOpenEye 在下一帧通过
 		snake.mode = ChimeraNunSnake.Mode.OPEN_EYE
@@ -109,7 +109,7 @@ func _tick_walking(snake: ChimeraNunSnake, target: Node2D) -> int:
 	var h_dist: float = abs(target.global_position.x - snake.global_position.x)
 
 	# 到达攻击范围 → 重新选择
-	if h_dist <= snake.stiff_attack_range:
+	if h_dist <= snake.stiff_attack_detect_range:
 		snake.velocity.x = 0.0
 		_sub_state = SubState.SELECTING
 		return _tick_select(snake, target)
@@ -146,7 +146,7 @@ func _tick_cooldown_walk(snake: ChimeraNunSnake, target: Node2D) -> int:
 		_sub_state = SubState.SELECTING
 		return _tick_select(snake, target)
 
-	# 冷却中继续向玩家行走（使怪物有机会走入 stiff_attack_range）
+	# 冷却中继续向玩家行走（使怪物有机会走入 stiff_attack_detect_range）
 	snake.face_toward(target)
 	var dir_x: float = sign(target.global_position.x - snake.global_position.x)
 	snake.velocity.x = dir_x * snake.closed_walk_speed
