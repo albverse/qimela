@@ -156,7 +156,10 @@ func _start_return() -> void:
 func _process_return(dt: float) -> void:
 	# 返航同样使用曲线段 + 加速度曲线
 	var return_pos: Vector2 = _get_return_position()
-	if return_pos.distance_to(_segment_end) > 24.0:
+	if global_position.distance_to(return_pos) <= 15.0:
+		_on_returned()
+		return
+	if return_pos.distance_to(_segment_end) > 24.0 and _segment_elapsed >= _segment_duration * 0.5:
 		_begin_return_segment(1.0)
 	if _advance_segment(dt):
 		_on_returned()
@@ -165,7 +168,10 @@ func _process_return(dt: float) -> void:
 func _process_force_recall(dt: float) -> void:
 	# 强制召回：同曲线返航，但时长缩短（更快）
 	var return_pos: Vector2 = _get_return_position()
-	if return_pos.distance_to(_segment_end) > 24.0:
+	if global_position.distance_to(return_pos) <= 15.0:
+		_on_returned()
+		return
+	if return_pos.distance_to(_segment_end) > 24.0 and _segment_elapsed >= _segment_duration * 0.35:
 		_begin_return_segment(1.0 / 1.5)
 	if _advance_segment(dt):
 		_on_returned()
