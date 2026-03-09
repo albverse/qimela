@@ -79,6 +79,7 @@ func setup(
 	if _target != null and is_instance_valid(_target):
 		_target_pos = _target.global_position
 	_begin_motion_segment(_target_pos, 1.0, true)
+	_refresh_segment_motion_mode()
 	_phase = Phase.OUTBOUND
 
 
@@ -119,14 +120,7 @@ func _physics_process(dt: float) -> void:
 
 
 func _process_fly(dt: float) -> void:
-	# 玩家距离较近时改为直线指数减速；较远则沿当前曲线模式飞行
-	var use_linear_decel: bool = _should_use_linear_decel()
-	_is_linear_decel_mode = use_linear_decel
-	if use_linear_decel:
-		_segment_wave_scale = 0.0
-	else:
-		_segment_wave_scale = 1.0
-
+	# 飞行模式在每段路径开始时确定，避免阈值附近逐帧切换造成曲线路径漂移
 	# 速度按剩余距离指数递减推进到目标点（起步快、末端慢停）
 	if _advance_segment(dt):
 		global_position = _target_pos
@@ -147,6 +141,12 @@ func _should_use_linear_decel() -> bool:
 	return global_position.distance_to(_target.global_position) < _linear_decel_distance_px
 
 
+func _refresh_segment_motion_mode() -> void:
+	var use_linear_decel: bool = _should_use_linear_decel()
+	_is_linear_decel_mode = use_linear_decel
+	_segment_wave_scale = 0.0 if use_linear_decel else 1.0
+
+
 func _process_hover(dt: float) -> void:
 	_hover_timer += dt
 	if _hover_timer >= _hover_sec:
@@ -155,6 +155,7 @@ func _process_hover(dt: float) -> void:
 		if _target != null and is_instance_valid(_target):
 			_target_pos = _target.global_position
 		_begin_motion_segment(_target_pos, 1.0, true)
+		_refresh_segment_motion_mode()
 		_phase = Phase.RETARGET
 
 		# 更新 owner 的 eye_phase
