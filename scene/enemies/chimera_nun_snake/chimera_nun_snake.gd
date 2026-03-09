@@ -66,7 +66,7 @@ enum EyePhase {
 # 僵直攻击命中玩家后附加僵直时间（秒）
 
 # ===== 攻击B：shoot_eye =====
-@export var eye_projectile_speed: float = 720.0
+@export var eye_projectile_speed: float = 250.0
 # 眼球飞行速度（像素/秒）
 @export var eye_projectile_retarget_count: int = 3
 # 眼球重新锁定次数
@@ -74,17 +74,17 @@ enum EyePhase {
 # 发射出去的眼球是否无敌（通常为 true）
 @export var eye_return_speed: float = 700.0
 # 眼球返航速度（像素/秒）
-@export var eye_projectile_max_lifetime_sec: float = 10.0
+@export var eye_projectile_max_lifetime_sec: float = 20.0
 # 眼球最大生存时长（秒）
-@export var eye_projectile_curve_amplitude: float = 96.0
+@export var eye_projectile_curve_amplitude: float = 180.0
 # 眼球蛇形轨迹振幅（像素）
-@export var eye_projectile_curve_cycles: float = 1.0
+@export var eye_projectile_curve_cycles: float = 2.0
 # 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
-@export var eye_projectile_curve_segment_length_px: float = 320.0
+@export var eye_projectile_curve_segment_length_px: float = 520.0
 # 每次曲线追击的理论路径长度（像素）
 @export var eye_projectile_accel_exponent: float = 2.0
 # 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
-@export var eye_projectile_linear_decel_speed: float = 720.0
+@export var eye_projectile_linear_decel_speed: float = 520.0
 # 眼球在近距离直线指数减速模式下的飞行速度（像素/秒）
 @export var eye_projectile_linear_decel_distance_px: float = 100.0
 # 当眼球与玩家距离小于该阈值时，改为直线指数减速飞行（像素）

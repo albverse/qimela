@@ -21,16 +21,16 @@ enum Phase {
 var _phase: int = Phase.OUTBOUND
 var _target: Node2D = null
 var _owner_snake: Node2D = null
-var _speed: float = 720.0
+var _speed: float = 250.0
 var _retarget_count: int = 3
 var _return_speed: float = 700.0
-var _max_lifetime_sec: float = 10.0
-var _curve_amplitude: float = 96.0
-var _curve_cycles: float = 1.0
-var _curve_segment_length_px: float = 320.0
+var _max_lifetime_sec: float = 20.0
+var _curve_amplitude: float = 180.0
+var _curve_cycles: float = 2.0
+var _curve_segment_length_px: float = 520.0
 var _accel_exponent: float = 2.0
 var _linear_decel_distance_px: float = 100.0
-var _linear_decel_speed: float = 720.0
+var _linear_decel_speed: float = 520.0
 
 var _remaining_retargets: int = 0
 var _lifetime_timer: float = 0.0
@@ -60,12 +60,12 @@ func setup(
 	retarget_count: int,
 	return_speed: float,
 	max_lifetime_sec: float,
-	curve_amplitude: float = 96.0,
-	curve_cycles: float = 1.0,
-	curve_segment_length_px: float = 320.0,
+	curve_amplitude: float = 180.0,
+	curve_cycles: float = 2.0,
+	curve_segment_length_px: float = 520.0,
 	accel_exponent: float = 2.0,
 	linear_decel_distance_px: float = 100.0,
-	linear_decel_speed: float = 720.0
+	linear_decel_speed: float = 520.0
 ) -> void:
 	_target = target
 	_owner_snake = owner_snake
