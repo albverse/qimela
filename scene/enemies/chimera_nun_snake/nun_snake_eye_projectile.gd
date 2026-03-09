@@ -22,18 +22,17 @@ var _phase: int = Phase.OUTBOUND
 var _target: Node2D = null
 var _owner_snake: Node2D = null
 var _speed: float = 720.0
-var _hover_sec: float = 0.0
 var _retarget_count: int = 3
 var _return_speed: float = 700.0
 var _max_lifetime_sec: float = 10.0
 var _curve_amplitude: float = 96.0
 var _curve_cycles: float = 1.0
+var _curve_segment_length_px: float = 320.0
 var _accel_exponent: float = 2.0
 var _linear_decel_distance_px: float = 100.0
 var _linear_decel_speed: float = 720.0
 
 var _remaining_retargets: int = 0
-var _hover_timer: float = 0.0
 var _lifetime_timer: float = 0.0
 var _target_pos: Vector2 = Vector2.ZERO
 var _done: bool = false
@@ -51,12 +50,12 @@ func setup(
 	target: Node2D,
 	owner_snake: Node2D,
 	speed: float,
-	hover_sec: float,
 	retarget_count: int,
 	return_speed: float,
 	max_lifetime_sec: float,
 	curve_amplitude: float = 96.0,
 	curve_cycles: float = 1.0,
+	curve_segment_length_px: float = 320.0,
 	accel_exponent: float = 2.0,
 	linear_decel_distance_px: float = 100.0,
 	linear_decel_speed: float = 720.0
@@ -64,23 +63,20 @@ func setup(
 	_target = target
 	_owner_snake = owner_snake
 	_speed = speed
-	_hover_sec = hover_sec
 	_retarget_count = retarget_count
 	_remaining_retargets = retarget_count
 	_return_speed = return_speed
 	_max_lifetime_sec = max_lifetime_sec
 	_curve_amplitude = max(curve_amplitude, 0.0)
 	_curve_cycles = max(curve_cycles, 0.0)
+	_curve_segment_length_px = max(curve_segment_length_px, 0.0)
 	_accel_exponent = max(accel_exponent, 0.01)
 	_linear_decel_distance_px = max(linear_decel_distance_px, 0.0)
 	_linear_decel_speed = max(linear_decel_speed, 1.0)
 
-	# 初始飞行目标
-	if _target != null and is_instance_valid(_target):
-		_target_pos = _target.global_position
-	_begin_motion_segment(_target_pos, 1.0, true)
-	_refresh_segment_motion_mode()
-	_phase = Phase.OUTBOUND
+	if not _start_next_attack_segment(true):
+		_start_return()
+		return
 
 
 func force_recall() -> void:
@@ -111,8 +107,6 @@ func _physics_process(dt: float) -> void:
 	match _phase:
 		Phase.OUTBOUND, Phase.RETARGET:
 			_process_fly(dt)
-		Phase.HOVER:
-			_process_hover(dt)
 		Phase.RETURNING:
 			_process_return(dt)
 		Phase.FORCE_RECALL:
@@ -125,42 +119,51 @@ func _process_fly(dt: float) -> void:
 	if _advance_segment(dt):
 		global_position = _target_pos
 		if _remaining_retargets > 0:
-			_phase = Phase.HOVER
-			_hover_timer = 0.0
-			_velocity = Vector2.ZERO
+			if not _start_next_attack_segment(false):
+				_start_return()
 		else:
 			_start_return()
 
 
 
-func _should_use_linear_decel() -> bool:
-	if _target == null or not is_instance_valid(_target):
-		return false
-	if _linear_decel_distance_px <= 0.0:
-		return false
-	return global_position.distance_to(_target.global_position) < _linear_decel_distance_px
-
-
-func _refresh_segment_motion_mode() -> void:
-	var use_linear_decel: bool = _should_use_linear_decel()
+func _refresh_segment_motion_mode(use_linear_decel: bool) -> void:
 	_is_linear_decel_mode = use_linear_decel
 	_segment_wave_scale = 0.0 if use_linear_decel else 1.0
 
 
-func _process_hover(dt: float) -> void:
-	_hover_timer += dt
-	if _hover_timer >= _hover_sec:
-		# 重新锁定目标位置
-		_remaining_retargets -= 1
-		if _target != null and is_instance_valid(_target):
-			_target_pos = _target.global_position
-		_begin_motion_segment(_target_pos, 1.0, true)
-		_refresh_segment_motion_mode()
-		_phase = Phase.RETARGET
 
-		# 更新 owner 的 eye_phase
+func _start_next_attack_segment(is_initial: bool) -> bool:
+	if _target == null or not is_instance_valid(_target):
+		return false
+
+	var target_pos: Vector2 = _target.global_position
+	var to_target: Vector2 = target_pos - global_position
+	var distance_to_target: float = to_target.length()
+	if distance_to_target <= 0.001:
+		return false
+
+	var dir: Vector2 = to_target / distance_to_target
+	if distance_to_target < _linear_decel_distance_px:
+		# 直线模式：终点延长到“眼球->玩家”距离的 2 倍位置
+		var linear_end: Vector2 = global_position + dir * distance_to_target * 2.0
+		_begin_motion_segment(linear_end, 0.0, false)
+		_refresh_segment_motion_mode(true)
+	else:
+		# 曲线模式：每段固定消耗抛物线长度；若玩家过远超出可达长度则直接返航
+		if distance_to_target > _curve_segment_length_px:
+			return false
+		var curve_end: Vector2 = global_position + dir * _curve_segment_length_px
+		_begin_motion_segment(curve_end, 1.0, true)
+		_refresh_segment_motion_mode(false)
+
+	if is_initial:
+		_phase = Phase.OUTBOUND
+	else:
+		_phase = Phase.RETARGET
+		_remaining_retargets -= 1
 		if _owner_snake != null and is_instance_valid(_owner_snake):
 			_owner_snake.eye_phase = ChimeraNunSnake.EyePhase.RETARGETING
+	return true
 
 
 func _start_return() -> void:

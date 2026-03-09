@@ -68,8 +68,6 @@ enum EyePhase {
 # ===== 攻击B：shoot_eye =====
 @export var eye_projectile_speed: float = 720.0
 # 眼球飞行速度（像素/秒）
-@export var eye_projectile_hover_sec: float = 0.0
-# 每次追踪间的悬停时间（秒）
 @export var eye_projectile_retarget_count: int = 3
 # 眼球重新锁定次数
 @export var eye_projectile_invincible: bool = true
@@ -82,6 +80,8 @@ enum EyePhase {
 # 眼球蛇形轨迹振幅（像素）
 @export var eye_projectile_curve_cycles: float = 1.0
 # 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
+@export var eye_projectile_curve_segment_length_px: float = 320.0
+# 每次曲线追击的理论路径长度（像素）
 @export var eye_projectile_accel_exponent: float = 2.0
 # 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
 @export var eye_projectile_linear_decel_speed: float = 720.0
@@ -601,9 +601,9 @@ func _spawn_eye_projectile() -> void:
 	bullet.global_position = spawn_pos
 
 	if bullet.has_method("setup"):
-		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
+		bullet.call("setup", target, self, eye_projectile_speed,
 			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
-			eye_projectile_curve_amplitude, eye_projectile_curve_cycles,
+			eye_projectile_curve_amplitude, eye_projectile_curve_cycles, eye_projectile_curve_segment_length_px,
 			eye_projectile_accel_exponent, eye_projectile_linear_decel_distance_px, eye_projectile_linear_decel_speed)
 
 	get_parent().add_child(bullet)
