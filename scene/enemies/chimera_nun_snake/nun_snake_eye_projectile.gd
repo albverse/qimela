@@ -119,7 +119,7 @@ func _physics_process(dt: float) -> void:
 
 
 func _process_fly(dt: float) -> void:
-	# 前慢后快：按加速度曲线推进到目标点；每段用固定时长，和目标点距离无关
+	# 前快后慢：按减速曲线推进到目标点；每段用固定时长，和目标点距离无关
 	if _advance_segment(dt):
 		global_position = _target_pos
 		if _remaining_retargets > 0:
@@ -196,7 +196,7 @@ func _advance_segment(dt: float) -> bool:
 	var prev_pos: Vector2 = global_position
 	_segment_elapsed = min(_segment_elapsed + dt, _segment_duration)
 	var t_raw: float = clamp(_segment_elapsed / _segment_duration, 0.0, 1.0)
-	var t_eased: float = pow(t_raw, _accel_exponent)
+	var t_eased: float = 1.0 - pow(1.0 - t_raw, _accel_exponent)
 
 	var base_pos: Vector2 = _segment_start.lerp(_segment_end, t_eased)
 	var dir: Vector2 = (_segment_end - _segment_start).normalized()

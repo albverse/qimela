@@ -87,7 +87,7 @@ enum EyePhase {
 @export var eye_projectile_return_segment_sec: float = 0.42
 # 眼球返航段飞行时长（秒，和返航距离无关）
 @export var eye_projectile_accel_exponent: float = 2.0
-# 眼球飞行加速度曲线指数（>1 前慢后快，=1 线性）
+# 眼球飞行减速曲线指数（>1 前快后慢，=1 线性）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
