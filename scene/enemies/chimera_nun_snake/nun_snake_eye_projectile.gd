@@ -45,6 +45,8 @@ var _segment_elapsed: float = 0.0
 var _segment_duration: float = 0.1
 var _curve_sign: float = 1.0
 var _segment_wave_scale: float = 1.0
+var _return_anchor_locked: bool = false
+var _return_anchor_pos: Vector2 = Vector2.ZERO
 
 
 func setup(
@@ -85,6 +87,7 @@ func setup(
 func force_recall() -> void:
 	## 由修女蛇进入 WEAK/STUN 时调用
 	_phase = Phase.FORCE_RECALL
+	_lock_return_anchor()
 	_begin_return_segment(1.0 / 1.5)
 
 
@@ -148,6 +151,7 @@ func _process_hover(dt: float) -> void:
 
 func _start_return() -> void:
 	_phase = Phase.RETURNING
+	_lock_return_anchor()
 	_begin_return_segment(1.0)
 	if _owner_snake != null and is_instance_valid(_owner_snake):
 		_owner_snake.eye_phase = ChimeraNunSnake.EyePhase.RETURNING
@@ -226,6 +230,8 @@ func _advance_segment(dt: float) -> bool:
 
 
 func _get_return_position() -> Vector2:
+	if _return_anchor_locked:
+		return _return_anchor_pos
 	if _owner_snake != null and is_instance_valid(_owner_snake):
 		if _owner_snake.has_method("get_eye_socket_position"):
 			return _owner_snake.call("get_eye_socket_position") as Vector2
@@ -233,7 +239,19 @@ func _get_return_position() -> Vector2:
 	return global_position
 
 
+func _lock_return_anchor() -> void:
+	_return_anchor_locked = true
+	if _owner_snake != null and is_instance_valid(_owner_snake):
+		if _owner_snake.has_method("get_eye_socket_position"):
+			_return_anchor_pos = _owner_snake.call("get_eye_socket_position") as Vector2
+		else:
+			_return_anchor_pos = _owner_snake.global_position
+	else:
+		_return_anchor_pos = global_position
+
+
 func _on_returned() -> void:
+	_return_anchor_locked = false
 	if _owner_snake != null and is_instance_valid(_owner_snake):
 		if _owner_snake.has_method("on_eye_projectile_returned"):
 			_owner_snake.call("on_eye_projectile_returned")
