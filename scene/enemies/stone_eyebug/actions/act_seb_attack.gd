@@ -81,21 +81,18 @@ func _tick_attack_stone(seb: StoneEyeBug, player: Node2D) -> int:
 
 
 func _apply_stone_attack_effect(seb: StoneEyeBug, target: Node2D) -> void:
-	_apply_generic_damage(target)
-	if target.has_method("apply_stone_stun"):
-		target.call("apply_stone_stun", seb.player_stone_stun)
+	## 石化攻击：造成伤害 + 僵直
+	if target.has_method("apply_damage"):
+		target.call("apply_damage", 1, seb.global_position)
+	if target.has_method("apply_stun"):
+		target.call("apply_stun", seb.player_stone_stun)
 
 
 func _apply_lick_attack_effect(seb: StoneEyeBug, target: Node2D) -> void:
-	_apply_generic_damage(target)
+	## 舔击：造成伤害 + 击退
+	if target.has_method("apply_damage"):
+		target.call("apply_damage", 1, seb.global_position)
 	_apply_lick_knockback(seb, target)
-
-
-func _apply_generic_damage(target: Node2D) -> void:
-	if target == null or not is_instance_valid(target):
-		return
-	if target.has_method("on_damage_received"):
-		target.call("on_damage_received")
 
 
 func _tick_attack_lick(seb: StoneEyeBug, player: Node2D) -> int:

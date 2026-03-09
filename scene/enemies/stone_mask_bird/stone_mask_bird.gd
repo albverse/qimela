@@ -254,6 +254,9 @@ func _physics_process(dt: float) -> void:
 	# MonsterBase 的 weak/stunned_t 系统由我们自己的 mode 系统替代。
 	# BeehaveTree 的 tick 由其自身 _physics_process 驱动，无需此处干预。
 
+	# Spine 骨架翻转：根据水平速度或目标方向同步 SpineSprite.scale.x
+	_sync_facing_to_sprite()
+
 
 # 不使用 MonsterBase._do_move，移动完全由 BT 叶节点控制
 func _do_move(_dt: float) -> void:
@@ -635,6 +638,27 @@ func _setup_mock_durations() -> void:
 # =============================================================================
 # 辅助方法
 # =============================================================================
+
+func _sync_facing_to_sprite() -> void:
+	## 飞行怪物根据水平速度或攻击目标方向翻转 SpineSprite
+	if _spine_sprite == null:
+		return
+	# 移动中：根据水平速度方向翻转
+	if abs(velocity.x) > 1.0:
+		if velocity.x > 0.0:
+			_spine_sprite.scale.x = abs(_spine_sprite.scale.x)
+		else:
+			_spine_sprite.scale.x = -abs(_spine_sprite.scale.x)
+		return
+	# 静止时：根据攻击目标方向翻转
+	var target: Node2D = _get_player()
+	if target != null and is_instance_valid(target):
+		var dir_x: float = target.global_position.x - global_position.x
+		if dir_x > 0.0:
+			_spine_sprite.scale.x = abs(_spine_sprite.scale.x)
+		elif dir_x < 0.0:
+			_spine_sprite.scale.x = -abs(_spine_sprite.scale.x)
+
 
 func _get_player() -> Node2D:
 	return get_priority_attack_target()

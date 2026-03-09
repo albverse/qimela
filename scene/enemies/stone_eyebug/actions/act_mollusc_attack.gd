@@ -56,7 +56,10 @@ func _tick_stop(mollusc: Mollusc, player: Node2D) -> int:
 		return FAILURE
 	mollusc.velocity = Vector2.ZERO
 	if player != null and is_instance_valid(player):
-		mollusc.escape_dir_x = 1 if player.global_position.x >= mollusc.global_position.x else -1
+		var dx: float = player.global_position.x - mollusc.global_position.x
+		# 死区：玩家在中心附近时保持当前朝向
+		if abs(dx) >= 10.0:
+			mollusc.escape_dir_x = 1 if dx >= 0.0 else -1
 	_phase = Phase.ATTACK_STONE
 	_atk1_hit_applied = false
 	mollusc.ev_atk1_hit_on = false
@@ -70,20 +73,18 @@ func _tick_attack_stone(mollusc: Mollusc, player: Node2D) -> int:
 		mollusc.force_close_hit_windows()
 		mollusc.is_attacking = false
 		return FAILURE
-	# Spine atk1_hit_on：立即施加石化
+	# Spine atk1_hit_on：立即施加伤害 + 僵直
 	if not _atk1_hit_applied and mollusc.ev_atk1_hit_on:
 		mollusc.ev_atk1_hit_on = false
 		_atk1_hit_applied = true
 		if mollusc.is_player_in_attack_range() and player != null and is_instance_valid(player):
-			if player.has_method("apply_stone_stun"):
-				player.call("apply_stone_stun", mollusc.player_stone_stun)
+			_apply_stone_attack_effect(mollusc, player)
 	# Spine atk1_hit_off 或 Mock anim_finished：推进阶段
 	if mollusc.ev_atk1_hit_off or mollusc.anim_is_finished(&"attack_stone"):
 		mollusc.ev_atk1_hit_off = false
 		if not _atk1_hit_applied:
 			if mollusc.is_player_in_attack_range() and player != null and is_instance_valid(player):
-				if player.has_method("apply_stone_stun"):
-					player.call("apply_stone_stun", mollusc.player_stone_stun)
+				_apply_stone_attack_effect(mollusc, player)
 		if mollusc.is_player_in_attack_range():
 			_phase = Phase.ATTACK_LICK
 			_atk2_hit_applied = false
@@ -116,7 +117,18 @@ func _tick_attack_lick(mollusc: Mollusc, player: Node2D) -> int:
 	return RUNNING
 
 
+func _apply_stone_attack_effect(mollusc: Mollusc, target: Node2D) -> void:
+	## 石化攻击：造成伤害 + 僵直
+	if target.has_method("apply_damage"):
+		target.call("apply_damage", 1, mollusc.global_position)
+	if target.has_method("apply_stun"):
+		target.call("apply_stun", mollusc.player_stone_stun)
+
+
 func _apply_lick_knockback(mollusc: Mollusc, player: Node2D) -> void:
+	## 舔击：造成伤害 + 击退
+	if player.has_method("apply_damage"):
+		player.call("apply_damage", 1, mollusc.global_position)
 	if "velocity" not in player:
 		return
 	var dir_x := signf(player.global_position.x - mollusc.global_position.x)
