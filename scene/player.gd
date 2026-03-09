@@ -290,7 +290,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	# W / jump → LocomotionFSM
 	if _is_action_just_pressed(event, action_jump, KEY_W):
 		# 外部实体接管控制（如激活槽位的 ChimeraGhostHandL）时，禁止玩家自身 jump
-		if is_external_control_frozen():
+		if is_external_control_frozen() or is_player_locked():
 			return
 		loco_fsm.on_w_pressed()
 		return

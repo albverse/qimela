@@ -144,6 +144,8 @@ func on_damaged() -> void:
 		return
 
 	_log_event("damaged")
+	if _player != null:
+		_player.jump_request = false
 	_hurt_is_external_stun = false
 	_hurt_timeout = DEFAULT_HURT_TIMEOUT
 	_hurt_timer = 0.0
@@ -179,6 +181,7 @@ func on_stunned(seconds: float) -> void:
 		return
 	if state == State.DIE:
 		return
+	_player.jump_request = false
 	_hurt_is_external_stun = true
 	_hurt_timer = 0.0
 	_hurt_timeout = maxf(seconds, 0.01)  # 外部僵直时长
