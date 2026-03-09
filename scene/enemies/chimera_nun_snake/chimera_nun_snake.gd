@@ -82,6 +82,12 @@ enum EyePhase {
 # 眼球蛇形轨迹振幅（像素）
 @export var eye_projectile_curve_cycles: float = 1.0
 # 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
+@export var eye_projectile_segment_sec: float = 0.38
+# 眼球每段追踪飞行时长（秒，和目标点距离无关）
+@export var eye_projectile_return_segment_sec: float = 0.42
+# 眼球返航段飞行时长（秒，和返航距离无关）
+@export var eye_projectile_accel_exponent: float = 2.0
+# 眼球飞行加速度曲线指数（>1 前慢后快，=1 线性）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
@@ -597,7 +603,8 @@ func _spawn_eye_projectile() -> void:
 	if bullet.has_method("setup"):
 		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
 			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
-			eye_projectile_curve_amplitude, eye_projectile_curve_cycles)
+			eye_projectile_curve_amplitude, eye_projectile_curve_cycles,
+			eye_projectile_segment_sec, eye_projectile_return_segment_sec, eye_projectile_accel_exponent)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet
