@@ -224,11 +224,24 @@ func _physics_process(dt: float) -> void:
 	else:
 		_idle_elapsed_sec = 0.0
 
+	# Spine 骨架翻转：escape_dir_x 变化时同步 SpineSprite.scale.x
+	_sync_facing_to_sprite()
+
 	# 移动由 BT 叶节点控制；apply_gravity 在 Act_MolluscEscape 内处理
 
 
 func _do_move(_dt: float) -> void:
 	pass
+
+
+func _sync_facing_to_sprite() -> void:
+	## 将 escape_dir_x 方向同步到 SpineSprite 的水平缩放，确保移动方向与朝向一致
+	if _spine_sprite == null:
+		return
+	if escape_dir_x > 0:
+		_spine_sprite.scale.x = abs(_spine_sprite.scale.x)
+	elif escape_dir_x < 0:
+		_spine_sprite.scale.x = -abs(_spine_sprite.scale.x)
 
 
 func _is_weak_stun_channel_active() -> bool:

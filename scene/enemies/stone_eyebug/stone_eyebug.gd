@@ -211,6 +211,8 @@ func _physics_process(dt: float) -> void:
 	# 注：AnimDriverSpine 是子节点，其 _physics_process 在本节点之后执行，存在 1 帧位置滞后，
 	#     对游戏玩法判定无显著影响。
 	_update_soft_hurtbox_position()
+	# Spine 骨架翻转：facing 变化时同步 SpineSprite.scale.x
+	_sync_facing_to_sprite()
 
 	# 移动和 BT 逻辑由叶节点（+ BeehaveTree tick）驱动，_physics_process 不再调用 super
 
@@ -559,6 +561,16 @@ func _update_soft_hurtbox_position() -> void:
 			return
 	# Fallback：无 Spine 或骨骼未找到，使用本地偏移
 	_soft_hurtbox.position = soft_body_fallback_offset
+
+
+func _sync_facing_to_sprite() -> void:
+	## 将 facing 方向同步到 SpineSprite 的水平缩放，确保移动方向与朝向一致
+	if _spine_sprite == null:
+		return
+	if facing > 0:
+		_spine_sprite.scale.x = abs(_spine_sprite.scale.x)
+	elif facing < 0:
+		_spine_sprite.scale.x = -abs(_spine_sprite.scale.x)
 
 
 # =============================================================================

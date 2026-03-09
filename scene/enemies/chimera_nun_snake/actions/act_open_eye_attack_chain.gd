@@ -14,9 +14,6 @@ class_name ActNunSnakeOpenEyeAttackChain
 enum SubState {
 	CLOSE_TO_OPEN,
 	STIFF_ATTACK,
-	STIFF_ATTACK_COUNTER_CLOSE,
-	STIFF_ATTACK_COUNTER_TAIL_TRANSITION,
-	STIFF_ATTACK_COUNTER_TAIL_SWEEP,
 	OPEN_EYE_IDLE,
 	SHOOT_EYE_START,
 	SHOOT_EYE_LOOP,
@@ -62,39 +59,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			return RUNNING
 
 		SubState.STIFF_ATTACK:
-			if snake.consume_stiff_eye_hit_tail_counter_request():
-				snake.closing_transition_lock = true
-				_sub_state = SubState.STIFF_ATTACK_COUNTER_CLOSE
-				snake.anim_play(&"open_eye_to_close", false)
-				return RUNNING
 			if snake.anim_is_finished(&"stiff_attack"):
 				_sub_state = SubState.OPEN_EYE_IDLE
 				_idle_start_sec = ChimeraNunSnake.now_sec()
 				snake.anim_play(&"open_eye_idle", true)
-			return RUNNING
-
-		SubState.STIFF_ATTACK_COUNTER_CLOSE:
-			if snake.anim_is_finished(&"open_eye_to_close"):
-				snake.closing_transition_lock = false
-				# 仅关闭 EyeHurtbox，保持 mode = OPEN_EYE 直至尾扫结束
-				# 提前调用 _enter_closed_eye() 会使 Cond_ModeOpenEye 失败，
-				# SelectorReactive 会中断此动作导致 tail_sweep 永远不会播放
-				snake._set_eye_hurtbox_enabled(false)
-				_sub_state = SubState.STIFF_ATTACK_COUNTER_TAIL_TRANSITION
-				snake.anim_play(&"tail_sweep_transition", false)
-			return RUNNING
-
-		SubState.STIFF_ATTACK_COUNTER_TAIL_TRANSITION:
-			if snake.anim_is_finished(&"tail_sweep_transition"):
-				_sub_state = SubState.STIFF_ATTACK_COUNTER_TAIL_SWEEP
-				snake.anim_play(&"tail_sweep", false)
-			return RUNNING
-
-		SubState.STIFF_ATTACK_COUNTER_TAIL_SWEEP:
-			if snake.anim_is_finished(&"tail_sweep"):
-				snake._enter_closed_eye()  # 尾扫完成后才切换到 CLOSED_EYE
-				snake.start_attack_cooldown()
-				return SUCCESS
 			return RUNNING
 
 		SubState.OPEN_EYE_IDLE:
