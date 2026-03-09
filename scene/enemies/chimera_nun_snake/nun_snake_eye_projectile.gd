@@ -28,8 +28,6 @@ var _return_speed: float = 700.0
 var _max_lifetime_sec: float = 10.0
 var _curve_amplitude: float = 36.0
 var _curve_cycles: float = 1.0
-var _segment_sec: float = 0.38
-var _return_segment_sec: float = 0.42
 var _accel_exponent: float = 2.0
 
 var _remaining_retargets: int = 0
@@ -41,8 +39,7 @@ var _velocity: Vector2 = Vector2.ZERO
 var _segment_start: Vector2 = Vector2.ZERO
 var _segment_end: Vector2 = Vector2.ZERO
 var _segment_len: float = 0.0
-var _segment_elapsed: float = 0.0
-var _segment_duration: float = 0.1
+var _segment_progress: float = 0.0
 var _curve_sign: float = 1.0
 var _segment_wave_scale: float = 1.0
 
@@ -57,8 +54,6 @@ func setup(
 	max_lifetime_sec: float,
 	curve_amplitude: float = 36.0,
 	curve_cycles: float = 1.0,
-	segment_sec: float = 0.38,
-	return_segment_sec: float = 0.42,
 	accel_exponent: float = 2.0
 ) -> void:
 	_target = target
@@ -71,14 +66,12 @@ func setup(
 	_max_lifetime_sec = max_lifetime_sec
 	_curve_amplitude = max(curve_amplitude, 0.0)
 	_curve_cycles = max(curve_cycles, 0.0)
-	_segment_sec = max(segment_sec, 0.01)
-	_return_segment_sec = max(return_segment_sec, 0.01)
 	_accel_exponent = max(accel_exponent, 0.01)
 
 	# 初始飞行目标
 	if _target != null and is_instance_valid(_target):
 		_target_pos = _target.global_position
-	_begin_motion_segment(_target_pos, _segment_sec, 1.0, true)
+	_begin_motion_segment(_target_pos, 1.0, true)
 	_phase = Phase.OUTBOUND
 
 
@@ -119,7 +112,7 @@ func _physics_process(dt: float) -> void:
 
 
 func _process_fly(dt: float) -> void:
-	# 前快后慢：按减速曲线推进到目标点；每段用固定时长，和目标点距离无关
+	# 速度按剩余距离指数递减推进到目标点（起步快、末端慢停）
 	if _advance_segment(dt):
 		global_position = _target_pos
 		if _remaining_retargets > 0:
@@ -137,7 +130,7 @@ func _process_hover(dt: float) -> void:
 		_remaining_retargets -= 1
 		if _target != null and is_instance_valid(_target):
 			_target_pos = _target.global_position
-		_begin_motion_segment(_target_pos, _segment_sec, 1.0, true)
+		_begin_motion_segment(_target_pos, 1.0, true)
 		_phase = Phase.RETARGET
 
 		# 更新 owner 的 eye_phase
@@ -171,13 +164,12 @@ func _process_force_recall(dt: float) -> void:
 		_on_returned()
 
 
-func _begin_motion_segment(target_pos: Vector2, duration_sec: float, wave_scale: float, flip_curve: bool) -> void:
+func _begin_motion_segment(target_pos: Vector2, wave_scale: float, flip_curve: bool) -> void:
 	_segment_start = global_position
 	_segment_end = target_pos
 	_target_pos = target_pos
 	_segment_len = _segment_start.distance_to(_segment_end)
-	_segment_elapsed = 0.0
-	_segment_duration = max(duration_sec, 0.01)
+	_segment_progress = 0.0
 	_segment_wave_scale = max(wave_scale, 0.0)
 	if flip_curve:
 		_curve_sign *= -1.0
@@ -193,12 +185,23 @@ func _advance_segment(dt: float) -> bool:
 		_velocity = Vector2.ZERO
 		return true
 
-	var prev_pos: Vector2 = global_position
-	_segment_elapsed = min(_segment_elapsed + dt, _segment_duration)
-	var t_raw: float = clamp(_segment_elapsed / _segment_duration, 0.0, 1.0)
-	var t_eased: float = 1.0 - pow(1.0 - t_raw, _accel_exponent)
+	var remaining: float = global_position.distance_to(_segment_end)
+	if remaining <= 10.0:
+		global_position = _segment_end
+		_velocity = Vector2.ZERO
+		return true
 
-	var base_pos: Vector2 = _segment_start.lerp(_segment_end, t_eased)
+	# 速度按“剩余距离比例”指数递减：起步快，接近终点明显减速
+	var remaining_ratio: float = clamp(remaining / _segment_len, 0.0, 1.0)
+	var speed_scale: float = exp(-_accel_exponent * (1.0 - remaining_ratio))
+	var cur_speed: float = max(_speed * speed_scale, 1.0)
+
+	var prev_pos: Vector2 = global_position
+	var delta_progress: float = (cur_speed * dt) / _segment_len
+	_segment_progress = min(_segment_progress + delta_progress, 1.0)
+	var t_raw: float = _segment_progress
+
+	var base_pos: Vector2 = _segment_start.lerp(_segment_end, t_raw)
 	var dir: Vector2 = (_segment_end - _segment_start).normalized()
 	var normal: Vector2 = Vector2(-dir.y, dir.x)
 	var wave: float = 0.0
@@ -208,7 +211,7 @@ func _advance_segment(dt: float) -> bool:
 	global_position = base_pos + normal * wave
 	_velocity = (global_position - prev_pos) / max(dt, 0.0001)
 
-	if t_raw >= 1.0:
+	if _segment_progress >= 1.0:
 		global_position = _segment_end
 		return true
 	return false
