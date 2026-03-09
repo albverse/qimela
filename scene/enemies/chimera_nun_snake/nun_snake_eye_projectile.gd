@@ -220,7 +220,12 @@ func _advance_segment(dt: float) -> bool:
 	var remaining_ratio: float = clamp(remaining / _segment_len, 0.0, 1.0)
 	var speed_scale: float = exp(-_accel_exponent * (1.0 - remaining_ratio))
 	var base_speed: float = _linear_decel_speed if _is_linear_decel_mode else _speed
-	var cur_speed: float = max(base_speed * speed_scale, 1.0)
+	var raw_speed: float = base_speed * speed_scale
+	# 指数递减速度低于 1 时直接归零（曲线/直线两种模式统一）
+	var cur_speed: float = raw_speed if raw_speed >= 1.0 else 0.0
+	if cur_speed <= 0.0:
+		_velocity = Vector2.ZERO
+		return false
 
 	var prev_pos: Vector2 = global_position
 	var delta_progress: float = (cur_speed * dt) / _segment_len
