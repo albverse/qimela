@@ -502,7 +502,7 @@ func is_horizontal_input_locked() -> bool:
 		return true
 	if _player_locked or _external_control_frozen:
 		return true
-	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+	if action_fsm != null and (action_fsm.state == PlayerActionFSM.State.DIE or action_fsm.state == PlayerActionFSM.State.HURT):
 		return true
 	if health != null and health.is_knockback_active():
 		return true
@@ -514,7 +514,7 @@ func is_horizontal_input_locked() -> bool:
 func is_player_locked() -> bool:
 	if _player_locked or _external_control_frozen:
 		return true
-	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+	if action_fsm != null and (action_fsm.state == PlayerActionFSM.State.DIE or action_fsm.state == PlayerActionFSM.State.HURT):
 		return true
 	return false
 
