@@ -64,18 +64,28 @@ enum EyePhase {
 # 僵直攻击命中玩家后附加僵直时间（秒）
 
 # ===== 攻击B：shoot_eye =====
-@export var eye_projectile_speed: float = 420.0
+@export var eye_projectile_speed: float = 250.0
 # 眼球飞行速度（像素/秒）
-@export var eye_projectile_hover_sec: float = 0.5
-# 每次追踪间的悬停时间（秒）
 @export var eye_projectile_retarget_count: int = 3
 # 眼球重新锁定次数
 @export var eye_projectile_invincible: bool = true
 # 发射出去的眼球是否无敌（通常为 true）
 @export var eye_return_speed: float = 700.0
 # 眼球返航速度（像素/秒）
-@export var eye_projectile_max_lifetime_sec: float = 10.0
+@export var eye_projectile_max_lifetime_sec: float = 20.0
 # 眼球最大生存时长（秒）
+@export var eye_projectile_curve_amplitude: float = 180.0
+# 眼球蛇形轨迹振幅（像素）
+@export var eye_projectile_curve_cycles: float = 2.0
+# 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
+@export var eye_projectile_curve_segment_length_px: float = 520.0
+# 每次曲线追击的理论路径长度（像素）
+@export var eye_projectile_accel_exponent: float = 2.0
+# 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
+@export var eye_projectile_linear_decel_speed: float = 520.0
+# 眼球在近距离直线指数减速模式下的飞行速度（像素/秒）
+@export var eye_projectile_linear_decel_distance_px: float = 100.0
+# 当眼球与玩家距离小于该阈值时，改为直线指数减速飞行（像素）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
@@ -585,8 +595,10 @@ func _spawn_eye_projectile() -> void:
 	bullet.global_position = spawn_pos
 
 	if bullet.has_method("setup"):
-		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
-			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec)
+		bullet.call("setup", target, self, eye_projectile_speed,
+			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
+			eye_projectile_curve_amplitude, eye_projectile_curve_cycles, eye_projectile_curve_segment_length_px,
+			eye_projectile_accel_exponent, eye_projectile_linear_decel_distance_px, eye_projectile_linear_decel_speed)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet
@@ -835,8 +847,22 @@ func is_player_in_range(target: Node2D, range_px: float) -> bool:
 	return global_position.distance_to(target.global_position) <= range_px
 
 
-## 朝向翻转死区：玩家水平距离小于此值时不切换朝向，防止中心踱步抖动
-const FACE_DEAD_ZONE: float = 10.0
+func get_stiff_attack_detect_range() -> float:
+	# 检测范围由 StiffAttackHitbox 形状决定，避免与攻击参数产生歧义
+	if _stiff_attack_hitbox == null:
+		return stiff_attack_range
+	for child in _stiff_attack_hitbox.get_children():
+		var shape_node: CollisionShape2D = child as CollisionShape2D
+		if shape_node == null or shape_node.shape == null:
+			continue
+		var shape: Shape2D = shape_node.shape
+		if shape is CircleShape2D:
+			return maxf((shape as CircleShape2D).radius, stiff_attack_range)
+		if shape is RectangleShape2D:
+			var rect: RectangleShape2D = shape as RectangleShape2D
+			return maxf(maxf(rect.size.x, rect.size.y) * 0.5, stiff_attack_range)
+	return stiff_attack_range
+
 
 func face_toward(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):
