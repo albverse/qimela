@@ -58,10 +58,8 @@ enum EyePhase {
 # stiff_attack 期间眼部受击后触发“闭眼+尾扫反击”的HP阈值（扣血后 <= 该值）
 
 # ===== 攻击A：stiff_attack =====
-@export var stiff_attack_detect_range: float = 120.0
-# 僵直攻击检测范围（像素，进入开眼攻击链判定）
 @export var stiff_attack_range: float = 80.0
-# 僵直攻击有效距离（像素，命中判定由 StiffAttackHitbox 决定）
+# 僵直攻击有效距离（像素）
 @export var stiff_attack_damage: int = 1
 # 僵直攻击伤害
 @export var stiff_attack_player_stun_sec: float = 0.5
@@ -858,6 +856,23 @@ func is_player_in_range(target: Node2D, range_px: float) -> bool:
 	if target == null or not is_instance_valid(target):
 		return false
 	return global_position.distance_to(target.global_position) <= range_px
+
+
+func get_stiff_attack_detect_range() -> float:
+	# 检测范围由 StiffAttackHitbox 形状决定，避免与攻击参数产生歧义
+	if _stiff_attack_hitbox == null:
+		return stiff_attack_range
+	for child in _stiff_attack_hitbox.get_children():
+		var shape_node: CollisionShape2D = child as CollisionShape2D
+		if shape_node == null or shape_node.shape == null:
+			continue
+		var shape: Shape2D = shape_node.shape
+		if shape is CircleShape2D:
+			return maxf((shape as CircleShape2D).radius, stiff_attack_range)
+		if shape is RectangleShape2D:
+			var rect: RectangleShape2D = shape as RectangleShape2D
+			return maxf(maxf(rect.size.x, rect.size.y) * 0.5, stiff_attack_range)
+	return stiff_attack_range
 
 
 func face_toward(target: Node2D) -> void:
