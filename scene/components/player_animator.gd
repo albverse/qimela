@@ -690,6 +690,15 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 				_cur_loco_anim = &""
 			_gf_hurt_playing = false
 
+		# 外部僵直期间：Hurt 动画播完后保持末帧，不重复重播 hurt
+		var keep_hurt_pose: bool = false
+		if anim_name in [&"chain_/hurt", &"chain_/fuse_hurt"] and _player != null and _player.action_fsm != null:
+			if _player.action_fsm.has_method("should_hold_hurt_pose"):
+				keep_hurt_pose = bool(_player.action_fsm.call("should_hold_hurt_pose"))
+		if keep_hurt_pose:
+			_cur_action_anim = anim_name
+			return
+
 		# die 是终态，不清空 _cur_action_anim，防止下一帧重新播放
 		if anim_name != &"chain_/die" and anim_name != &"ghost_fist_/die":
 			_cur_action_anim = &""

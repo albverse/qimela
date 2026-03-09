@@ -78,6 +78,12 @@ enum EyePhase {
 # 眼球返航速度（像素/秒）
 @export var eye_projectile_max_lifetime_sec: float = 10.0
 # 眼球最大生存时长（秒）
+@export var eye_projectile_curve_amplitude: float = 36.0
+# 眼球蛇形轨迹振幅（像素）
+@export var eye_projectile_curve_cycles: float = 1.0
+# 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
+@export var eye_projectile_accel_exponent: float = 2.0
+# 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
@@ -592,7 +598,9 @@ func _spawn_eye_projectile() -> void:
 
 	if bullet.has_method("setup"):
 		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
-			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec)
+			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
+			eye_projectile_curve_amplitude, eye_projectile_curve_cycles,
+			eye_projectile_accel_exponent)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet
@@ -851,6 +859,23 @@ func is_player_in_range(target: Node2D, range_px: float) -> bool:
 	if target == null or not is_instance_valid(target):
 		return false
 	return global_position.distance_to(target.global_position) <= range_px
+
+
+func get_stiff_attack_detect_range() -> float:
+	# 检测范围由 StiffAttackHitbox 形状决定，避免与攻击参数产生歧义
+	if _stiff_attack_hitbox == null:
+		return stiff_attack_range
+	for child in _stiff_attack_hitbox.get_children():
+		var shape_node: CollisionShape2D = child as CollisionShape2D
+		if shape_node == null or shape_node.shape == null:
+			continue
+		var shape: Shape2D = shape_node.shape
+		if shape is CircleShape2D:
+			return maxf((shape as CircleShape2D).radius, stiff_attack_range)
+		if shape is RectangleShape2D:
+			var rect: RectangleShape2D = shape as RectangleShape2D
+			return maxf(maxf(rect.size.x, rect.size.y) * 0.5, stiff_attack_range)
+	return stiff_attack_range
 
 
 func face_toward(target: Node2D) -> void:
