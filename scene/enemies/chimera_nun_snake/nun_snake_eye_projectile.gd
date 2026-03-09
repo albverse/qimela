@@ -29,6 +29,7 @@ var _max_lifetime_sec: float = 10.0
 var _curve_amplitude: float = 36.0
 var _curve_cycles: float = 1.0
 var _accel_exponent: float = 2.0
+var _linear_decel_distance_px: float = 400.0
 
 var _remaining_retargets: int = 0
 var _hover_timer: float = 0.0
@@ -54,7 +55,8 @@ func setup(
 	max_lifetime_sec: float,
 	curve_amplitude: float = 36.0,
 	curve_cycles: float = 1.0,
-	accel_exponent: float = 2.0
+	accel_exponent: float = 2.0,
+	linear_decel_distance_px: float = 400.0
 ) -> void:
 	_target = target
 	_owner_snake = owner_snake
@@ -67,6 +69,7 @@ func setup(
 	_curve_amplitude = max(curve_amplitude, 0.0)
 	_curve_cycles = max(curve_cycles, 0.0)
 	_accel_exponent = max(accel_exponent, 0.01)
+	_linear_decel_distance_px = max(linear_decel_distance_px, 0.0)
 
 	# 初始飞行目标
 	if _target != null and is_instance_valid(_target):
@@ -112,6 +115,13 @@ func _physics_process(dt: float) -> void:
 
 
 func _process_fly(dt: float) -> void:
+	# 玩家距离较近时改为直线指数减速；较远则沿当前曲线模式飞行
+	var use_linear_decel: bool = _should_use_linear_decel()
+	if use_linear_decel:
+		_segment_wave_scale = 0.0
+	else:
+		_segment_wave_scale = 1.0
+
 	# 速度按剩余距离指数递减推进到目标点（起步快、末端慢停）
 	if _advance_segment(dt):
 		global_position = _target_pos
@@ -121,6 +131,15 @@ func _process_fly(dt: float) -> void:
 			_velocity = Vector2.ZERO
 		else:
 			_start_return()
+
+
+
+func _should_use_linear_decel() -> bool:
+	if _target == null or not is_instance_valid(_target):
+		return false
+	if _linear_decel_distance_px <= 0.0:
+		return false
+	return global_position.distance_to(_target.global_position) < _linear_decel_distance_px
 
 
 func _process_hover(dt: float) -> void:

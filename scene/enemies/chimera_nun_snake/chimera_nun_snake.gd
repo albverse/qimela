@@ -84,6 +84,8 @@ enum EyePhase {
 # 眼球从起点到目标点的S弯周期数（1.0约等于单个S弯）
 @export var eye_projectile_accel_exponent: float = 2.0
 # 眼球飞行指数衰减系数（越大则接近目标时减速越明显）
+@export var eye_projectile_linear_decel_distance_px: float = 400.0
+# 当眼球与玩家距离小于该阈值时，改为直线指数减速飞行（像素）
 
 # ===== 攻击C：ground_pound =====
 @export var ground_pound_range: float = 110.0
@@ -600,7 +602,7 @@ func _spawn_eye_projectile() -> void:
 		bullet.call("setup", target, self, eye_projectile_speed, eye_projectile_hover_sec,
 			eye_projectile_retarget_count, eye_return_speed, eye_projectile_max_lifetime_sec,
 			eye_projectile_curve_amplitude, eye_projectile_curve_cycles,
-			eye_projectile_accel_exponent)
+			eye_projectile_accel_exponent, eye_projectile_linear_decel_distance_px)
 
 	get_parent().add_child(bullet)
 	eye_projectile_instance = bullet
