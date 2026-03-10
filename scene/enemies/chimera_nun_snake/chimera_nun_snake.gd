@@ -174,6 +174,7 @@ var _anim_mock: AnimDriverMock = null
 
 # ===== 预加载眼球子弹场景 =====
 const EYE_PROJECTILE_SCENE_PATH: String = "res://scene/enemies/chimera_nun_snake/NunSnakeEyeProjectile.tscn"
+const FACE_DEAD_ZONE: float = 10.0
 var _eye_projectile_scene: PackedScene = null
 
 # ===== 破防来源标签 =====
