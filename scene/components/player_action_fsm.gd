@@ -30,6 +30,7 @@ var _attack_timeout: float = 2.0  # 2秒超时
 var _attack_timer: float = 0.0    # 当前计时器
 var _hurt_timeout: float = DEFAULT_HURT_TIMEOUT
 var _hurt_timer: float = 0.0
+var _hurt_is_external_stun: bool = false
 var _fuse_timer: float = 0.0
 var _return_idle_after_hurt: bool = false
 var _use_fuse_hurt_anim: bool = false
@@ -95,6 +96,7 @@ func tick(_dt: float) -> void:
 			if _player.has_method("log_msg"):
 				_player.log_msg("ACTION", "TIMEOUT! Hurt stuck for %.2fs, forcing resolver" % _hurt_timer)
 			_hurt_timer = 0.0
+			_hurt_is_external_stun = false
 			_hurt_timeout = DEFAULT_HURT_TIMEOUT  # B1修复：恢复默认超时
 			_resolve_and_transition("hurt_timeout_protection")
 			return
@@ -142,6 +144,11 @@ func on_damaged() -> void:
 		return
 
 	_log_event("damaged")
+	if _player != null:
+		_player.jump_request = false
+	_hurt_is_external_stun = false
+	_hurt_timeout = DEFAULT_HURT_TIMEOUT
+	_hurt_timer = 0.0
 
 	var hp: int = _player.health.hp if _player.health != null else 1
 
@@ -174,9 +181,19 @@ func on_stunned(seconds: float) -> void:
 		return
 	if state == State.DIE:
 		return
-	_hurt_timeout = seconds  # 临时覆盖 hurt 超时为僵直时长
+	_player.jump_request = false
+	_hurt_is_external_stun = true
+	_hurt_timer = 0.0
+	_hurt_timeout = maxf(seconds, 0.01)  # 外部僵直时长
+	_return_idle_after_hurt = false
+	_use_fuse_hurt_anim = false
 	_do_transition(State.HURT, "stunned(%.2fs)" % seconds, 90)
 
+
+
+
+func should_hold_hurt_pose() -> bool:
+	return state == State.HURT and _hurt_is_external_stun and _hurt_timer < _hurt_timeout
 
 func on_space_pressed() -> void:
 	if _player == null:
@@ -321,6 +338,9 @@ func on_anim_end_attack_cancel() -> void:
 func on_anim_end_hurt() -> void:
 	_log_event("anim_end_hurt")
 	if state == State.HURT:
+		if _hurt_is_external_stun and _hurt_timer < _hurt_timeout:
+			return
+		_hurt_is_external_stun = false
 		_hurt_timeout = DEFAULT_HURT_TIMEOUT  # B1修复：恢复默认超时
 		if _return_idle_after_hurt:
 			_return_idle_after_hurt = false

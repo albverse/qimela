@@ -100,11 +100,35 @@ func get_priority_attack_target() -> Node2D:
 		var n := t as Node2D
 		if n == null:
 			continue
+		if not _is_attack_target_selectable(n):
+			continue
 		var d := global_position.distance_to(n.global_position)
 		if d < nearest_dist:
 			nearest_dist = d
 			nearest = n
 	return nearest
+
+
+func _is_attack_target_selectable(target: Node2D) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if target.has_method("is_dead") and bool(target.call("is_dead")):
+		return false
+	if target.has_method("get_action_state"):
+		var st: Variant = target.call("get_action_state")
+		if st is StringName and st == &"Die":
+			return false
+		if st is String and String(st) == "Die":
+			return false
+	if target.has_method("is_petrified") and bool(target.call("is_petrified")):
+		return false
+	if target.has_method("get"):
+		var h = target.get("health")
+		if h != null and is_instance_valid(h) and h.has_method("get"):
+			var hpv: Variant = h.get("hp")
+			if hpv is int and int(hpv) <= 0:
+				return false
+	return true
 
 # ===== 眩晕状态（重写基类方法）=====
 func is_stunned() -> bool:
