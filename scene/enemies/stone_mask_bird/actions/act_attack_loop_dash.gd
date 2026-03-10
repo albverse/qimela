@@ -100,7 +100,7 @@ func _tick_dashing(bird: StoneMaskBird, now: float, player: Node2D) -> void:
 	if not _has_dealt_damage and player:
 		if bird.global_position.distance_to(player.global_position) <= DASH_HIT_RADIUS:
 			_has_dealt_damage = true
-			_deal_dash_damage(player)
+			_deal_dash_damage(bird, player)
 			_start_returning(bird, now)
 			return
 
@@ -134,10 +134,10 @@ func _tick_returning(bird: StoneMaskBird, now: float) -> void:
 		bird.anim_play(&"fly_idle", true, true)
 
 
-func _deal_dash_damage(player: Node2D) -> void:
-	# 冲刺命中：对玩家造成伤害（如果玩家有 take_damage 接口）
-	if player.has_method("take_damage"):
-		player.take_damage(1)
+func _deal_dash_damage(bird: StoneMaskBird, player: Node2D) -> void:
+	## 冲刺命中：对玩家造成伤害
+	if player.has_method("apply_damage"):
+		player.call("apply_damage", 1, bird.global_position)
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:

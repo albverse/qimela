@@ -54,8 +54,6 @@ enum EyePhase {
 # 修女蛇 weak 持续时长（秒）
 @export var nun_snake_stun_duration: float = 1.2
 # 修女蛇 stun 持续时长（秒）
-@export var stiff_attack_eye_hit_tail_sweep_hp_threshold: int = 3
-# stiff_attack 期间眼部受击后触发“闭眼+尾扫反击”的HP阈值（扣血后 <= 该值）
 
 # ===== 攻击A：stiff_attack =====
 @export var stiff_attack_range: float = 80.0
@@ -139,9 +137,6 @@ var petrified_target_node: Node2D = null
 
 ## 闭眼抗性动画保护：防止被无效攻击反复打断
 var _hit_resist_playing: bool = false
-
-## stiff_attack 期间眼部受击后，是否请求”闭眼+尾扫反击”
-var _stiff_eye_hit_tail_counter_requested: bool = false
 
 ## 本帧下一次 apply_hit/on_chain_hit 视为 EyeHurtbox 命中（由 EyeHurtbox.get_host 在命中前写入）
 var _next_hit_is_eye: bool = false
@@ -485,7 +480,6 @@ func _abort_attack_chain() -> void:
 	opening_transition_lock = false
 	closing_transition_lock = false
 	_hit_resist_playing = false
-	_stiff_eye_hit_tail_counter_requested = false
 	_next_hit_is_eye = false
 	_next_hit_eye_frame = -1
 	post_stun_tail_sweep_requested = false
@@ -691,12 +685,7 @@ func _process_eye_hurtbox_hit(hit: HitData) -> bool:
 		_enter_weak()
 		return true
 
-	# 优先级2：stiff_attack 期间眼部受击 → 立即请求闭眼尾扫（任意命中即中断）
-	if _current_anim == &"stiff_attack":
-		_stiff_eye_hit_tail_counter_requested = true
-		return true  # 早返回，不触发 stun，由 BT 消费此请求后执行闭眼尾扫
-
-	# 优先级3：光花/治愈爆炸来源 → 眩晕（非 stiff_attack 期间，或 hp > 反击阈值）
+	# 优先级2：光花/治愈爆炸来源 → 眩晕
 	if _is_stun_source(hit.weapon_id):
 		_enter_stun()
 		return true
@@ -725,13 +714,6 @@ func _mark_next_hit_eye() -> void:
 	## 由 NunSnakeEyeHurtbox.get_host() 在命中前调用，标记本次 apply_hit/on_chain_hit 为眼部命中
 	_next_hit_is_eye = true
 	_next_hit_eye_frame = Engine.get_physics_frames()
-
-
-func consume_stiff_eye_hit_tail_counter_request() -> bool:
-	if not _stiff_eye_hit_tail_counter_requested:
-		return false
-	_stiff_eye_hit_tail_counter_requested = false
-	return true
 
 
 func _is_guard_break_source(weapon_id: StringName) -> bool:
@@ -865,27 +847,16 @@ func is_player_in_range(target: Node2D, range_px: float) -> bool:
 	return global_position.distance_to(target.global_position) <= range_px
 
 
-func get_stiff_attack_detect_range() -> float:
-	# 检测范围由 StiffAttackHitbox 形状决定，避免与攻击参数产生歧义
-	if _stiff_attack_hitbox == null:
-		return stiff_attack_range
-	for child in _stiff_attack_hitbox.get_children():
-		var shape_node: CollisionShape2D = child as CollisionShape2D
-		if shape_node == null or shape_node.shape == null:
-			continue
-		var shape: Shape2D = shape_node.shape
-		if shape is CircleShape2D:
-			return maxf((shape as CircleShape2D).radius, stiff_attack_range)
-		if shape is RectangleShape2D:
-			var rect: RectangleShape2D = shape as RectangleShape2D
-			return maxf(maxf(rect.size.x, rect.size.y) * 0.5, stiff_attack_range)
-	return stiff_attack_range
-
+## 朝向翻转死区：玩家水平距离小于此值时不切换朝向，防止中心踱步抖动
+const FACE_DEAD_ZONE: float = 10.0
 
 func face_toward(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var dir_x: float = target.global_position.x - global_position.x
+	# 死区：玩家处于判定中心附近时保持当前朝向，避免左右踱步
+	if abs(dir_x) < FACE_DEAD_ZONE:
+		return
 	if dir_x > 0.0:
 		if _spine_sprite != null:
 			_spine_sprite.scale.x = abs(_spine_sprite.scale.x)
