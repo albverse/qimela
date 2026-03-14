@@ -262,7 +262,7 @@ func _do_phase1_to_phase2() -> void:
 	_set_hitbox_enabled(_baby_body_box, false)
 	_set_baby_realhurtbox(true)
 	_baby_statue.global_position = _mark_hale.global_position
-	anim_play(&"phase1_to_phase2", false)
+	anim_play(&"phase1/phase1_to_phase2", false)
 	await get_tree().create_timer(0.3).timeout
 	current_phase = Phase.PHASE2
 	_baby_statue.visible = false
