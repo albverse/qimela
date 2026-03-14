@@ -62,7 +62,6 @@ collision_mask = 0
 script = ExtResource("eye_hurtbox_script")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="EyeHurtbox"]
-position = Vector2(0, 0)
 shape = SubResource("CircleShape2D_rii1j")
 debug_color = Color(0.9600722, 1.8289685e-06, 0.52079093, 0.41960785)
 
@@ -112,7 +111,7 @@ position = Vector2(-15, -79)
 shape = SubResource("CircleShape2D_8vgbp")
 
 [node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("bt_scene")]
-blackboard = NodePath("@Node@21169")
+blackboard = NodePath("@Node@21054")
 actor = NodePath("..")
 
 [connection signal="body_entered" from="StiffAttackHitbox" to="." method="_on_stiff_attack_hitbox_body_entered"]
