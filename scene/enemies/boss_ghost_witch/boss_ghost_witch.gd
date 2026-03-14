@@ -21,6 +21,7 @@ enum BabyState { IN_HUG, THROWN, EXPLODED, REPAIRING, DASHING, SLASHING, RETURNI
 @export var ghost_tug_pull_speed: float = 400.0
 @export var tombstone_offset_y: float = 400.0
 @export var tombstone_offset_x_range: float = 70.0
+@export var tombstone_hover_duration: float = 0.5
 @export var tombstone_fall_duration: float = 0.5
 @export var tombstone_stagger_duration: float = 1.0
 @export var undead_wind_spawn_duration: float = 7.0
@@ -303,6 +304,10 @@ func _on_spine_animation_event(a1, a2, a3, a4) -> void:
 			_set_realhurtbox_enabled(false)
 		&"realhurtbox_on":
 			_set_realhurtbox_enabled(true)
+		&"ground_hitbox_on":
+			_set_hitbox_enabled(_ground_hitbox, true)
+		&"ground_hitbox_off":
+			_set_hitbox_enabled(_ground_hitbox, false)
 
 func _on_baby_spine_animation_event(a1, a2, a3, a4) -> void:
 	var e := _extract_event_name(a1, a2, a3, a4)
