@@ -20,6 +20,21 @@
 | `stone_eyebug_shell` | （同 StoneEyeBug.tscn，动态切换） | （同 stone_eyebug.gd） | DARK | SMALL | ❌未设置 | 石眼虫空壳（mollusc逃出后；可被锁链命中；与mollusc融合→幽灵手） |
 | `mollusc` | enemies/stone_eyebug/Mollusc.tscn | enemies/stone_eyebug/mollusc.gd | DARK | SMALL | ❌未设置 | 软体虫（石眼虫翻面后逃出；逃跑/攻击；可与空壳融合） |
 
+### 1.2 Boss
+
+| species_id | 场景文件 | 脚本文件 | attribute | size | HP | 备注 |
+|------------|---------|---------|-----------|------|-----|------|
+| `boss_ghost_witch` | enemies/boss_ghost_witch/BossGhostWitch.tscn | enemies/boss_ghost_witch/boss_ghost_witch.gd | NORMAL | LARGE | 30 | 幽灵魔女Boss（3阶段，每阶段10HP；不可融合/chain/stun/weak） |
+
+### 1.3 Boss 子实例（不可融合、不可chain链接、可被ghostfist消灭）
+
+| species_id | 场景文件 | 脚本文件 | attribute | size | HP | 备注 |
+|------------|---------|---------|-----------|------|-----|------|
+| `ghost_tug` | enemies/boss_ghost_witch/sub_instances/GhostTug.tscn | ghost_tug.gd | NORMAL | SMALL | 1 | 幽灵拔河（绑定玩家，ghostfist可打断） |
+| `ghost_bomb` | enemies/boss_ghost_witch/sub_instances/GhostBomb.tscn | ghost_bomb.gd | NORMAL | SMALL | 1 | 自爆幽灵（S形追踪，自爆+光照充能+5） |
+| `ghost_wraith` | enemies/boss_ghost_witch/sub_instances/GhostWraith.tscn | ghost_wraith.gd | NORMAL | SMALL | 1 | 亡灵气流幽灵（3型合一，wraith_type参数区分） |
+| `ghost_elite` | enemies/boss_ghost_witch/sub_instances/GhostElite.tscn | ghost_elite.gd | NORMAL | SMALL | 1 | 精英亡灵（击中扣Boss本体血，挥击攻击冷却1s） |
+
 ---
 
 ## 2. 奇美拉（Chimera）

@@ -109,6 +109,18 @@ func _validate_rules() -> void:
 |------------|------|------|
 | `chimera_nun_snake` | 未实现 | 修女蛇奇美拉（LIGHT/MEDIUM）；融合组合与产物待定义 |
 
+### 8.1 不参与融合系统的实体
+
+以下实体全部返回 REJECTED，不在 `_rules` 中注册：
+
+| species_id | 说明 |
+|---|---|
+| `boss_ghost_witch` | 幽灵魔女Boss（不可融合/不可chain） |
+| `ghost_tug` | Boss子实例：幽灵拔河 |
+| `ghost_bomb` | Boss子实例：自爆幽灵 |
+| `ghost_wraith` | Boss子实例：亡灵气流幽灵 |
+| `ghost_elite` | Boss子实例：精英亡灵 |
+
 ---
 
 ## 9. 版本历史
@@ -119,3 +131,4 @@ func _validate_rules() -> void:
 | 2026-02-02 | 添加 fly_light + hand_light → Chimera_StoneSnake 规则 |
 | 2026-03-03 | 添加 mollusc + stone_eyebug_shell → ChimeraGhostHandL 规则；新增石眼虫/软体虫/幽灵手奇美拉三实体 |
 | 2026-03-08 | 添加 chimera_nun_snake 融合规则占位（待实现） |
+| 2026-03-14 | 添加 boss_ghost_witch 及子实例（全部 REJECTED，不参与融合） |
