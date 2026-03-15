@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="1_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="2_seq"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_boss_ghost_witch_core.gd" id="3_core"]
+
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("1_tree")
+
+[node name="SeqCore" type="Node" parent="."]
+script = ExtResource("2_seq")
+
+[node name="ActBossCore" type="Node" parent="SeqCore"]
+script = ExtResource("3_core")

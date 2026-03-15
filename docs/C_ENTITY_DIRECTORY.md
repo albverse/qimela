@@ -19,6 +19,7 @@
 | `stone_eyebug` | enemies/stone_eyebug/StoneEyeBug.tscn | enemies/stone_eyebug/stone_eyebug.gd | DARK | SMALL | ❌未设置 | 石眼虫（壳阶段，正常行走/攻击） |
 | `stone_eyebug_shell` | （同 StoneEyeBug.tscn，动态切换） | （同 stone_eyebug.gd） | DARK | SMALL | ❌未设置 | 石眼虫空壳（mollusc逃出后；可被锁链命中；与mollusc融合→幽灵手） |
 | `mollusc` | enemies/stone_eyebug/Mollusc.tscn | enemies/stone_eyebug/mollusc.gd | DARK | SMALL | ❌未设置 | 软体虫（石眼虫翻面后逃出；逃跑/攻击；可与空壳融合） |
+| `boss_ghost_witch` | enemies/boss_ghost_witch/BossGhostWitch.tscn | enemies/boss_ghost_witch/boss_ghost_witch.gd | NORMAL | LARGE | ❌未设置 | 幽灵魔女 Boss（三阶段骨架，使用 Beehave 驱动） |
 
 ---
 
