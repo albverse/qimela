@@ -5,7 +5,7 @@
 radius = 32.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 20.0
-[node name="HellHand" type="Node2D"]
+[node name="HellHand" type="CharacterBody2D"]
 script = ExtResource("1")
 [node name="SpineSprite" type="SpineSprite" parent="."]
 skeleton_data_res = ExtResource("2")
