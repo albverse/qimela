@@ -2,6 +2,7 @@ extends Node2D
 
 @export var collapse_delay: float = 2.0
 @export var recover_delay: float = 3.0
+@export var force_ghost_fist_on_start: bool = true
 
 var _platform_states: Dictionary = {}
 
@@ -10,6 +11,22 @@ func _ready() -> void:
 		var trigger: Area2D = platform.get_node("Trigger")
 		trigger.body_entered.connect(_on_platform_body_entered.bind(platform))
 		_platform_states[platform] = {"collapsing": false}
+
+	if force_ghost_fist_on_start:
+		_force_enable_ghost_fist()
+
+func _force_enable_ghost_fist() -> void:
+	var player := $PlayerSpawn
+	if player == null:
+		return
+	if not player.has_method("get"):
+		return
+	var weapon_controller: Node = player.get("weapon_controller")
+	if weapon_controller != null:
+		# WeaponController.WeaponType.GHOST_FIST == 3
+		weapon_controller.set("current_weapon", 3)
+	if player.has_method("_activate_ghost_fist"):
+		player.call("_activate_ghost_fist")
 
 func _on_platform_body_entered(body: Node, platform: StaticBody2D) -> void:
 	if body == null or not body.is_in_group("player"):
