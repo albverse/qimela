@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/hell_hand.gd" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="capture_shape"]
+size = Vector2(60, 80)
+
+[sub_resource type="CircleShape2D" id="hit_shape"]
+radius = 30.0
+
+[node name="HellHand" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="SpineSprite" type="Sprite2D" parent="."]
+
+[node name="CaptureArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CaptureArea"]
+shape = SubResource("capture_shape")
+
+[node name="HitArea" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitArea"]
+shape = SubResource("hit_shape")
