@@ -108,6 +108,7 @@ func _validate_rules() -> void:
 | species_id | 状态 | 说明 |
 |------------|------|------|
 | `chimera_nun_snake` | 未实现 | 修女蛇奇美拉（LIGHT/MEDIUM）；融合组合与产物待定义 |
+| `boss_ghost_witch` | 不参与融合 | Boss 实体，attribute=NORMAL/size=LARGE，战斗中仅接受 ghost_fist 真实伤害 |
 
 ---
 
