@@ -1,7 +1,9 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.gd" id="1"]
 [ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/bt_boss_ghost_witch.tscn" id="3"]
+[ext_resource type="Script" path="res://addons/beehave/blackboard.gd" id="4"]
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(64, 96)
@@ -135,8 +137,9 @@ collision_mask = 2
 shape = SubResource("6")
 
 [node name="AnimDriverSpine" type="Node" parent="."]
-[node name="BeehaveTree" type="Node" parent="."]
+[node name="BeehaveTree" parent="." instance=ExtResource("3")]
 [node name="Blackboard" type="Node" parent="."]
+script = ExtResource("4")
 
 [node name="KickHitbox" type="Area2D" parent="."]
 collision_layer = 32

@@ -19,6 +19,11 @@
 | `stone_eyebug` | enemies/stone_eyebug/StoneEyeBug.tscn | enemies/stone_eyebug/stone_eyebug.gd | DARK | SMALL | ❌未设置 | 石眼虫（壳阶段，正常行走/攻击） |
 | `stone_eyebug_shell` | （同 StoneEyeBug.tscn，动态切换） | （同 stone_eyebug.gd） | DARK | SMALL | ❌未设置 | 石眼虫空壳（mollusc逃出后；可被锁链命中；与mollusc融合→幽灵手） |
 | `mollusc` | enemies/stone_eyebug/Mollusc.tscn | enemies/stone_eyebug/mollusc.gd | DARK | SMALL | ❌未设置 | 软体虫（石眼虫翻面后逃出；逃跑/攻击；可与空壳融合） |
+| `boss_ghost_witch` | enemies/boss_ghost_witch/BossGhostWitch.tscn | enemies/boss_ghost_witch/BossGhostWitch.gd | NORMAL | LARGE | ❌未设置 | 幽灵魔女Boss（Beehave BT驱动，锁链无效，仅ghost_fist可伤害） |
+| `ghost_tug` | enemies/boss_ghost_witch/GhostTug.tscn | enemies/boss_ghost_witch/GhostTug.gd | NORMAL | SMALL | ❌未设置 | 子实例：幽灵拔河 |
+| `ghost_bomb` | enemies/boss_ghost_witch/GhostBomb.tscn | enemies/boss_ghost_witch/GhostBomb.gd | NORMAL | SMALL | ❌未设置 | 子实例：自爆幽灵 |
+| `ghost_wraith` | enemies/boss_ghost_witch/GhostWraith.tscn | enemies/boss_ghost_witch/GhostWraith.gd | NORMAL | SMALL | ❌未设置 | 子实例：亡灵气流 |
+| `ghost_elite` | enemies/boss_ghost_witch/GhostElite.tscn | enemies/boss_ghost_witch/GhostElite.gd | NORMAL | SMALL | ❌未设置 | 子实例：精英亡灵 |
 
 ---
 
