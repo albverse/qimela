@@ -1,0 +1,83 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="1_boss"]
+[ext_resource type="Script" path="res://scene/levels/boss_test_platform.gd" id="2_pf_script"]
+
+[sub_resource type="RectangleShape2D" id="1_ground"]
+size = Vector2(2000, 120)
+
+[sub_resource type="RectangleShape2D" id="2_platform"]
+size = Vector2(280, 36)
+
+[sub_resource type="RectangleShape2D" id="3_platform"]
+size = Vector2(220, 36)
+
+[node name="BossTestArena" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(612, 674)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("1_ground")
+
+[node name="PlatformA" type="StaticBody2D" parent="."]
+position = Vector2(334, 470)
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("2_pf_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
+shape = SubResource("2_platform")
+one_way_collision = true
+
+[node name="Trigger" type="Area2D" parent="PlatformA"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA/Trigger"]
+shape = SubResource("2_platform")
+
+[node name="PlatformB" type="StaticBody2D" parent="."]
+position = Vector2(738, 366)
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("2_pf_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
+shape = SubResource("3_platform")
+one_way_collision = true
+
+[node name="Trigger" type="Area2D" parent="PlatformB"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB/Trigger"]
+shape = SubResource("3_platform")
+
+[node name="PlatformC" type="StaticBody2D" parent="."]
+position = Vector2(1038, 524)
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("2_pf_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
+shape = SubResource("3_platform")
+one_way_collision = true
+
+[node name="Trigger" type="Area2D" parent="PlatformC"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC/Trigger"]
+shape = SubResource("3_platform")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(158, 594)
+
+[node name="BossSpawn" type="Marker2D" parent="."]
+position = Vector2(1022, 584)
+
+[node name="BossGhostWitch" parent="." instance=ExtResource("1_boss")]
+position = Vector2(1022, 584)
