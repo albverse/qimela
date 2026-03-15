@@ -1,0 +1,50 @@
+BossGhostWitch.png
+size:2022,1715
+filter:Linear,Linear
+pma:true
+レイヤー 1
+bounds:2,237,715,993
+offsets:1,1,717,995
+rotate:90
+レイヤー 1 のコピー 2
+bounds:611,954,1025,509
+offsets:1,1,1027,511
+レイヤー 1 のコピー 3
+bounds:675,1596,254,117
+offsets:1,1,256,119
+レイヤー 1 のコピー 4
+bounds:997,2,950,1023
+offsets:1,1,953,1025
+rotate:90
+レイヤー 1 のコピー 6
+bounds:295,1607,235,106
+offsets:1,1,237,108
+レイヤー 1 のコピー 7
+bounds:931,1465,248,842
+rotate:90
+レイヤー 1 のコピー 8
+bounds:2,1003,607,595
+レイヤー 4
+bounds:532,1600,113,141
+offsets:1,1,115,143
+rotate:90
+レイヤー 5
+bounds:2,1629,129,84
+offsets:1,1,131,86
+レイヤー 6
+bounds:133,1620,93,160
+offsets:1,1,95,162
+rotate:90
+
+BossGhostWitch_2.png
+size:1762,1148
+filter:Linear,Linear
+pma:true
+レイヤー 1 のコピー
+bounds:972,2,1144,788
+offsets:1,1,1146,790
+rotate:90
+レイヤー 1 のコピー 5
+bounds:2,78,1068,968
+offsets:1,1,1070,970
+rotate:90
