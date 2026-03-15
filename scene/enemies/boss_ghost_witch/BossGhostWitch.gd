@@ -17,6 +17,7 @@ const BT_RUNNING := 2
 @export var baby_dash_speed: float = 400.0
 @export var baby_post_dash_wait: float = 0.7
 @export var baby_return_speed: float = 500.0
+@export var baby_repair_duration: float = 2.0
 @export var start_attack_loop_duration: float = 4.0
 
 @export var scythe_slash_cooldown: float = 1.0
@@ -43,13 +44,23 @@ var _player_imprisoned: bool = false
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
-var _anim_started_ms: float = 0.0
+var _current_anim_started_sec: float = 0.0
+
+var _current_baby_anim: StringName = &""
+var _current_baby_anim_finished: bool = false
+var _current_baby_anim_loop: bool = false
+var _current_baby_anim_started_sec: float = 0.0
 
 var _bt_start_step: int = 0
-var _bt_start_until_ms: float = 0.0
+var _bt_start_until_sec: float = 0.0
 var _bt_throw_target: Node2D = null
 var _bt_skill_anim: StringName = &""
-var _bt_skill_end_ms: float = 0.0
+var _bt_skill_end_sec: float = 0.0
+var _baby_state_until_sec: float = 0.0
+var _baby_dash_target_x: float = 0.0
+
+var _anim_driver: AnimDriverSpine = null
+var _baby_anim_driver: AnimDriverSpine = null
 
 @onready var _spine_sprite: Node = $SpineSprite
 @onready var _real_hurtbox: Area2D = $RealHurtbox
@@ -61,6 +72,7 @@ var _bt_skill_end_ms: float = 0.0
 @onready var _baby_real_hurtbox: Area2D = $BabyStatue/BabyRealHurtbox
 @onready var _baby_attack_area: Area2D = $BabyStatue/BabyAttackArea
 @onready var _baby_explosion_area: Area2D = $BabyStatue/BabyExplosionArea
+@onready var _baby_detect_area: Area2D = $BabyStatue/BabyDetectArea
 @onready var _kick_hitbox: Area2D = $KickHitbox
 @onready var _attack1_area: Area2D = $Attack1Area
 @onready var _attack2_area: Area2D = $Attack2Area
@@ -80,14 +92,35 @@ func _ready() -> void:
 	_disable_weak_stun_vanish()
 	for hb in [_real_hurtbox, _baby_real_hurtbox, _ground_hitbox, _kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _baby_attack_area, _baby_explosion_area]:
 		_set_hitbox_enabled(hb, false)
-	if _spine_sprite != null:
-		if _spine_sprite.has_signal("animation_event"):
-			_spine_sprite.animation_event.connect(_on_spine_event)
-		if _spine_sprite.has_signal("animation_completed"):
-			_spine_sprite.animation_completed.connect(_on_spine_completed)
+
+	_setup_anim_drivers()
+	if _spine_sprite != null and _spine_sprite.has_signal("animation_event"):
+		_spine_sprite.animation_event.connect(_on_spine_event)
 	if _baby_spine != null and _baby_spine.has_signal("animation_event"):
 		_baby_spine.animation_event.connect(_on_baby_spine_event)
+
+	_baby_statue.global_position = _mark_hug.global_position
 	anim_play(&"phase1/idle", true)
+	baby_anim_play(&"baby/idle", true)
+
+func _setup_anim_drivers() -> void:
+	if _is_spine_sprite_compatible(_spine_sprite):
+		_anim_driver = AnimDriverSpine.new()
+		add_child(_anim_driver)
+		_anim_driver.setup(_spine_sprite)
+		_anim_driver.anim_completed.connect(_on_main_anim_completed)
+	if _is_spine_sprite_compatible(_baby_spine):
+		_baby_anim_driver = AnimDriverSpine.new()
+		add_child(_baby_anim_driver)
+		_baby_anim_driver.setup(_baby_spine)
+		_baby_anim_driver.anim_completed.connect(_on_baby_anim_completed)
+
+func _is_spine_sprite_compatible(node: Node) -> bool:
+	if node == null:
+		return false
+	if String(node.get_class()) == "SpineSprite":
+		return true
+	return node.has_method("get_animation_state") or node.has_method("getAnimationState")
 
 func _physics_process(_dt: float) -> void:
 	super._physics_process(_dt)
@@ -113,23 +146,27 @@ func bt_hold_transition() -> void:
 func bt_start_battle() -> int:
 	if _battle_started:
 		return BT_SUCCESS
-	var now_ms := float(Time.get_ticks_msec())
+	var now := Time.get_ticks_msec() / 1000.0
 	if _bt_start_step == 0:
 		anim_play(&"phase1/start_attack", false)
-		_bt_start_until_ms = now_ms + 800.0
 		_bt_start_step = 1
 		return BT_RUNNING
-	if _bt_start_step == 1 and now_ms >= _bt_start_until_ms:
+	if _bt_start_step == 1:
+		if not anim_is_finished(&"phase1/start_attack"):
+			return BT_RUNNING
 		anim_play(&"phase1/start_attack_loop", true)
-		_bt_start_until_ms = now_ms + start_attack_loop_duration * 1000.0
+		_bt_start_until_sec = now + start_attack_loop_duration
 		_bt_start_step = 2
 		return BT_RUNNING
-	if _bt_start_step == 2 and now_ms >= _bt_start_until_ms:
+	if _bt_start_step == 2:
+		if now < _bt_start_until_sec:
+			return BT_RUNNING
 		anim_play(&"phase1/start_attack_exter", false)
-		_bt_start_until_ms = now_ms + 600.0
 		_bt_start_step = 3
 		return BT_RUNNING
-	if _bt_start_step == 3 and now_ms >= _bt_start_until_ms:
+	if _bt_start_step == 3:
+		if not anim_is_finished(&"phase1/start_attack_exter"):
+			return BT_RUNNING
 		_battle_started = true
 		_bt_start_step = 0
 		return BT_SUCCESS
@@ -143,36 +180,101 @@ func bt_throw_baby(blackboard: Blackboard) -> int:
 	if _bt_throw_target == null:
 		return BT_FAILURE
 	anim_play(&"phase1/throw", false)
-	baby_anim_play(&"baby/spin", true)
 	baby_state = BabyState.THROWN
+	baby_anim_play(&"baby/spin", true)
 	return BT_SUCCESS
 
 func bt_baby_attack_flow() -> int:
-	var target := _bt_throw_target if _bt_throw_target != null else get_priority_attack_target()
-	if target == null:
-		return BT_RUNNING
 	var dt := get_physics_process_delta_time()
+	var now := Time.get_ticks_msec() / 1000.0
+	var player := _bt_throw_target if _bt_throw_target != null else get_priority_attack_target()
+
 	if baby_state == BabyState.THROWN:
-		var dir := signf(target.global_position.x - _baby_statue.global_position.x)
-		_baby_statue.global_position.x += dir * baby_throw_speed * dt
-		if absf(_baby_statue.global_position.x - target.global_position.x) < 16.0:
-			baby_state = BabyState.WINDING_UP
-			baby_anim_play(&"baby/wind_up", false)
+		if player == null:
+			return BT_RUNNING
+		var dir := (player.global_position - _baby_statue.global_position).normalized()
+		_baby_statue.global_position += dir * baby_throw_speed * dt
+		if _baby_statue.global_position.distance_to(player.global_position) <= 20.0:
+			baby_state = BabyState.EXPLODED
+			baby_anim_play(&"baby/explode", false)
+			_set_hitbox_enabled(_baby_explosion_area, true)
+			_baby_state_until_sec = now + 0.35
 		return BT_RUNNING
+
+	if baby_state == BabyState.EXPLODED:
+		if now < _baby_state_until_sec and not baby_anim_is_finished(&"baby/explode"):
+			return BT_RUNNING
+		_set_hitbox_enabled(_baby_explosion_area, false)
+		_set_hitbox_enabled(_baby_real_hurtbox, true)
+		baby_state = BabyState.REPAIRING
+		baby_anim_play(&"baby/repair", false)
+		_baby_state_until_sec = now + baby_repair_duration
+		return BT_RUNNING
+
+	if baby_state == BabyState.REPAIRING:
+		if now < _baby_state_until_sec and not baby_anim_is_finished(&"baby/repair"):
+			return BT_RUNNING
+		_set_hitbox_enabled(_baby_real_hurtbox, false)
+		if _is_player_in_baby_detect_area(player):
+			baby_state = BabyState.DASHING
+			_baby_dash_go_triggered = false
+			_baby_dash_target_x = player.global_position.x
+			baby_anim_play(&"baby/dash", false)
+			_set_hitbox_enabled(_baby_attack_area, true)
+		else:
+			baby_state = BabyState.RETURNING
+			baby_anim_play(&"baby/return", true)
+			_set_hitbox_enabled(_baby_attack_area, false)
+		return BT_RUNNING
+
+	if baby_state == BabyState.DASHING:
+		if player != null:
+			_baby_dash_target_x = player.global_position.x
+		var dash_dir := signf(_baby_dash_target_x - _baby_statue.global_position.x)
+		_baby_statue.global_position.x += dash_dir * baby_dash_speed * dt
+		if absf(_baby_dash_target_x - _baby_statue.global_position.x) < 12.0:
+			baby_state = BabyState.POST_DASH_WAIT
+			baby_anim_play(&"baby/idle", true)
+			_baby_state_until_sec = now + baby_post_dash_wait
+		return BT_RUNNING
+
+	if baby_state == BabyState.POST_DASH_WAIT:
+		if now < _baby_state_until_sec:
+			return BT_RUNNING
+		baby_state = BabyState.WINDING_UP
+		baby_anim_play(&"baby/wind_up", false)
+		return BT_RUNNING
+
 	if baby_state == BabyState.WINDING_UP:
+		if not baby_anim_is_finished(&"baby/wind_up"):
+			return BT_RUNNING
 		baby_state = BabyState.RETURNING
-		return BT_RUNNING
-	if baby_state == BabyState.RETURNING:
 		baby_anim_play(&"baby/return", true)
+		return BT_RUNNING
+
+	if baby_state == BabyState.RETURNING:
 		var rdir := (_mark_hug.global_position - _baby_statue.global_position).normalized()
 		_baby_statue.global_position += rdir * baby_return_speed * dt
-		if _baby_statue.global_position.distance_to(_mark_hug.global_position) < 10.0:
+		if _baby_statue.global_position.distance_to(_mark_hug.global_position) <= 10.0:
+			_set_hitbox_enabled(_baby_attack_area, false)
 			baby_state = BabyState.IN_HUG
 			_bt_throw_target = null
 			anim_play(&"phase1/catch_baby", false)
+			baby_anim_play(&"baby/idle", true)
 			return BT_SUCCESS
 		return BT_RUNNING
+
 	return BT_FAILURE
+
+func _is_player_in_baby_detect_area(player: Node2D) -> bool:
+	if player == null:
+		return false
+	if _baby_detect_area == null:
+		return true
+	for body in _baby_detect_area.get_overlapping_bodies():
+		if body == player:
+			return true
+	return false
 
 func bt_move_toward_player(speed: float, anim_name: StringName) -> void:
 	var player := get_priority_attack_target()
@@ -184,16 +286,16 @@ func bt_move_toward_player(speed: float, anim_name: StringName) -> void:
 
 func bt_cast_phase2_skill(blackboard: Blackboard, cooldown_key: String, cooldown_sec: float, anim_name: StringName) -> int:
 	var actor_id := str(get_instance_id())
-	var now_ms := float(Time.get_ticks_msec())
-	if _bt_skill_anim == anim_name and now_ms < _bt_skill_end_ms:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _bt_skill_anim == anim_name and now < _bt_skill_end_sec:
 		velocity = Vector2.ZERO
 		return BT_RUNNING
-	if now_ms < blackboard.get_value(cooldown_key, 0.0, actor_id):
+	if now * 1000.0 < blackboard.get_value(cooldown_key, 0.0, actor_id):
 		return BT_FAILURE
 	anim_play(anim_name, false)
 	_bt_skill_anim = anim_name
-	_bt_skill_end_ms = now_ms + 700.0
-	blackboard.set_value(cooldown_key, now_ms + cooldown_sec * 1000.0, actor_id)
+	_bt_skill_end_sec = now + 0.8
+	blackboard.set_value(cooldown_key, now * 1000.0 + cooldown_sec * 1000.0, actor_id)
 	velocity = Vector2.ZERO
 	return BT_RUNNING
 
@@ -253,12 +355,26 @@ func _update_damage_hitboxes() -> void:
 
 func _update_bone_follow() -> void:
 	if current_phase == Phase.PHASE1:
-		_baby_statue.global_position = _mark_hug.global_position if baby_state == BabyState.IN_HUG else _baby_statue.global_position
-		_baby_real_hurtbox.global_position = _baby_statue.global_position
+		if baby_state == BabyState.IN_HUG:
+			_baby_statue.global_position = _mark_hug.global_position
+		var core := _get_bone_world_position(_baby_anim_driver, "core", _baby_statue.global_position)
+		if core != Vector2.ZERO:
+			_baby_real_hurtbox.global_position = core
+		else:
+			_baby_real_hurtbox.global_position = _baby_statue.global_position
 	else:
-		_real_hurtbox.global_position = _mark_hale.global_position
+		var hale := _get_bone_world_position(_anim_driver, "hale", _mark_hale.global_position)
+		_real_hurtbox.global_position = hale
 	if current_phase == Phase.PHASE3:
 		_kick_hitbox.global_position = global_position + Vector2(16.0, 0.0)
+
+func _get_bone_world_position(driver: AnimDriverSpine, bone_name: String, fallback: Vector2) -> Vector2:
+	if driver == null:
+		return fallback
+	var p := driver.get_bone_world_position(bone_name)
+	if p == Vector2.ZERO:
+		return fallback
+	return p
 
 func _throw_scythe(player: Node2D) -> void:
 	if not _scythe_in_hand:
@@ -350,31 +466,49 @@ func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -
 	_current_anim = anim_name
 	_current_anim_finished = false
 	_current_anim_loop = loop
-	_anim_started_ms = float(Time.get_ticks_msec())
-	if _spine_sprite == null:
-		return
-	if _spine_sprite.has_method("set_animation"):
-		_spine_sprite.call("set_animation", anim_name, loop, 0)
-	elif _spine_sprite.has_method("setAnimation"):
-		_spine_sprite.call("setAnimation", anim_name, loop, 0)
+	_current_anim_started_sec = Time.get_ticks_msec() / 1000.0
+	if _anim_driver != null:
+		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+	elif _spine_sprite != null and _spine_sprite.has_method("set_animation"):
+		_spine_sprite.call("set_animation", String(anim_name), loop, 0)
 
 func baby_anim_play(anim_name: StringName, loop: bool) -> void:
-	if _baby_spine == null:
+	if _current_baby_anim == anim_name and not _current_baby_anim_finished and _current_baby_anim_loop == loop:
 		return
-	if _baby_spine.has_method("set_animation"):
-		_baby_spine.call("set_animation", anim_name, loop, 0)
-	elif _baby_spine.has_method("setAnimation"):
-		_baby_spine.call("setAnimation", anim_name, loop, 0)
+	_current_baby_anim = anim_name
+	_current_baby_anim_finished = false
+	_current_baby_anim_loop = loop
+	_current_baby_anim_started_sec = Time.get_ticks_msec() / 1000.0
+	if _baby_anim_driver != null:
+		_baby_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+	elif _baby_spine != null and _baby_spine.has_method("set_animation"):
+		_baby_spine.call("set_animation", String(anim_name), loop, 0)
 
 func anim_is_finished(anim_name: StringName) -> bool:
-	if _current_anim == anim_name and _current_anim_finished:
+	if _current_anim != anim_name:
+		return false
+	if _current_anim_finished:
 		return true
-	if _current_anim == anim_name and not _current_anim_loop and float(Time.get_ticks_msec()) - _anim_started_ms > 700.0:
+	if not _current_anim_loop and Time.get_ticks_msec() / 1000.0 - _current_anim_started_sec > 0.9:
 		return true
 	return false
 
-func _on_spine_completed(_entry = null) -> void:
-	_current_anim_finished = true
+func baby_anim_is_finished(anim_name: StringName) -> bool:
+	if _current_baby_anim != anim_name:
+		return false
+	if _current_baby_anim_finished:
+		return true
+	if not _current_baby_anim_loop and Time.get_ticks_msec() / 1000.0 - _current_baby_anim_started_sec > 0.9:
+		return true
+	return false
+
+func _on_main_anim_completed(_track: int, anim_name: StringName) -> void:
+	if anim_name == _current_anim:
+		_current_anim_finished = true
+
+func _on_baby_anim_completed(_track: int, anim_name: StringName) -> void:
+	if anim_name == _current_baby_anim:
+		_current_baby_anim_finished = true
 
 func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 	var e := _extract_event_name(a1, a2, a3, a4)
