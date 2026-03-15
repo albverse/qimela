@@ -1,0 +1,26 @@
+BabyStatue.png
+size:297,288
+filter:Linear,Linear
+pma:true
+BossGhostWitch のコピー
+bounds:239,151,56,135
+offsets:5,2,62,138
+BossGhostWitch_2 のコピー
+bounds:2,2,199,176
+offsets:2,2,202,185
+レイヤー 1
+bounds:251,50,41,99
+offsets:2,1,44,101
+レイヤー 1 のコピー 3
+bounds:203,103,46,46
+offsets:1,1,49,49
+レイヤー 1 のコピー 4
+bounds:203,57,33,44
+offsets:2,2,37,47
+レイヤー 1 のコピー 5
+bounds:203,7,41,42
+offsets:6,1,48,44
+rotate:90
+レイヤー 1 のコピー 6
+bounds:2,180,235,106
+offsets:1,1,237,108
