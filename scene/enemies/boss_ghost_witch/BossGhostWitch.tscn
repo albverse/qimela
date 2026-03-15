@@ -1,0 +1,105 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/boss_ghost_witch.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/bt_boss_ghost_witch.tscn" id="2"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(80, 120)
+[sub_resource type="CircleShape2D" id="2"]
+radius = 40.0
+[sub_resource type="CircleShape2D" id="3"]
+radius = 120.0
+[sub_resource type="CircleShape2D" id="4"]
+radius = 500.0
+[sub_resource type="CircleShape2D" id="5"]
+radius = 300.0
+[sub_resource type="CircleShape2D" id="6"]
+radius = 100.0
+
+[node name="BossGhostWitch" type="CharacterBody2D"]
+script = ExtResource("1")
+collision_layer = 4
+collision_mask = 1
+floor_snap_length = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+
+[node name="SpineSprite" type="Sprite2D" parent="."]
+
+[node name="BodyBox" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BodyBox"]
+shape = SubResource("2")
+
+[node name="RealHurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = false
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RealHurtbox"]
+shape = SubResource("2")
+disabled = true
+
+[node name="ScytheDetectArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ScytheDetectArea"]
+shape = SubResource("3")
+
+[node name="GroundHitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundHitbox"]
+shape = SubResource("3")
+disabled = true
+
+[node name="Mark2D_Hug" type="Marker2D" parent="."]
+position = Vector2(18, -40)
+[node name="Mark2D_Hale" type="Marker2D" parent="."]
+position = Vector2(0, -90)
+
+[node name="BabyStatue" type="Node2D" parent="."]
+[node name="SpineSprite" type="Sprite2D" parent="BabyStatue"]
+[node name="BabyBodyBox" type="Area2D" parent="BabyStatue"]
+collision_layer = 64
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BabyStatue/BabyBodyBox"]
+shape = SubResource("2")
+[node name="BabyRealHurtbox" type="Area2D" parent="BabyStatue"]
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BabyStatue/BabyRealHurtbox"]
+shape = SubResource("2")
+disabled = true
+[node name="BabyAttackArea" type="Area2D" parent="BabyStatue"]
+collision_mask = 2
+monitoring = false
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BabyStatue/BabyAttackArea"]
+shape = SubResource("2")
+disabled = true
+[node name="BabyExplosionArea" type="Area2D" parent="BabyStatue"]
+collision_mask = 2
+monitoring = false
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BabyStatue/BabyExplosionArea"]
+shape = SubResource("3")
+disabled = true
+
+[node name="DetectArea500" type="Area2D" parent="."]
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea500"]
+shape = SubResource("4")
+[node name="DetectArea300" type="Area2D" parent="."]
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea300"]
+shape = SubResource("5")
+[node name="DetectArea100" type="Area2D" parent="."]
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea100"]
+shape = SubResource("6")
+
+[node name="BeehaveTree" parent="." instance=ExtResource("2")]
+[node name="Blackboard" type="Node" parent="."]

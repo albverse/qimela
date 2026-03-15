@@ -1,0 +1,140 @@
+[gd_scene load_steps=26 format=3]
+
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="1"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="2"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="3"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/decorators/inverter.gd" id="4"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_phase_transitioning.gd" id="5"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_wait_transition.gd" id="6"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_is_phase.gd" id="7"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_battle_not_started.gd" id="8"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_start_battle.gd" id="9"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_baby_in_hug.gd" id="10"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_in_range.gd" id="11"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_throw_baby.gd" id="12"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_baby_not_in_hug.gd" id="13"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_baby_attack_flow.gd" id="14"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_slow_move_to_player.gd" id="15"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_cooldown_ready.gd" id="16"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_scythe_slash.gd" id="17"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_tombstone_drop.gd" id="18"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_undead_wind.gd" id="19"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_ghost_tug.gd" id="20"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_all_skills_on_cooldown.gd" id="21"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_ghost_bomb_can_spawn.gd" id="22"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_spawn_ghost_bomb.gd" id="23"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_move_toward_player.gd" id="24"]
+
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("1")
+
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="PhaseTransitionSeq" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+[node name="CondPhaseTransitioning" type="Node" parent="RootSelector/PhaseTransitionSeq"]
+script = ExtResource("5")
+[node name="ActWaitTransition" type="Node" parent="RootSelector/PhaseTransitionSeq"]
+script = ExtResource("6")
+
+[node name="Phase1Seq" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+[node name="CondIsPhase1" type="Node" parent="RootSelector/Phase1Seq"]
+script = ExtResource("7")
+phase = 1
+[node name="P1Selector" type="Node" parent="RootSelector/Phase1Seq"]
+script = ExtResource("2")
+[node name="P1StartBattleSeq" type="Node" parent="RootSelector/Phase1Seq/P1Selector"]
+script = ExtResource("3")
+[node name="CondBattleNotStarted" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1StartBattleSeq"]
+script = ExtResource("8")
+[node name="ActStartBattle" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1StartBattleSeq"]
+script = ExtResource("9")
+[node name="P1ThrowBabySeq" type="Node" parent="RootSelector/Phase1Seq/P1Selector"]
+script = ExtResource("3")
+[node name="CondBabyInHug" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1ThrowBabySeq"]
+script = ExtResource("10")
+[node name="CondPlayerIn500" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1ThrowBabySeq"]
+script = ExtResource("11")
+range_px = 500.0
+[node name="ActThrowBaby" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1ThrowBabySeq"]
+script = ExtResource("12")
+[node name="P1BabyFlowSeq" type="Node" parent="RootSelector/Phase1Seq/P1Selector"]
+script = ExtResource("3")
+[node name="CondBabyNotInHug" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1BabyFlowSeq"]
+script = ExtResource("13")
+[node name="ActBabyFlow" type="Node" parent="RootSelector/Phase1Seq/P1Selector/P1BabyFlowSeq"]
+script = ExtResource("14")
+[node name="ActSlowMove" type="Node" parent="RootSelector/Phase1Seq/P1Selector"]
+script = ExtResource("15")
+
+[node name="Phase2Seq" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+[node name="CondIsPhase2" type="Node" parent="RootSelector/Phase2Seq"]
+script = ExtResource("7")
+phase = 2
+[node name="P2Selector" type="Node" parent="RootSelector/Phase2Seq"]
+script = ExtResource("2")
+[node name="P2ScytheSeq" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("3")
+[node name="CondPlayerIn100" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2ScytheSeq"]
+script = ExtResource("11")
+range_px = 100.0
+[node name="CondScytheCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2ScytheSeq"]
+script = ExtResource("16")
+cooldown_key = "cd_scythe"
+[node name="ActScythe" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2ScytheSeq"]
+script = ExtResource("17")
+[node name="P2TombstoneSeq" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("3")
+[node name="CondPlayerIn500_P2" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
+script = ExtResource("11")
+range_px = 500.0
+[node name="CondTombstoneCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
+script = ExtResource("16")
+cooldown_key = "cd_tombstone"
+[node name="ActTombstone" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
+script = ExtResource("18")
+[node name="P2WindSeq" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("3")
+[node name="CondPlayerIn300" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2WindSeq"]
+script = ExtResource("11")
+range_px = 300.0
+[node name="NotIn100" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2WindSeq"]
+script = ExtResource("4")
+[node name="CondPlayerIn100_Block" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2WindSeq/NotIn100"]
+script = ExtResource("11")
+range_px = 100.0
+[node name="CondWindCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2WindSeq"]
+script = ExtResource("16")
+cooldown_key = "cd_wind"
+[node name="ActWind" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2WindSeq"]
+script = ExtResource("19")
+[node name="P2TugSeq" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("3")
+[node name="NotIn500" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TugSeq"]
+script = ExtResource("4")
+[node name="CondPlayerIn500_Block" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TugSeq/NotIn500"]
+script = ExtResource("11")
+range_px = 500.0
+[node name="CondTugCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TugSeq"]
+script = ExtResource("16")
+cooldown_key = "cd_tug"
+[node name="ActTug" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TugSeq"]
+script = ExtResource("20")
+[node name="P2PassiveBombSeq" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("3")
+[node name="CondAllCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2PassiveBombSeq"]
+script = ExtResource("21")
+[node name="CondCanBomb" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2PassiveBombSeq"]
+script = ExtResource("22")
+max_count = 3
+[node name="CondBombCD" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2PassiveBombSeq"]
+script = ExtResource("16")
+cooldown_key = "cd_bomb"
+cooldown_sec = 5.0
+[node name="ActSpawnBomb" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2PassiveBombSeq"]
+script = ExtResource("23")
+[node name="ActMoveToward" type="Node" parent="RootSelector/Phase2Seq/P2Selector"]
+script = ExtResource("24")
