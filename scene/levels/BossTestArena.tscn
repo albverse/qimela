@@ -1,0 +1,50 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scene/Player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(1600, 80)
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(260, 20)
+
+[node name="BossTestArena" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(0, 320)
+collision_layer = 1
+collision_mask = 0
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("1")
+
+[node name="PlatformA" type="StaticBody2D" parent="."]
+position = Vector2(-280, 120)
+collision_layer = 1
+collision_mask = 0
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
+shape = SubResource("2")
+one_way_collision = true
+one_way_collision_margin = 8.0
+
+[node name="PlatformB" type="StaticBody2D" parent="."]
+position = Vector2(80, 20)
+collision_layer = 1
+collision_mask = 0
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
+shape = SubResource("2")
+one_way_collision = true
+one_way_collision_margin = 8.0
+
+[node name="PlatformC" type="StaticBody2D" parent="."]
+position = Vector2(440, 140)
+collision_layer = 1
+collision_mask = 0
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
+shape = SubResource("2")
+one_way_collision = true
+one_way_collision_margin = 8.0
+
+[node name="PlayerSpawn" parent="." instance=ExtResource("1")]
+position = Vector2(-500, 220)
+
+[node name="BossSpawn" parent="." instance=ExtResource("2")]
+position = Vector2(420, 220)
