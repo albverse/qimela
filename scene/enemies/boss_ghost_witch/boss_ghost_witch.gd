@@ -204,31 +204,31 @@ func _is_ghostfist_hitbox(area: Area2D) -> bool:
 
 func tick_start_battle() -> int:
 	if _battle_started:
-		return SUCCESS
+		return BeehaveNode.SUCCESS
 	if _active_anim != &"phase1/start_attack" and _active_anim != &"phase1/start_attack_loop" and _active_anim != &"phase1/start_attack_exter":
 		anim_play(&"phase1/start_attack", false)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if _active_anim == &"phase1/start_attack" and anim_is_finished(&"phase1/start_attack"):
 		if _player_in_scythe_area():
 			_damage_player(1)
 		anim_play(&"phase1/start_attack_loop", true)
 		_anim_end_ms = Time.get_ticks_msec() + int(start_attack_loop_duration * 1000.0)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if _active_anim == &"phase1/start_attack_loop" and Time.get_ticks_msec() >= _anim_end_ms:
 		anim_play(&"phase1/start_attack_exter", false)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if _active_anim == &"phase1/start_attack_exter" and anim_is_finished(&"phase1/start_attack_exter"):
 		_battle_started = true
 		anim_play(&"phase1/idle", true)
-		return SUCCESS
-	return RUNNING
+		return BeehaveNode.SUCCESS
+	return BeehaveNode.RUNNING
 
 func tick_phase1_combat(dt: float) -> int:
 	var player := get_priority_attack_target()
 	if player == null:
 		velocity.x = 0.0
 		anim_play(&"phase1/idle", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.IN_HUG:
 		var h_dist: float = abs(player.global_position.x - global_position.x)
 		if h_dist <= detect_range_px:
@@ -240,7 +240,7 @@ func tick_phase1_combat(dt: float) -> int:
 			anim_play(&"phase1/throw_baby", false)
 		else:
 			_move_toward_player(player, slow_move_speed, &"phase1/walk", &"phase1/idle")
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.THROWN:
 		_baby_statue.global_position += _thrown_velocity * dt
 		if _baby_statue.global_position.distance_to(_baby_dash_target) < 16.0:
@@ -248,11 +248,11 @@ func tick_phase1_combat(dt: float) -> int:
 			baby_anim_play(&"baby/explode", false)
 			_set_hitbox_enabled(_baby_explosion_area, true)
 			_set_baby_realhurtbox(true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.EXPLODED and baby_anim_is_finished(&"baby/explode"):
 		baby_state = BabyState.REPAIRING
 		baby_anim_play(&"baby/repair", false)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.REPAIRING and baby_anim_is_finished(&"baby/repair"):
 		_set_hitbox_enabled(_baby_explosion_area, false)
 		if _player_in_baby_detect_area():
@@ -264,7 +264,7 @@ func tick_phase1_combat(dt: float) -> int:
 		else:
 			baby_state = BabyState.WINDING_UP
 			baby_anim_play(&"baby/wind_up", false)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.DASHING:
 		var dir := signf(_baby_dash_target.x - _baby_statue.global_position.x)
 		_baby_statue.global_position.x += dir * baby_dash_speed * dt
@@ -273,45 +273,45 @@ func tick_phase1_combat(dt: float) -> int:
 			baby_state = BabyState.POST_DASH_WAIT
 			_baby_wait_until_ms = Time.get_ticks_msec() + int(baby_post_dash_wait * 1000.0)
 			baby_anim_play(&"baby/idle", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.POST_DASH_WAIT:
 		if Time.get_ticks_msec() >= _baby_wait_until_ms:
 			baby_state = BabyState.RETURNING
 			_set_hitbox_enabled(_baby_attack_area, false)
 			_set_baby_realhurtbox(false)
 			baby_anim_play(&"baby/return", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.WINDING_UP and baby_anim_is_finished(&"baby/wind_up"):
 		baby_state = BabyState.RETURNING
 		_set_baby_realhurtbox(false)
 		baby_anim_play(&"baby/return", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	if baby_state == BabyState.RETURNING:
 		_baby_statue.global_position = _baby_statue.global_position.move_toward(_mark_hug.global_position, baby_return_speed * dt)
 		if _baby_statue.global_position.distance_to(_mark_hug.global_position) < 8.0:
 			baby_state = BabyState.IN_HUG
 			baby_anim_play(&"baby/idle", true)
 			anim_play(&"phase1/catch_baby", false)
-		return RUNNING
-	return RUNNING
+		return BeehaveNode.RUNNING
+	return BeehaveNode.RUNNING
 
 func tick_phase2_combat(_dt: float) -> int:
 	var player := get_priority_attack_target()
 	if player == null:
 		velocity.x = 0.0
 		anim_play(&"phase2/idle", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	_move_toward_player(player, phase2_move_speed, &"phase2/walk", &"phase2/idle")
-	return RUNNING
+	return BeehaveNode.RUNNING
 
 func tick_phase3_combat(_dt: float) -> int:
 	var player := get_priority_attack_target()
 	if player == null:
 		velocity.x = 0.0
 		anim_play(&"phase3/idle", true)
-		return RUNNING
+		return BeehaveNode.RUNNING
 	_move_toward_player(player, phase3_move_speed, &"phase3/walk", &"phase3/idle")
-	return RUNNING
+	return BeehaveNode.RUNNING
 
 func _move_toward_player(player: Node2D, move_speed: float, walk_anim: StringName, idle_anim: StringName) -> void:
 	var dx := player.global_position.x - global_position.x
