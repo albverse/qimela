@@ -1,0 +1,74 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(48, 96)
+
+[node name="BossGhostWitch" type="CharacterBody2D"]
+script = ExtResource("1")
+collision_layer = 4
+collision_mask = 1
+floor_snap_length = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+
+[node name="SpineSprite" type="Sprite2D" parent="."]
+
+[node name="BodyBox" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 2
+
+[node name="RealHurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="ScytheDetectArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="GroundHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+
+[node name="Mark2D_Hug" type="Marker2D" parent="."]
+
+[node name="Mark2D_Hale" type="Marker2D" parent="."]
+position = Vector2(0, -50)
+
+[node name="BabyStatue" type="Node2D" parent="."]
+
+[node name="SpineSprite" type="Sprite2D" parent="BabyStatue"]
+
+[node name="BabyBodyBox" type="Area2D" parent="BabyStatue"]
+
+[node name="BabyRealHurtbox" type="Area2D" parent="BabyStatue"]
+
+[node name="BabyAttackArea" type="Area2D" parent="BabyStatue"]
+
+[node name="BabyExplosionArea" type="Area2D" parent="BabyStatue"]
+
+[node name="BabyDetectArea" type="Area2D" parent="BabyStatue"]
+
+[node name="DetectArea500" type="Area2D" parent="."]
+[node name="DetectArea300" type="Area2D" parent="."]
+[node name="DetectArea100" type="Area2D" parent="."]
+[node name="AnimDriverSpine" type="Node" parent="."]
+[node name="BeehaveTree" type="Node" parent="."]
+[node name="Blackboard" type="Node" parent="."]
+[node name="KickHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+[node name="Attack1Area" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+[node name="Attack2Area" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+[node name="Attack3Area" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+[node name="RunSlashHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
