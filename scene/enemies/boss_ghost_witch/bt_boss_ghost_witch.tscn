@@ -1,0 +1,70 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="1"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="2"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="3"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_phase_transitioning.gd" id="4"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_wait_transition.gd" id="5"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_is_phase.gd" id="6"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_battle_not_started.gd" id="7"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_start_battle.gd" id="8"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_phase1_loop.gd" id="9"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_phase2_loop.gd" id="10"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_phase3_loop.gd" id="11"]
+
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("1")
+
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="SeqTransition" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+
+[node name="CondTransitioning" type="Node" parent="RootSelector/SeqTransition"]
+script = ExtResource("4")
+
+[node name="ActWaitTransition" type="Node" parent="RootSelector/SeqTransition"]
+script = ExtResource("5")
+
+[node name="SeqPhase1" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+
+[node name="CondPhase1" type="Node" parent="RootSelector/SeqPhase1"]
+script = ExtResource("6")
+phase = 1
+
+[node name="SelPhase1" type="Node" parent="RootSelector/SeqPhase1"]
+script = ExtResource("2")
+
+[node name="SeqStartBattle" type="Node" parent="RootSelector/SeqPhase1/SelPhase1"]
+script = ExtResource("3")
+
+[node name="CondBattleNotStarted" type="Node" parent="RootSelector/SeqPhase1/SelPhase1/SeqStartBattle"]
+script = ExtResource("7")
+
+[node name="ActStartBattle" type="Node" parent="RootSelector/SeqPhase1/SelPhase1/SeqStartBattle"]
+script = ExtResource("8")
+
+[node name="ActPhase1Loop" type="Node" parent="RootSelector/SeqPhase1/SelPhase1"]
+script = ExtResource("9")
+
+[node name="SeqPhase2" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+
+[node name="CondPhase2" type="Node" parent="RootSelector/SeqPhase2"]
+script = ExtResource("6")
+phase = 2
+
+[node name="ActPhase2Loop" type="Node" parent="RootSelector/SeqPhase2"]
+script = ExtResource("10")
+
+[node name="SeqPhase3" type="Node" parent="RootSelector"]
+script = ExtResource("3")
+
+[node name="CondPhase3" type="Node" parent="RootSelector/SeqPhase3"]
+script = ExtResource("6")
+phase = 3
+
+[node name="ActPhase3Loop" type="Node" parent="RootSelector/SeqPhase3"]
+script = ExtResource("11")
