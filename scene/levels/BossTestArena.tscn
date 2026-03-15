@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" path="res://scene/Player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
+[ext_resource type="Script" path="res://scene/props/disappearing_platform.gd" id="3"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(1200, 80)
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(260, 30)
+[sub_resource type="WorldBoundaryShape2D" id="3"]
+distance = 360.0
+normal = Vector2(0, -1)
+
+[node name="BossTestArena" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(600, 650)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("1")
+
+[node name="PlatformA" type="StaticBody2D" parent="."]
+position = Vector2(360, 430)
+script = ExtResource("3")
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
+one_way_collision = true
+shape = SubResource("2")
+[node name="Area2D" type="Area2D" parent="PlatformA"]
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA/Area2D"]
+shape = SubResource("2")
+[connection signal="body_entered" from="PlatformA/Area2D" to="PlatformA" method="_on_body_entered"]
+
+[node name="PlatformB" type="StaticBody2D" parent="."]
+position = Vector2(860, 360)
+script = ExtResource("3")
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
+one_way_collision = true
+shape = SubResource("2")
+[node name="Area2D" type="Area2D" parent="PlatformB"]
+collision_mask = 2
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB/Area2D"]
+shape = SubResource("2")
+[connection signal="body_entered" from="PlatformB/Area2D" to="PlatformB" method="_on_body_entered"]
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(220, 560)
+[node name="BossSpawn" type="Marker2D" parent="."]
+position = Vector2(880, 560)
+
+[node name="Player" parent="." instance=ExtResource("1")]
+position = Vector2(220, 560)
+[node name="BossGhostWitch" parent="." instance=ExtResource("2")]
+position = Vector2(880, 560)
