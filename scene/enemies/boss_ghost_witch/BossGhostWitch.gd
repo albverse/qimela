@@ -205,7 +205,7 @@ func _update_halo_baby() -> void:
 
 func _update_damage_hitboxes() -> void:
 	for hb: Area2D in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
-		if hb == null:
+		if hb == null or not hb.monitoring:
 			continue
 		for body in hb.get_overlapping_bodies():
 			if body != null and body.is_in_group("player") and body.has_method("apply_damage"):

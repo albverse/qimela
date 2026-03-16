@@ -91,7 +91,7 @@ script = ExtResource("cond_is_phase")
 phase = 1
 
 [node name="Sel_P1Actions" type="Node" parent="RootSelector/Seq_Phase1"]
-script = ExtResource("selector")
+script = ExtResource("selector_reactive")
 
 ; P1: 抱着宝宝 + 玩家在范围 → 扔宝宝
 [node name="Seq_ThrowBaby" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
@@ -130,7 +130,7 @@ script = ExtResource("cond_is_phase")
 phase = 2
 
 [node name="Sel_P2Actions" type="Node" parent="RootSelector/Seq_Phase2"]
-script = ExtResource("selector")
+script = ExtResource("selector_reactive")
 
 ; P2: 幽灵拖拽（近距离 + CD就绪）
 [node name="Seq_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
@@ -229,7 +229,7 @@ script = ExtResource("inverter")
 script = ExtResource("cond_scythe_in_hand")
 
 [node name="Sel_NoScytheActions" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe"]
-script = ExtResource("selector")
+script = ExtResource("selector_reactive")
 
 ; P3-NoScythe: 玩家被囚禁 → 突刺斩
 [node name="Seq_RunSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Sel_NoScytheActions"]
