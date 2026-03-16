@@ -65,6 +65,7 @@ var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
 var _hell_hand_instance: Node2D = null
 var _player_imprisoned: bool = false
+var skip_gravity_and_move: bool = false  # tombstone 空中阶段跳过重力+碰撞
 
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
@@ -180,6 +181,17 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
+	# 重力 + 碰撞（空中技能期间跳过，避免穿透地面）
+	if not skip_gravity_and_move:
+		if not is_on_floor():
+			velocity.y += dt * 1200.0
+		else:
+			velocity.y = maxf(velocity.y, 0.0)
+		move_and_slide()
+
+	# ── 以下位置更新必须在 move_and_slide 之后 ──
+	# 否则 BabyStatue 等子节点的 global_position 会被 Boss 移动带偏
+
 	# 骨骼跟随
 	_update_bone_follow()
 
@@ -191,14 +203,6 @@ func _physics_process(dt: float) -> void:
 
 	# 伤害判定
 	_update_damage_hitboxes()
-
-	# 重力
-	if not is_on_floor():
-		velocity.y += dt * 1200.0
-	else:
-		velocity.y = maxf(velocity.y, 0.0)
-
-	move_and_slide()
 	# 不调用 super._physics_process()
 	# BeehaveTree 由其自身 _physics_process 驱动
 

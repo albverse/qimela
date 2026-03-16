@@ -22,12 +22,10 @@ var _fall_timer: float = 0.0
 var _hover_end: float = 0.0
 var _stagger_end: float = 0.0
 var _hitbox_frame_count: int = 0
-var _saved_collision_mask: int = -1
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST
 	_hitbox_frame_count = 0
-	_saved_collision_mask = -1
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -54,14 +52,11 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Step.RISE:
 			if not boss.anim_is_finished(&"phase2/tombstone_cast"):
 				return RUNNING
-			# 首次进入 RISE：禁用碰撞，切换到上升动画
-			if _saved_collision_mask < 0:
-				_saved_collision_mask = actor.collision_mask
-				actor.collision_mask = 0
+			# 首次进入 RISE：跳过基础物理（重力+碰撞），切换到上升动画
+			if _rise_timer == 0.0:
+				boss.skip_gravity_and_move = true
 				_rise_origin = actor.global_position
-				_rise_timer = 0.0
 				boss.anim_play(&"phase2/tombstone_rise", true)
-			# 平滑上升到目标位置
 			actor.velocity = Vector2.ZERO
 			_rise_timer += dt
 			var t := clampf(_rise_timer / boss.tombstone_rise_duration, 0.0, 1.0)
@@ -117,10 +112,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				actor.global_position.y = _ground_y
 				_step = Step.LAND
 				_hitbox_frame_count = 0
-				# 恢复碰撞
-				if _saved_collision_mask >= 0:
-					actor.collision_mask = _saved_collision_mask
-					_saved_collision_mask = -1
+				# 恢复基础物理（重力+碰撞）
+				boss.skip_gravity_and_move = false
 			return RUNNING
 
 		Step.LAND:
@@ -152,10 +145,8 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	if boss:
 		boss._set_hitbox_enabled(boss._ground_hitbox, false)
 		actor.velocity = Vector2.ZERO
-		# 恢复碰撞遮罩
-		if _saved_collision_mask >= 0:
-			actor.collision_mask = _saved_collision_mask
-			_saved_collision_mask = -1
+		# 恢复基础物理
+		boss.skip_gravity_and_move = false
 		# 恢复到地面位置（防止中断时卡在空中）
 		if _ground_y > 0.0 and actor.global_position.y < _ground_y:
 			actor.global_position.y = _ground_y
