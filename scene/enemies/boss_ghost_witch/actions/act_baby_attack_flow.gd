@@ -110,10 +110,11 @@ func _tick_dash(boss: BossGhostWitch, to_player: bool) -> int:
 	var dir: float = signf(target.x - baby.global_position.x)
 	baby.global_position.x += dir * boss.baby_dash_speed * dt
 
-	# 冲刺期间检测碰撞伤害
-	for body in boss._baby_attack_area.get_overlapping_bodies():
-		if body.is_in_group("player") and body.has_method("apply_damage"):
-			body.call("apply_damage", 1, baby.global_position)
+	# 冲刺期间检测碰撞伤害（monitoring 由 Spine 事件 dash_hitbox_on 开启）
+	if boss._baby_attack_area.monitoring:
+		for body in boss._baby_attack_area.get_overlapping_bodies():
+			if body.is_in_group("player") and body.has_method("apply_damage"):
+				body.call("apply_damage", 1, baby.global_position)
 
 	if abs(target.x - baby.global_position.x) < 10.0:
 		baby.global_position.x = target.x

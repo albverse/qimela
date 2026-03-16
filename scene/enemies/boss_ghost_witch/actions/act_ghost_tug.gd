@@ -25,7 +25,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_tug_instance = boss._ghost_tug_scene.instantiate()
 			_tug_instance.add_to_group("ghost_tug")
 			if _tug_instance.has_method("setup"):
-				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
+				_tug_instance.call("setup", player)
 			player.add_child(_tug_instance)  # 绑定到玩家
 			_step = Step.PULLING
 			return RUNNING
