@@ -13,11 +13,44 @@ const PHASE3_HP_THRESHOLD: int = 10
 @export var baby_dash_speed: float = 400.0
 @export var baby_post_dash_wait: float = 0.7
 @export var baby_return_speed: float = 500.0
+@export var start_attack_loop_duration: float = 2.0
+
+@export_group("Phase 2")
+@export var ghost_tug_cooldown: float = 8.0
+@export var ghost_tug_pull_speed: float = 200.0
+@export var ghost_bomb_interval: float = 5.0
+@export var ghost_bomb_light_energy: float = 1.0
+@export var scythe_slash_cooldown: float = 3.0
+@export var tombstone_drop_cooldown: float = 10.0
+@export var tombstone_fall_duration: float = 0.6
+@export var tombstone_hover_duration: float = 1.0
+@export var tombstone_offset_x_range: float = 80.0
+@export var tombstone_offset_y: float = 200.0
+@export var tombstone_stagger_duration: float = 1.5
+@export var undead_wind_cooldown: float = 12.0
+@export var undead_wind_spawn_duration: float = 6.0
+@export var undead_wind_total_count: int = 8
+
+@export_group("Phase 3")
 @export var p3_move_speed: float = 120.0
 @export var p3_run_speed: float = 250.0
 @export var p3_dash_speed: float = 800.0
+@export var p3_dash_charge_time: float = 0.5
+@export var p3_dash_cooldown: float = 6.0
+@export var p3_combo_cooldown: float = 4.0
+@export var p3_kick_cooldown: float = 3.0
 @export var p3_run_slash_overshoot_px: float = 200.0
 @export var p3_kick_knockback_px: float = 300.0
+@export var p3_imprison_cooldown: float = 15.0
+@export var p3_imprison_escape_time: float = 3.0
+@export var p3_imprison_stun_time: float = 2.0
+@export var p3_scythe_track_interval: float = 1.0
+@export var p3_scythe_track_count: int = 3
+@export var p3_scythe_fly_speed: float = 300.0
+@export var p3_scythe_return_speed: float = 500.0
+@export var p3_summon_circle_count: int = 5
+@export var p3_summon_wave_count: int = 3
+@export var p3_summon_cooldown: float = 20.0
 
 var current_phase: int = Phase.PHASE1
 var baby_state: int = BabyState.IN_HUG
@@ -33,6 +66,14 @@ var _player_imprisoned: bool = false
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
+
+var _witch_scythe_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/WitchScythe.tscn")
+var _hell_hand_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/HellHand.tscn")
+var _ghost_tug_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostTug.tscn")
+var _ghost_bomb_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostBomb.tscn")
+var _ghost_wraith_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostWraith.tscn")
+var _ghost_elite_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostElite.tscn")
+var _ghost_summon_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostSummon.tscn")
 
 @onready var _spine_sprite: Node = $SpineSprite
 @onready var _body_box: Area2D = $BodyBox
@@ -82,94 +123,15 @@ func _ready() -> void:
 func _physics_process(dt: float) -> void:
 	super._physics_process(dt)
 	_update_bone_follow()
-	_update_phase_logic(dt)
+	_update_halo_baby()
 	move_and_slide()
 
 func _do_move(_dt: float) -> void:
 	pass
 
-func _update_phase_logic(dt: float) -> void:
-	if _phase_transitioning:
-		velocity = Vector2.ZERO
-		return
-	var player := get_priority_attack_target()
-	if player == null:
-		velocity = Vector2.ZERO
-		return
-	if not _battle_started and current_phase == Phase.PHASE1:
-		_battle_started = true
-		anim_play(&"phase1/start_attack", false)
-		return
-	var dx := player.global_position.x - global_position.x
-	if current_phase == Phase.PHASE1:
-		_phase1_tick(player, dx, dt)
-	elif current_phase == Phase.PHASE2:
-		_phase2_tick(player, dx, dt)
-	else:
-		_phase3_tick(player, dx, dt)
-
-func _phase1_tick(player: Node2D, dx: float, dt: float) -> void:
-	if baby_state == BabyState.IN_HUG and absf(dx) <= detect_range_px:
-		baby_state = BabyState.THROWN
-		anim_play(&"phase1/throw", false)
-		baby_anim_play(&"baby/spin", true)
-		return
-	if baby_state == BabyState.THROWN:
-		_baby_statue.global_position.x += signf(dx) * baby_throw_speed * dt
-		if absf(_baby_statue.global_position.x - player.global_position.x) < 16.0:
-			baby_state = BabyState.WINDING_UP
-			baby_anim_play(&"baby/wind_up", false)
-		return
-	if baby_state == BabyState.WINDING_UP:
-		baby_state = BabyState.RETURNING
-		return
-	if baby_state == BabyState.RETURNING:
-		baby_anim_play(&"baby/return", true)
-		var dir := (_mark_hug.global_position - _baby_statue.global_position).normalized()
-		_baby_statue.global_position += dir * baby_return_speed * dt
-		if _baby_statue.global_position.distance_to(_mark_hug.global_position) < 10.0:
-			baby_state = BabyState.IN_HUG
-			anim_play(&"phase1/catch_baby", false)
-		return
-	velocity.x = signf(dx) * slow_move_speed
-	anim_play(&"phase1/walk", true)
-
-func _phase2_tick(_player: Node2D, dx: float, _dt: float) -> void:
-	velocity.x = signf(dx) * slow_move_speed
-	anim_play(&"phase2/walk", true)
-
-func _phase3_tick(player: Node2D, dx: float, dt: float) -> void:
-	if not _scythe_in_hand:
-		velocity = Vector2.ZERO
-		anim_play(&"phase3/idle_no_scythe", true)
-		if _scythe_recall_requested and is_instance_valid(_scythe_instance) and _scythe_instance.has_method("recall"):
-			_scythe_instance.call("recall", global_position)
-			_scythe_recall_requested = false
-		return
-	if _player_imprisoned:
-		anim_play(&"phase3/run_slash", true)
-		_set_hitbox_enabled(_run_slash_hitbox, true)
-		var target_x := player.global_position.x + signf(dx) * p3_run_slash_overshoot_px
-		velocity.x = signf(target_x - global_position.x) * p3_run_speed
-		if absf(target_x - global_position.x) < 12.0:
-			_player_imprisoned = false
-			_set_hitbox_enabled(_run_slash_hitbox, false)
-		return
-	if absf(dx) <= 100.0:
-		anim_play(&"phase3/kick", false)
-		_set_hitbox_enabled(_kick_hitbox, true)
-		velocity = Vector2.ZERO
-	else:
-		anim_play(&"phase3/walk", true)
-		velocity.x = signf(dx) * p3_move_speed
-	if absf(dx) > 300.0 and absf(dx) <= 500.0:
-		anim_play(&"phase3/dash", true)
-		velocity.x = signf(dx) * p3_dash_speed
-	if _scythe_instance == null and absf(dx) > 500.0:
-		_throw_scythe(player)
+func _update_halo_baby() -> void:
 	if baby_state == BabyState.HALO:
 		_baby_statue.global_position = _mark_hale.global_position
-	_update_damage_hitboxes()
 
 func _update_damage_hitboxes() -> void:
 	for hb in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
@@ -186,22 +148,6 @@ func _update_bone_follow() -> void:
 		_real_hurtbox.global_position = _mark_hale.global_position
 	if current_phase == Phase.PHASE3:
 		_kick_hitbox.global_position = global_position + Vector2(16.0, 0.0)
-
-func _throw_scythe(player: Node2D) -> void:
-	if _scythe_in_hand == false:
-		return
-	anim_play(&"phase3/throw_scythe", false)
-	var scene := load("res://scene/enemies/boss_ghost_witch/WitchScythe.tscn") as PackedScene
-	if scene == null:
-		return
-	_scythe_instance = scene.instantiate() as Node2D
-	if _scythe_instance == null:
-		return
-	get_tree().current_scene.add_child(_scythe_instance)
-	_scythe_instance.global_position = global_position
-	if _scythe_instance.has_method("setup"):
-		_scythe_instance.call("setup", player, self, 1.0, 3, 300.0, 500.0)
-	_scythe_in_hand = false
 
 func apply_real_damage(amount: int) -> void:
 	if hp_locked:
@@ -321,6 +267,31 @@ func _extract_event_name(a1 = null, a2 = null, a3 = null, a4 = null) -> StringNa
 		if v is String and String(v) != "":
 			return StringName(v)
 	return &""
+
+func face_toward(target: Node2D) -> void:
+	if target == null:
+		return
+	var dx := target.global_position.x - global_position.x
+	if absf(dx) < 2.0:
+		return
+	if _spine_sprite != null:
+		_spine_sprite.scale.x = absf(_spine_sprite.scale.x) * (1.0 if dx > 0.0 else -1.0)
+
+func baby_anim_is_finished(anim_name: StringName) -> bool:
+	if _baby_spine == null or not _baby_spine.has_method("get_current_animation"):
+		return true
+	return _baby_spine.call("get_current_animation") == anim_name
+
+func _close_all_combo_hitboxes() -> void:
+	_set_hitbox_enabled(_attack1_area, false)
+	_set_hitbox_enabled(_attack2_area, false)
+	_set_hitbox_enabled(_attack3_area, false)
+
+func _set_baby_realhurtbox(enabled: bool) -> void:
+	_set_hitbox_enabled(_baby_real_hurtbox, enabled)
+
+func _set_realhurtbox_enabled(enabled: bool) -> void:
+	_set_hitbox_enabled(_real_hurtbox, enabled)
 
 func _disable_weak_stun_vanish() -> void:
 	weak_stun_time = 0.0
