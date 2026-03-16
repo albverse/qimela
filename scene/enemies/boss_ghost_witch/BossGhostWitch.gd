@@ -57,6 +57,7 @@ var baby_state: int = BabyState.IN_HUG
 var _phase_transitioning: bool = false
 var _battle_started: bool = false
 var _baby_dash_go_triggered: bool = false
+var _baby_flight_target: Vector2 = Vector2.ZERO
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -66,6 +67,11 @@ var _player_imprisoned: bool = false
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
+
+# 婴儿石像动画状态跟踪（防止每帧重复 set_animation 导致动画永远无法完成）
+var _current_baby_anim: StringName = &""
+var _current_baby_anim_finished: bool = false
+var _current_baby_anim_loop: bool = false
 
 # 动画驱动（与修女蛇同款）
 var _anim_driver: AnimDriverSpine = null
@@ -175,6 +181,9 @@ func _physics_process(dt: float) -> void:
 	# 骨骼跟随
 	_update_bone_follow()
 
+	# 婴儿石像飞行（THROWN 状态下向目标移动）
+	_tick_baby_flight(dt)
+
 	# 婴儿石像位置管理
 	_update_halo_baby()
 
@@ -201,6 +210,20 @@ func _update_halo_baby() -> void:
 		_baby_statue.global_position = _mark_hale.global_position
 	elif baby_state == BabyState.IN_HUG:
 		_baby_statue.global_position = _mark_hug.global_position
+
+
+func _tick_baby_flight(dt: float) -> void:
+	if baby_state != BabyState.THROWN:
+		return
+	var baby := _baby_statue
+	if baby == null:
+		return
+	var dir := (_baby_flight_target - baby.global_position).normalized()
+	baby.global_position += dir * baby_throw_speed * dt
+	# 到达目标位置 → 落地爆炸
+	if baby.global_position.distance_to(_baby_flight_target) < 15.0:
+		baby.global_position = _baby_flight_target
+		baby_state = BabyState.EXPLODED
 
 
 func _update_damage_hitboxes() -> void:
@@ -320,6 +343,12 @@ func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -
 func baby_anim_play(anim_name: StringName, loop: bool) -> void:
 	if _baby_spine == null:
 		return
+	# 去重：同名同循环且未完成 → 跳过，避免每帧重置动画
+	if _current_baby_anim == anim_name and not _current_baby_anim_finished and _current_baby_anim_loop == loop:
+		return
+	_current_baby_anim = anim_name
+	_current_baby_anim_finished = false
+	_current_baby_anim_loop = loop
 	# 婴儿直接通过 SpineSprite 的 AnimationState 播放
 	if _is_spine_sprite_compatible(_baby_spine):
 		var anim_state: Object = null
@@ -334,6 +363,12 @@ func anim_is_finished(anim_name: StringName) -> bool:
 
 
 func baby_anim_is_finished(anim_name: StringName) -> bool:
+	# 名称不匹配 → 不是我们关心的动画
+	if _current_baby_anim != anim_name:
+		return false
+	# 已经标记完成
+	if _current_baby_anim_finished:
+		return true
 	# 婴儿的完成检测通过轮询 SpineSprite 的 TrackEntry
 	if _baby_spine == null:
 		return true
@@ -355,6 +390,8 @@ func baby_anim_is_finished(anim_name: StringName) -> bool:
 		done = entry.is_complete()
 	elif entry.has_method("isComplete"):
 		done = entry.isComplete()
+	if done:
+		_current_baby_anim_finished = true
 	return done
 
 

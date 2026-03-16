@@ -57,7 +57,7 @@ script = ExtResource("bt_tree")
 ; =============================================================================
 ; RootSelector: SelectorReactiveComposite
 ; 优先级从上到下：
-;   Transitioning > StartBattle > Phase1 > Phase2 > Phase3
+;   Transitioning > Phase1 > Phase2 > Phase3
 ; =============================================================================
 [node name="RootSelector" type="Node" parent="."]
 script = ExtResource("selector_reactive")
@@ -72,17 +72,7 @@ script = ExtResource("cond_phase_transitioning")
 [node name="Act_WaitTransition" type="Node" parent="RootSelector/Seq_Transitioning"]
 script = ExtResource("act_wait_transition")
 
-; --- 2. 战斗开始 ---
-[node name="Seq_StartBattle" type="Node" parent="RootSelector"]
-script = ExtResource("sequence_reactive")
-
-[node name="Cond_NotStarted" type="Node" parent="RootSelector/Seq_StartBattle"]
-script = ExtResource("cond_battle_not_started")
-
-[node name="Act_StartBattle" type="Node" parent="RootSelector/Seq_StartBattle"]
-script = ExtResource("act_start_battle")
-
-; --- 3. Phase 1 ---
+; --- 2. Phase 1 ---
 [node name="Seq_Phase1" type="Node" parent="RootSelector"]
 script = ExtResource("sequence_reactive")
 
@@ -92,6 +82,20 @@ phase = 1
 
 [node name="Sel_P1Actions" type="Node" parent="RootSelector/Seq_Phase1"]
 script = ExtResource("selector_reactive")
+
+; P1: 战斗未开始 + 玩家在范围 → 开场动画
+[node name="Seq_StartBattle" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_NotStarted" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
+script = ExtResource("cond_battle_not_started")
+
+[node name="Cond_PlayerInRange_Start" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
+script = ExtResource("cond_player_in_range")
+range_px = 500.0
+
+[node name="Act_StartBattle" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
+script = ExtResource("act_start_battle")
 
 ; P1: 抱着宝宝 + 玩家在范围 → 扔宝宝
 [node name="Seq_ThrowBaby" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]

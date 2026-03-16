@@ -28,12 +28,14 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			# 等待 Spine 事件 "baby_release" 触发
 			# 事件回调中会设置 boss.baby_state = BabyState.THROWN
 			if boss.baby_state == BossGhostWitch.BabyState.THROWN:
+				# 设置飞行目标，由 boss._tick_baby_flight() 驱动移动
+				boss._baby_flight_target = _target_pos
+				boss.baby_anim_play(&"baby/spin", true)
 				_step = Step.BABY_FLYING
 			return RUNNING
 		Step.BABY_FLYING:
-			# 婴儿飞行中播放旋转动画
-			boss.baby_anim_play(&"baby/spin", true)
-			# 婴儿撞到地面 → 自动进入 EXPLODED
+			# 飞行移动由 boss._tick_baby_flight() 在 _physics_process 中处理
+			# 婴儿到达目标 → 自动进入 EXPLODED
 			if boss.baby_state != BossGhostWitch.BabyState.THROWN:
 				return SUCCESS
 			return RUNNING
