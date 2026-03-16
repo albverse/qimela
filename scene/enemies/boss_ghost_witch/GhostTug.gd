@@ -1,5 +1,6 @@
-## 幽灵拔河：绑定到玩家身上，通过 Spine 事件 "move" 驱动拉扯
-## 动画流程：appear → move_loop（循环，"move"事件触发拉力）→ hit（被 ghostfist 击中后播放消失）
+## 幽灵拔河：生成在玩家位置，持续拉玩家靠近 Boss
+## 动画流程：appear → move_loop（循环）→ hit（被 ghostfist 击中后消失）
+## 拉力在 _physics_process 中每帧执行（不依赖 Spine 事件，保证可靠性）
 extends MonsterBase
 class_name GhostTug
 
@@ -7,10 +8,9 @@ class_name GhostTug
 var _player: Node2D = null
 var _boss: Node2D = null
 var _dying: bool = false
+var _pulling: bool = false  # appear 完成后开始拉扯
 
 var _spine: Node = null
-var _current_anim: StringName = &""
-var _current_anim_finished: bool = false
 
 func _ready() -> void:
 	species_id = &"ghost_tug"
@@ -22,10 +22,10 @@ func _ready() -> void:
 	if _spine != null:
 		if _spine.has_signal("animation_completed"):
 			_spine.animation_completed.connect(_on_anim_completed_raw)
-		if _spine.has_signal("animation_event"):
-			_spine.animation_event.connect(_on_spine_event)
 	# 播放出现动画
 	_spine_play(&"appear", false)
+	# 兜底：0.5 秒后强制开始拉扯（防止 appear 动画不存在/不触发完成信号）
+	get_tree().create_timer(0.5).timeout.connect(_force_start_pull)
 
 
 func setup(player: Node2D, boss: Node2D) -> void:
@@ -39,38 +39,43 @@ func apply_hit(hit: HitData) -> bool:
 	if hit == null or hit.weapon_id != &"ghost_fist":
 		return false
 	_dying = true
+	_pulling = false
 	_release_player()
 	_spine_play(&"hit", false)
-	# hit 动画播完后 _on_anim_completed_raw 会 queue_free
+	# 兜底：0.5 秒后强制释放（防止 hit 动画不触发完成信号）
+	get_tree().create_timer(0.5).timeout.connect(queue_free)
 	return true
 
 
-# ═══ Spine 事件：move 事件触发拉力 ═══
-
-func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
-	var e := _extract_event_name(a1, a2, a3, a4)
-	if e == &"move" and not _dying:
-		_do_pull()
-
-
-func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
-	var anim_name := _extract_completed_anim_name(a1, a2, a3)
-	if anim_name == &"appear":
-		_spine_play(&"move_loop", true)
-	elif anim_name == &"hit":
-		queue_free()
-
-
-func _do_pull() -> void:
+func _physics_process(_dt: float) -> void:
+	if _dying or not _pulling:
+		return
 	if _player == null or _boss == null:
 		return
 	if not is_instance_valid(_player) or not is_instance_valid(_boss):
 		return
+	# 冻结玩家输入
 	if _player.has_method("set_external_control_frozen"):
 		_player.call("set_external_control_frozen", true)
+	# 拉向 Boss
 	if "velocity" in _player:
 		var dir := signf(_boss.global_position.x - _player.global_position.x)
 		_player.velocity.x = dir * pull_speed
+
+
+func _force_start_pull() -> void:
+	if not _dying and not _pulling:
+		_pulling = true
+		_spine_play(&"move_loop", true)
+
+
+func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
+	var anim_name := _extract_completed_anim_name(a1, a2, a3)
+	if anim_name == &"appear" and not _pulling and not _dying:
+		_pulling = true
+		_spine_play(&"move_loop", true)
+	elif anim_name == &"hit":
+		queue_free()
 
 
 func _release_player() -> void:
@@ -83,13 +88,11 @@ func _exit_tree() -> void:
 	_release_player()
 
 
-# ═══ Spine 播放 + 事件提取（与 BossGhostWitch 同款） ═══
+# ═══ Spine 播放 + 动画名提取 ═══
 
 func _spine_play(anim_name: StringName, loop: bool) -> void:
 	if _spine == null:
 		return
-	_current_anim = anim_name
-	_current_anim_finished = false
 	var anim_state: Object = null
 	if _spine.has_method("get_animation_state"):
 		anim_state = _spine.get_animation_state()
@@ -97,35 +100,7 @@ func _spine_play(anim_name: StringName, loop: bool) -> void:
 		anim_state.set_animation(String(anim_name), loop, 0)
 
 
-func _extract_event_name(a1 = null, a2 = null, a3 = null, a4 = null) -> StringName:
-	var spine_event: Object = null
-	for a in [a1, a2, a3, a4]:
-		if a == null:
-			continue
-		if a is Object and a.has_method("get_data"):
-			spine_event = a
-			break
-	if spine_event == null:
-		return &""
-	var data: Object = spine_event.get_data()
-	if data == null:
-		return &""
-	var event_name: String = ""
-	if data.has_method("get_event_name"):
-		event_name = data.get_event_name()
-	elif data.has_method("getEventName"):
-		event_name = data.getEventName()
-	elif data.has_method("get_name"):
-		event_name = data.get_name()
-	elif data.has_method("getName"):
-		event_name = data.getName()
-	if event_name == "":
-		return &""
-	return StringName(event_name)
-
-
 func _extract_completed_anim_name(a1 = null, a2 = null, a3 = null) -> StringName:
-	## 从 animation_completed 信号的 track_entry 参数中提取动画名
 	var entry: Object = null
 	for a in [a1, a2, a3]:
 		if a == null:

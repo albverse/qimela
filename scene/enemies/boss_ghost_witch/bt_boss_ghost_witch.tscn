@@ -133,8 +133,10 @@ script = ExtResource("sequence_reactive")
 script = ExtResource("cond_is_phase")
 phase = 2
 
+; P2 技能选择器（非响应式 Selector：执行中的技能不会被兄弟抢占）
+; 阶段过渡仍由父级 SequenceReactive / RootSelector SelectorReactive 保证
 [node name="Sel_P2Actions" type="Node" parent="RootSelector/Seq_Phase2"]
-script = ExtResource("selector_reactive")
+script = ExtResource("selector")
 
 ; P2 优先级1: 镰刀劈砍（≤100px + CD就绪）
 [node name="Seq_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
