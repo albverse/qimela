@@ -149,7 +149,8 @@ shape = SubResource("6")
 
 [node name="AnimDriverSpine" type="Node" parent="."]
 
-[node name="BeehaveTree" parent="." instance=ExtResource("bt_scene")]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("actor") instance=ExtResource("bt_scene")]
+actor = NodePath("..")
 
 [node name="KickHitbox" type="Area2D" parent="."]
 collision_layer = 32
