@@ -152,8 +152,9 @@ cooldown_sec = 1.0
 script = ExtResource("act_scythe_slash")
 
 ; P2 优先级2: 墓碑砸落（≤500px + CD就绪）
+; 使用非响应式 Sequence：条件只在进入时检查一次，空中阶段不会被重评估中断
 [node name="Seq_TombstoneDrop" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_TombstoneRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_TombstoneDrop"]
 script = ExtResource("cond_player_in_range")

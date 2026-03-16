@@ -54,12 +54,13 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Step.RISE:
 			if not boss.anim_is_finished(&"phase2/tombstone_cast"):
 				return RUNNING
-			# 首次进入 RISE：禁用碰撞，防止被平台阻挡
+			# 首次进入 RISE：禁用碰撞，切换到上升动画
 			if _saved_collision_mask < 0:
 				_saved_collision_mask = actor.collision_mask
 				actor.collision_mask = 0
 				_rise_origin = actor.global_position
 				_rise_timer = 0.0
+				boss.anim_play(&"phase2/tombstone_rise", true)
 			# 平滑上升到目标位置
 			actor.velocity = Vector2.ZERO
 			_rise_timer += dt
