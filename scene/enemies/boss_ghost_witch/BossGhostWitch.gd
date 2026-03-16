@@ -13,23 +13,24 @@ const PHASE3_HP_THRESHOLD: int = 10
 @export var baby_dash_speed: float = 400.0
 @export var baby_post_dash_wait: float = 0.7
 @export var baby_return_speed: float = 500.0
-@export var start_attack_loop_duration: float = 2.0
+@export var start_attack_loop_duration: float = 4.0
 
 @export_group("Phase 2")
-@export var ghost_tug_cooldown: float = 8.0
-@export var ghost_tug_pull_speed: float = 200.0
+@export var ghost_tug_cooldown: float = 5.0
+@export var ghost_tug_pull_speed: float = 400.0
 @export var ghost_bomb_interval: float = 5.0
-@export var ghost_bomb_light_energy: float = 1.0
-@export var scythe_slash_cooldown: float = 3.0
-@export var tombstone_drop_cooldown: float = 10.0
-@export var tombstone_fall_duration: float = 0.6
-@export var tombstone_hover_duration: float = 1.0
-@export var tombstone_offset_x_range: float = 80.0
-@export var tombstone_offset_y: float = 200.0
-@export var tombstone_stagger_duration: float = 1.5
-@export var undead_wind_cooldown: float = 12.0
-@export var undead_wind_spawn_duration: float = 6.0
-@export var undead_wind_total_count: int = 8
+@export var ghost_bomb_max_count: int = 3
+@export var ghost_bomb_light_energy: float = 5.0
+@export var scythe_slash_cooldown: float = 1.0
+@export var tombstone_drop_cooldown: float = 3.0
+@export var tombstone_fall_duration: float = 0.5
+@export var tombstone_hover_duration: float = 0.5
+@export var tombstone_offset_x_range: float = 70.0
+@export var tombstone_offset_y: float = 400.0
+@export var tombstone_stagger_duration: float = 1.0
+@export var undead_wind_cooldown: float = 15.0
+@export var undead_wind_spawn_duration: float = 7.0
+@export var undead_wind_total_count: int = 10
 
 @export_group("Phase 3")
 @export var p3_move_speed: float = 120.0
@@ -285,19 +286,31 @@ func _begin_phase_transition(target: int) -> void:
 	hp_locked = true
 	velocity = Vector2.ZERO
 	if target == Phase.PHASE2:
-		anim_play(&"phase1/phase1_to_phase2", false)
+		# 播放过渡动画，等待 phase2_ready spine 事件完成过渡
 		baby_state = BabyState.HALO
-		_set_hitbox_enabled(_baby_real_hurtbox, true)
-		_set_hitbox_enabled(_real_hurtbox, true)
-		current_phase = Phase.PHASE2
-		_baby_statue.visible = false
-		anim_play(&"phase2/idle", true)
+		anim_play(&"phase1/phase1_to_phase2", false)
+		# phase2_ready 事件会调用 _finish_phase2_transition()
 	else:
+		# 清理 Phase 2 残留，播放过渡动画
 		_cleanup_phase2_instances()
 		anim_play(&"phase2/phase2_to_phase3", false)
-		current_phase = Phase.PHASE3
-		_scythe_in_hand = true
-		anim_play(&"phase3/idle", true)
+		# phase3_ready 事件会调用 _finish_phase3_transition()
+
+
+func _finish_phase2_transition() -> void:
+	current_phase = Phase.PHASE2
+	_set_hitbox_enabled(_baby_real_hurtbox, true)
+	_set_hitbox_enabled(_real_hurtbox, true)
+	_baby_statue.visible = false
+	anim_play(&"phase2/idle", true)
+	hp_locked = false
+	_phase_transitioning = false
+
+
+func _finish_phase3_transition() -> void:
+	current_phase = Phase.PHASE3
+	_scythe_in_hand = true
+	anim_play(&"phase3/idle", true)
 	hp_locked = false
 	_phase_transitioning = false
 
@@ -409,13 +422,15 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		&"start_attack_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
 		&"start_attack_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
 		&"battle_start": _battle_started = true
-		&"baby_release": baby_state = BabyState.THROWN
-		&"throw_done": pass
+		&"baby_release":
+			baby_state = BabyState.THROWN
+			baby_anim_play(&"baby/spin", true)
+		&"throw_done":
+			anim_play(&"phase1/idle_no_baby", true)
 		&"baby_return": baby_state = BabyState.IN_HUG
 		# Phase 1→2 过渡
 		&"phase2_ready":
-			_phase_transitioning = false
-			hp_locked = false
+			_finish_phase2_transition()
 		# Phase 2 事件
 		&"scythe_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
 		&"scythe_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
@@ -423,8 +438,7 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		&"ground_hitbox_off": _set_hitbox_enabled(_ground_hitbox, false)
 		# Phase 2→3 过渡
 		&"phase3_ready":
-			_phase_transitioning = false
-			hp_locked = false
+			_finish_phase3_transition()
 		# Phase 3 事件
 		&"kick_hitbox_on": _set_hitbox_enabled(_kick_hitbox, true)
 		&"kick_hitbox_off": _set_hitbox_enabled(_kick_hitbox, false)

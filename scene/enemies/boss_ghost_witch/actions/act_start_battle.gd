@@ -14,6 +14,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if boss == null:
 		return FAILURE
 
+	actor.velocity.x = 0.0
+
 	match _step:
 		Step.PLAY_START:
 			boss.anim_play(&"phase1/start_attack", false)

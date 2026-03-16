@@ -29,6 +29,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	# 婴儿攻击流期间 Boss 本体不移动
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.EXPLODE:

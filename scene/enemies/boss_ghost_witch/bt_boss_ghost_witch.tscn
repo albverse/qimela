@@ -136,30 +136,14 @@ phase = 2
 [node name="Sel_P2Actions" type="Node" parent="RootSelector/Seq_Phase2"]
 script = ExtResource("selector_reactive")
 
-; P2: 幽灵拖拽（近距离 + CD就绪）
-[node name="Seq_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
-
-[node name="Cond_TugCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
-script = ExtResource("cond_cooldown_ready")
-cooldown_key = "cd_tug"
-cooldown_sec = 8.0
-
-[node name="Cond_TugRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
-script = ExtResource("cond_player_in_range")
-range_px = 300.0
-
-[node name="Act_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
-script = ExtResource("act_ghost_tug")
-
-; P2: 镰刀劈砍（近距离 + CD就绪）
+; P2 优先级1: 镰刀劈砍（≤100px + CD就绪）
 [node name="Seq_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_ScytheCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
 script = ExtResource("cond_cooldown_ready")
 cooldown_key = "cd_scythe"
-cooldown_sec = 3.0
+cooldown_sec = 1.0
 
 [node name="Cond_ScytheRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
 script = ExtResource("cond_player_in_range")
@@ -168,26 +152,26 @@ range_px = 100.0
 [node name="Act_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
 script = ExtResource("act_scythe_slash")
 
-; P2: 墓碑砸落（CD就绪）
+; P2 优先级2: 墓碑砸落（CD就绪）
 [node name="Seq_TombstoneDrop" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_TombstoneCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_TombstoneDrop"]
 script = ExtResource("cond_cooldown_ready")
 cooldown_key = "cd_tombstone"
-cooldown_sec = 10.0
+cooldown_sec = 3.0
 
 [node name="Act_TombstoneDrop" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_TombstoneDrop"]
 script = ExtResource("act_tombstone_drop")
 
-; P2: 亡灵之风（所有主技能CD中 + 风CD就绪）
+; P2 优先级3: 亡灵之风（所有主技能CD中 + 风CD就绪）
 [node name="Seq_UndeadWind" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_WindCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
 script = ExtResource("cond_cooldown_ready")
 cooldown_key = "cd_wind"
-cooldown_sec = 12.0
+cooldown_sec = 15.0
 
 [node name="Cond_AllOnCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
 script = ExtResource("cond_all_skills_on_cooldown")
@@ -195,7 +179,26 @@ script = ExtResource("cond_all_skills_on_cooldown")
 [node name="Act_UndeadWind" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
 script = ExtResource("act_undead_wind")
 
-; P2: 生成幽灵炸弹（场上数量未满）
+; P2 优先级4: 幽灵拖拽（玩家远距离 >500px + CD就绪）
+[node name="Seq_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_TugCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_tug"
+cooldown_sec = 5.0
+
+[node name="Inv_TugRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("inverter")
+
+[node name="Cond_TugInRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug/Inv_TugRange"]
+script = ExtResource("cond_player_in_range")
+range_px = 500.0
+
+[node name="Act_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("act_ghost_tug")
+
+; P2 被动: 生成幽灵炸弹（场上数量未满）
 [node name="Seq_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("sequence_reactive")
 
@@ -206,7 +209,7 @@ max_count = 3
 [node name="Act_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
 script = ExtResource("act_spawn_ghost_bomb")
 
-; P2: 向玩家移动（兜底）
+; P2 兜底: 向玩家移动
 [node name="Act_P2Move" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("act_move_toward_player")
 move_speed = 80.0
