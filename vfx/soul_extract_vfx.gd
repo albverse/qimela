@@ -12,7 +12,7 @@ func _ready() -> void:
 	if _spine != null:
 		var anim_state = _spine.get_animation_state()
 		if anim_state != null:
-			anim_state.set_animation("play", false, 0)
+			anim_state.set_animation("punch_effect", false, 0)
 		# 连接完成回调 → 自销毁
 		if _spine.has_signal("animation_completed"):
 			_spine.animation_completed.connect(_on_complete)

@@ -1,18 +1,44 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scene/Player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
+[ext_resource type="Script" path="res://scene/levels/boss_test_arena.gd" id="3"]
+[ext_resource type="Script" path="res://systems/weather_controller.gd" id="4"]
+[ext_resource type="Shader" path="res://shaders/thunder_post_fx.gdshader" id="5"]
+[ext_resource type="Script" path="res://scene/thunder_post_fx.gd" id="6"]
+
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(1600, 80)
+
 [sub_resource type="RectangleShape2D" id="2"]
 size = Vector2(260, 20)
 
+[sub_resource type="ShaderMaterial" id="3"]
+shader = ExtResource("5")
+shader_parameter/amount = 0.0
+shader_parameter/flash = 0.0
+shader_parameter/contrast = 4.0
+shader_parameter/gray_low = 0.0
+shader_parameter/gray_high = 1.0
+shader_parameter/color_retain = 0.0110000005
+shader_parameter/flash_strength = 0.18
+
+[sub_resource type="Animation" id="4"]
+length = 0.001
+
+[sub_resource type="AnimationLibrary" id="5"]
+_data = {
+&"RESET": SubResource("4")
+}
+
 [node name="BossTestArena" type="Node2D"]
+script = ExtResource("3")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(0, 320)
 collision_layer = 1
 collision_mask = 0
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
 shape = SubResource("1")
 
@@ -20,31 +46,80 @@ shape = SubResource("1")
 position = Vector2(-280, 120)
 collision_layer = 1
 collision_mask = 0
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
 
+[node name="Trigger" type="Area2D" parent="PlatformA"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA/Trigger"]
+shape = SubResource("2")
+
 [node name="PlatformB" type="StaticBody2D" parent="."]
 position = Vector2(80, 20)
 collision_layer = 1
 collision_mask = 0
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
 
+[node name="Trigger" type="Area2D" parent="PlatformB"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB/Trigger"]
+shape = SubResource("2")
+
 [node name="PlatformC" type="StaticBody2D" parent="."]
 position = Vector2(440, 140)
 collision_layer = 1
 collision_mask = 0
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
+
+[node name="Trigger" type="Area2D" parent="PlatformC"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC/Trigger"]
+shape = SubResource("2")
 
 [node name="PlayerSpawn" parent="." instance=ExtResource("1")]
 position = Vector2(-500, 220)
 
 [node name="BossSpawn" parent="." instance=ExtResource("2")]
 position = Vector2(420, 220)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer"]
+offset_left = -2000.0
+offset_top = -1200.0
+offset_right = 4000.0
+offset_bottom = 2400.0
+material = SubResource("3")
+mouse_filter = 2
+script = ExtResource("6")
+
+[node name="WeatherController" type="Node" parent="."]
+script = ExtResource("4")
+interval_min = 0.18
+interval_max = 0.45
+start_delay = 0.4
+thunder_fx_path = NodePath("../CanvasLayer/ThunderPostFX")
+
+[node name="ThunderTimer" type="Timer" parent="WeatherController"]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController"]
+libraries = {
+&"": SubResource("5")
+}
