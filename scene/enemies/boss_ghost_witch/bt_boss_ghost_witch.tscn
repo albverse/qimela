@@ -1,0 +1,358 @@
+[gd_scene load_steps=43 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector.gd" id="selector"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/decorators/inverter.gd" id="inverter"]
+
+; === 自定义 Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_is_phase.gd" id="cond_is_phase"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_phase_transitioning.gd" id="cond_phase_transitioning"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_battle_not_started.gd" id="cond_battle_not_started"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_baby_in_hug.gd" id="cond_baby_in_hug"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_baby_not_in_hug.gd" id="cond_baby_not_in_hug"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_in_range.gd" id="cond_player_in_range"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_cooldown_ready.gd" id="cond_cooldown_ready"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_ghost_bomb_can_spawn.gd" id="cond_ghost_bomb_can_spawn"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_all_skills_on_cooldown.gd" id="cond_all_skills_on_cooldown"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_all_p3_skills_blocked.gd" id="cond_all_p3_skills_blocked"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_scythe_in_hand.gd" id="cond_scythe_in_hand"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_imprisoned.gd" id="cond_player_imprisoned"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_on_ground.gd" id="cond_player_on_ground"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_above_boss.gd" id="cond_player_above_boss"]
+
+; === 自定义 Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_wait_transition.gd" id="act_wait_transition"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_start_battle.gd" id="act_start_battle"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_throw_baby.gd" id="act_throw_baby"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_baby_attack_flow.gd" id="act_baby_attack_flow"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_slow_move_to_player.gd" id="act_slow_move_to_player"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_ghost_tug.gd" id="act_ghost_tug"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_scythe_slash.gd" id="act_scythe_slash"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_tombstone_drop.gd" id="act_tombstone_drop"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_undead_wind.gd" id="act_undead_wind"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_spawn_ghost_bomb.gd" id="act_spawn_ghost_bomb"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_move_toward_player.gd" id="act_move_toward_player"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_cast_imprison.gd" id="act_cast_imprison"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_throw_scythe_upward.gd" id="act_throw_scythe_upward"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_throw_scythe.gd" id="act_throw_scythe"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_combo_slash.gd" id="act_combo_slash"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_kick.gd" id="act_kick"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_dash_attack.gd" id="act_dash_attack"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_summon_ghosts.gd" id="act_summon_ghosts"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_p3_move_toward_player.gd" id="act_p3_move_toward_player"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_p3_idle_no_scythe.gd" id="act_p3_idle_no_scythe"]
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/actions/act_run_slash.gd" id="act_run_slash"]
+
+; =============================================================================
+; BeehaveTree 根节点
+; actor 由父场景设置（BossGhostWitch CharacterBody2D）
+; process_thread = PHYSICS（默认）
+; =============================================================================
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+; =============================================================================
+; RootSelector: SelectorReactiveComposite
+; 优先级从上到下：
+;   Transitioning > StartBattle > Phase1 > Phase2 > Phase3
+; =============================================================================
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- 1. 阶段过渡中 → 等待 ---
+[node name="Seq_Transitioning" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_Transitioning" type="Node" parent="RootSelector/Seq_Transitioning"]
+script = ExtResource("cond_phase_transitioning")
+
+[node name="Act_WaitTransition" type="Node" parent="RootSelector/Seq_Transitioning"]
+script = ExtResource("act_wait_transition")
+
+; --- 2. 战斗开始 ---
+[node name="Seq_StartBattle" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_NotStarted" type="Node" parent="RootSelector/Seq_StartBattle"]
+script = ExtResource("cond_battle_not_started")
+
+[node name="Act_StartBattle" type="Node" parent="RootSelector/Seq_StartBattle"]
+script = ExtResource("act_start_battle")
+
+; --- 3. Phase 1 ---
+[node name="Seq_Phase1" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsPhase1" type="Node" parent="RootSelector/Seq_Phase1"]
+script = ExtResource("cond_is_phase")
+phase = 1
+
+[node name="Sel_P1Actions" type="Node" parent="RootSelector/Seq_Phase1"]
+script = ExtResource("selector_reactive")
+
+; P1: 抱着宝宝 + 玩家在范围 → 扔宝宝
+[node name="Seq_ThrowBaby" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_BabyInHug" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_ThrowBaby"]
+script = ExtResource("cond_baby_in_hug")
+
+[node name="Cond_PlayerInRange500" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_ThrowBaby"]
+script = ExtResource("cond_player_in_range")
+range_px = 500.0
+
+[node name="Act_ThrowBaby" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_ThrowBaby"]
+script = ExtResource("act_throw_baby")
+
+; P1: 宝宝不在怀中 → 宝宝攻击流程
+[node name="Seq_BabyAttack" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_BabyNotInHug" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_BabyAttack"]
+script = ExtResource("cond_baby_not_in_hug")
+
+[node name="Act_BabyAttackFlow" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_BabyAttack"]
+script = ExtResource("act_baby_attack_flow")
+
+; P1: 缓慢靠近玩家（兜底）
+[node name="Act_SlowMove" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
+script = ExtResource("act_slow_move_to_player")
+
+; --- 4. Phase 2 ---
+[node name="Seq_Phase2" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsPhase2" type="Node" parent="RootSelector/Seq_Phase2"]
+script = ExtResource("cond_is_phase")
+phase = 2
+
+[node name="Sel_P2Actions" type="Node" parent="RootSelector/Seq_Phase2"]
+script = ExtResource("selector_reactive")
+
+; P2: 幽灵拖拽（近距离 + CD就绪）
+[node name="Seq_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_TugCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_tug"
+cooldown_sec = 8.0
+
+[node name="Cond_TugRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("cond_player_in_range")
+range_px = 300.0
+
+[node name="Act_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
+script = ExtResource("act_ghost_tug")
+
+; P2: 镰刀劈砍（近距离 + CD就绪）
+[node name="Seq_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ScytheCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_scythe"
+cooldown_sec = 3.0
+
+[node name="Cond_ScytheRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
+script = ExtResource("cond_player_in_range")
+range_px = 100.0
+
+[node name="Act_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
+script = ExtResource("act_scythe_slash")
+
+; P2: 墓碑砸落（CD就绪）
+[node name="Seq_TombstoneDrop" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_TombstoneCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_TombstoneDrop"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_tombstone"
+cooldown_sec = 10.0
+
+[node name="Act_TombstoneDrop" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_TombstoneDrop"]
+script = ExtResource("act_tombstone_drop")
+
+; P2: 亡灵之风（所有主技能CD中 + 风CD就绪）
+[node name="Seq_UndeadWind" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_WindCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_wind"
+cooldown_sec = 12.0
+
+[node name="Cond_AllOnCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
+script = ExtResource("cond_all_skills_on_cooldown")
+
+[node name="Act_UndeadWind" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
+script = ExtResource("act_undead_wind")
+
+; P2: 生成幽灵炸弹（场上数量未满）
+[node name="Seq_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_BombCanSpawn" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
+script = ExtResource("cond_ghost_bomb_can_spawn")
+max_count = 3
+
+[node name="Act_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
+script = ExtResource("act_spawn_ghost_bomb")
+
+; P2: 向玩家移动（兜底）
+[node name="Act_P2Move" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
+script = ExtResource("act_move_toward_player")
+move_speed = 80.0
+
+; --- 5. Phase 3 ---
+[node name="Seq_Phase3" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_IsPhase3" type="Node" parent="RootSelector/Seq_Phase3"]
+script = ExtResource("cond_is_phase")
+phase = 3
+
+[node name="Sel_P3Actions" type="Node" parent="RootSelector/Seq_Phase3"]
+script = ExtResource("selector_reactive")
+
+; P3: 镰刀不在手 → 特殊状态
+[node name="Seq_NoScythe" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Inv_ScytheInHand" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe"]
+script = ExtResource("inverter")
+
+[node name="Cond_ScytheInHand" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Inv_ScytheInHand"]
+script = ExtResource("cond_scythe_in_hand")
+
+[node name="Sel_NoScytheActions" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe"]
+script = ExtResource("selector_reactive")
+
+; P3-NoScythe: 玩家被囚禁 → 突刺斩
+[node name="Seq_RunSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Sel_NoScytheActions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_Imprisoned" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Sel_NoScytheActions/Seq_RunSlash"]
+script = ExtResource("cond_player_imprisoned")
+
+[node name="Act_RunSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Sel_NoScytheActions/Seq_RunSlash"]
+script = ExtResource("act_run_slash")
+
+; P3-NoScythe: 无镰刀待机（兜底）
+[node name="Act_P3IdleNoScythe" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_NoScythe/Sel_NoScytheActions"]
+script = ExtResource("act_p3_idle_no_scythe")
+
+; P3: 禁锢（CD就绪 + 玩家在地面）
+[node name="Seq_Imprison" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ImprisonCD" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Imprison"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_imprison"
+cooldown_sec = 15.0
+
+[node name="Cond_PlayerOnGround" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Imprison"]
+script = ExtResource("cond_player_on_ground")
+
+[node name="Act_CastImprison" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Imprison"]
+script = ExtResource("act_cast_imprison")
+
+; P3: 向上抛镰刀（玩家在头顶）
+[node name="Seq_ThrowScytheUp" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerAbove" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScytheUp"]
+script = ExtResource("cond_player_above_boss")
+
+[node name="Cond_ScytheInHand2" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScytheUp"]
+script = ExtResource("cond_scythe_in_hand")
+
+[node name="Act_ThrowScytheUpward" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScytheUp"]
+script = ExtResource("act_throw_scythe_upward")
+
+; P3: 投掷镰刀（中远距离 + 镰刀在手）
+[node name="Seq_ThrowScythe" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ScytheInHand3" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScythe"]
+script = ExtResource("cond_scythe_in_hand")
+
+[node name="Cond_ThrowRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScythe"]
+script = ExtResource("cond_player_in_range")
+range_px = 500.0
+
+[node name="Act_ThrowScythe" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScythe"]
+script = ExtResource("act_throw_scythe")
+
+; P3: 三连斩（近距离 + CD就绪 + 镰刀在手）
+[node name="Seq_ComboSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ComboCD" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ComboSlash"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_combo"
+cooldown_sec = 4.0
+
+[node name="Cond_ScytheInHand4" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ComboSlash"]
+script = ExtResource("cond_scythe_in_hand")
+
+[node name="Cond_ComboRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ComboSlash"]
+script = ExtResource("cond_player_in_range")
+range_px = 100.0
+
+[node name="Act_ComboSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ComboSlash"]
+script = ExtResource("act_combo_slash")
+
+; P3: 踢击（近距离 + CD就绪）
+[node name="Seq_Kick" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_KickCD" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Kick"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_kick"
+cooldown_sec = 3.0
+
+[node name="Cond_KickRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Kick"]
+script = ExtResource("cond_player_in_range")
+range_px = 80.0
+
+[node name="Act_Kick" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Kick"]
+script = ExtResource("act_kick")
+
+; P3: 冲刺攻击（中距离 + CD就绪）
+[node name="Seq_DashAttack" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_DashCD" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_DashAttack"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_dash"
+cooldown_sec = 6.0
+
+[node name="Cond_DashRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_DashAttack"]
+script = ExtResource("cond_player_in_range")
+range_px = 500.0
+
+[node name="Act_DashAttack" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_DashAttack"]
+script = ExtResource("act_dash_attack")
+
+; P3: 召唤幽灵（所有P3技能CD中 + 召唤CD就绪）
+[node name="Seq_SummonGhosts" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_SummonCD" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_SummonGhosts"]
+script = ExtResource("cond_cooldown_ready")
+cooldown_key = "cd_summon"
+cooldown_sec = 20.0
+
+[node name="Cond_AllP3Blocked" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_SummonGhosts"]
+script = ExtResource("cond_all_p3_skills_blocked")
+
+[node name="Act_SummonGhosts" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_SummonGhosts"]
+script = ExtResource("act_summon_ghosts")
+
+; P3: 向玩家移动（兜底）
+[node name="Act_P3Move" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
+script = ExtResource("act_p3_move_toward_player")

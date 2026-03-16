@@ -1,7 +1,10 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.gd" id="1"]
 [ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/bt_boss_ghost_witch.tscn" id="bt_scene"]
+[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/BossGhostWitch/BossGhostWitch.tres" id="spine_boss"]
+[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/BabyStatue/BabyStatue.tres" id="spine_baby"]
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(64, 96)
@@ -28,7 +31,12 @@ script = ExtResource("1")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("1")
 
-[node name="SpineSprite" type="Sprite2D" parent="."]
+[node name="SpineSprite" type="SpineSprite" parent="."]
+skeleton_data_res = ExtResource("spine_boss")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
 
 [node name="BodyBox" type="Area2D" parent="."]
 collision_layer = 64
@@ -72,7 +80,12 @@ position = Vector2(0, -60)
 [node name="BabyStatue" type="Node2D" parent="."]
 position = Vector2(20, -20)
 
-[node name="SpineSprite" type="Sprite2D" parent="BabyStatue"]
+[node name="SpineSprite" type="SpineSprite" parent="BabyStatue"]
+skeleton_data_res = ExtResource("spine_baby")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
 
 [node name="BabyBodyBox" type="Area2D" parent="BabyStatue"]
 collision_layer = 64
@@ -134,9 +147,8 @@ collision_mask = 2
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea100"]
 shape = SubResource("6")
 
-[node name="AnimDriverSpine" type="Node" parent="."]
-[node name="BeehaveTree" type="Node" parent="."]
-[node name="Blackboard" type="Node" parent="."]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("actor") instance=ExtResource("bt_scene")]
+actor = NodePath("..")
 
 [node name="KickHitbox" type="Area2D" parent="."]
 collision_layer = 32
