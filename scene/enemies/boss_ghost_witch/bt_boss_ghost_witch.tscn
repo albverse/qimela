@@ -1,10 +1,11 @@
-[gd_scene load_steps=44 format=3]
+[gd_scene load_steps=45 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector.gd" id="selector"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence.gd" id="sequence"]
 [ext_resource type="Script" path="res://addons/beehave/nodes/decorators/inverter.gd" id="inverter"]
 
 ; === 自定义 Condition 脚本 ===
