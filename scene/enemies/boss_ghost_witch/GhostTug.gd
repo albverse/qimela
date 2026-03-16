@@ -28,9 +28,11 @@ func _ready() -> void:
 	get_tree().create_timer(0.5).timeout.connect(_force_start_pull)
 
 
-func setup(player: Node2D, boss: Node2D) -> void:
+func setup(player: Node2D, boss: Node2D, pull_speed_override: float = -1.0) -> void:
 	_player = player
 	_boss = boss
+	if pull_speed_override > 0.0:
+		pull_speed = pull_speed_override
 
 
 func apply_hit(hit: HitData) -> bool:
