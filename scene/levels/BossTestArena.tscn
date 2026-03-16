@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://c4tsmdwk0jphy"]
+[gd_scene load_steps=14 format=3 uid="uid://c4tsmdwk0jphy"]
 
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="1"]
 [ext_resource type="PackedScene" uid="uid://50550sweyhao" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
@@ -6,6 +6,7 @@
 [ext_resource type="Shader" uid="uid://of0uekjti6ov" path="res://shaders/thunder_post_fx.gdshader" id="4_shader"]
 [ext_resource type="Script" uid="uid://54q4w6d2v40a" path="res://scene/thunder_post_fx.gd" id="5_fx"]
 [ext_resource type="Texture2D" uid="uid://c75cd5rw2fry7" path="res://Thunder.png" id="6_thunder"]
+[ext_resource type="Script" path="res://scene/levels/collapsing_platform.gd" id="7_platform"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_boss"]
 shader = ExtResource("4_shader")
@@ -108,6 +109,9 @@ shape = SubResource("1")
 [node name="PlatformA" type="StaticBody2D" parent="."]
 position = Vector2(-280, 120)
 collision_mask = 0
+script = ExtResource("7_platform")
+collapse_delay = 2.0
+respawn_delay = 3.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
 position = Vector2(-5, 109)
@@ -118,6 +122,9 @@ one_way_collision_margin = 8.0
 [node name="PlatformB" type="StaticBody2D" parent="."]
 position = Vector2(80, 20)
 collision_mask = 0
+script = ExtResource("7_platform")
+collapse_delay = 2.0
+respawn_delay = 3.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
 shape = SubResource("2")
@@ -127,6 +134,9 @@ one_way_collision_margin = 8.0
 [node name="PlatformC" type="StaticBody2D" parent="."]
 position = Vector2(440, 140)
 collision_mask = 0
+script = ExtResource("7_platform")
+collapse_delay = 2.0
+respawn_delay = 3.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
 shape = SubResource("2")

@@ -67,6 +67,10 @@ var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
 
+# 动画驱动（与修女蛇同款）
+var _anim_driver: AnimDriverSpine = null
+var _anim_mock: AnimDriverMock = null
+
 var _witch_scythe_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/WitchScythe.tscn")
 var _hell_hand_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/HellHand.tscn")
 var _ghost_tug_scene: PackedScene = preload("res://scene/enemies/boss_ghost_witch/GhostTug.tscn")
@@ -94,6 +98,7 @@ var _ghost_summon_scene: PackedScene = preload("res://scene/enemies/boss_ghost_w
 @onready var _attack3_area: Area2D = $Attack3Area
 @onready var _run_slash_hitbox: Area2D = $RunSlashHitbox
 
+
 func _ready() -> void:
 	species_id = &"boss_ghost_witch"
 	entity_type = EntityType.MONSTER
@@ -102,10 +107,18 @@ func _ready() -> void:
 	has_hp = true
 	max_hp = 30
 	hp = 30
+	weak_hp = 0  # Boss 不使用 weak 机制
+	vanish_fusion_required = 0  # 不可泯灭
 	floor_snap_length = 0.0
+
 	super._ready()
 	add_to_group("boss_ghost_witch")
-	_disable_weak_stun_vanish()
+	add_to_group("boss")
+
+	# 初始化动画驱动
+	_setup_anim_drivers()
+
+	# 关闭所有攻击 hitbox
 	_set_hitbox_enabled(_real_hurtbox, false)
 	_set_hitbox_enabled(_baby_real_hurtbox, false)
 	_set_hitbox_enabled(_ground_hitbox, false)
@@ -114,40 +127,106 @@ func _ready() -> void:
 	_set_hitbox_enabled(_attack2_area, false)
 	_set_hitbox_enabled(_attack3_area, false)
 	_set_hitbox_enabled(_run_slash_hitbox, false)
-	if _spine_sprite != null and _spine_sprite.has_signal("animation_event"):
-		_spine_sprite.animation_event.connect(_on_spine_event)
-	if _baby_spine != null and _baby_spine.has_signal("animation_event"):
-		_baby_spine.animation_event.connect(_on_baby_spine_event)
+
+	# 初始动画
 	anim_play(&"phase1/idle", true)
 
+
+func _setup_anim_drivers() -> void:
+	# 主 SpineSprite 动画驱动
+	if _is_spine_sprite_compatible(_spine_sprite):
+		_anim_driver = AnimDriverSpine.new()
+		add_child(_anim_driver)
+		_anim_driver.setup(_spine_sprite)
+		_anim_driver.anim_completed.connect(_on_anim_completed)
+		if _spine_sprite.has_signal("animation_event"):
+			_spine_sprite.animation_event.connect(_on_spine_event)
+	else:
+		_anim_mock = AnimDriverMock.new()
+		add_child(_anim_mock)
+		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+	# 婴儿石像 Spine 事件（不需要单独 AnimDriverSpine，事件监听即可）
+	if _baby_spine != null and _is_spine_sprite_compatible(_baby_spine):
+		if _baby_spine.has_signal("animation_event"):
+			_baby_spine.animation_event.connect(_on_baby_spine_event)
+
+
+func _is_spine_sprite_compatible(node: Node) -> bool:
+	if node == null:
+		return false
+	if String(node.get_class()) == "SpineSprite":
+		return true
+	# 兜底：按能力探测
+	return node.has_method("get_animation_state")
+
+
 func _physics_process(dt: float) -> void:
-	super._physics_process(dt)
+	# 光照系统（保留 MonsterBase 兼容）
+	if light_counter > 0.0:
+		light_counter -= dt
+		light_counter = max(light_counter, 0.0)
+	_thunder_processed_this_frame = false
+
+	# Mock 驱动 tick
+	if _anim_mock:
+		_anim_mock.tick(dt)
+
+	# 骨骼跟随
 	_update_bone_follow()
+
+	# 婴儿石像位置管理
 	_update_halo_baby()
+
+	# 伤害判定
+	_update_damage_hitboxes()
+
+	# 重力
+	if not is_on_floor():
+		velocity.y += dt * 1200.0
+	else:
+		velocity.y = maxf(velocity.y, 0.0)
+
 	move_and_slide()
+	# 不调用 super._physics_process()
+	# BeehaveTree 由其自身 _physics_process 驱动
+
 
 func _do_move(_dt: float) -> void:
 	pass
 
+
 func _update_halo_baby() -> void:
 	if baby_state == BabyState.HALO:
 		_baby_statue.global_position = _mark_hale.global_position
+	elif baby_state == BabyState.IN_HUG:
+		_baby_statue.global_position = _mark_hug.global_position
+
 
 func _update_damage_hitboxes() -> void:
-	for hb in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
+	for hb: Area2D in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
 		if hb == null:
 			continue
 		for body in hb.get_overlapping_bodies():
 			if body != null and body.is_in_group("player") and body.has_method("apply_damage"):
 				body.call("apply_damage", 1, hb.global_position)
 
+
 func _update_bone_follow() -> void:
 	if current_phase == Phase.PHASE1:
 		_baby_real_hurtbox.global_position = _baby_statue.global_position
 	else:
-		_real_hurtbox.global_position = _mark_hale.global_position
+		if _anim_driver != null:
+			var hale_pos: Vector2 = _anim_driver.get_bone_world_position("hale")
+			if hale_pos != Vector2.ZERO:
+				_real_hurtbox.global_position = hale_pos
+			else:
+				_real_hurtbox.global_position = _mark_hale.global_position
+		else:
+			_real_hurtbox.global_position = _mark_hale.global_position
 	if current_phase == Phase.PHASE3:
 		_kick_hitbox.global_position = global_position + Vector2(16.0, 0.0)
+
 
 func apply_real_damage(amount: int) -> void:
 	if hp_locked:
@@ -164,6 +243,7 @@ func apply_real_damage(amount: int) -> void:
 	elif hp <= 0:
 		_begin_death()
 
+
 func apply_hit(hit: HitData) -> bool:
 	if hit == null or hit.weapon_id != &"ghost_fist":
 		_flash_once()
@@ -171,9 +251,11 @@ func apply_hit(hit: HitData) -> bool:
 	apply_real_damage(hit.damage)
 	return true
 
+
 func on_chain_hit(_p: Node, _s: int) -> int:
 	_flash_once()
 	return 0
+
 
 func _begin_phase_transition(target: int) -> void:
 	_phase_transitioning = true
@@ -196,11 +278,13 @@ func _begin_phase_transition(target: int) -> void:
 	hp_locked = false
 	_phase_transitioning = false
 
+
 func _cleanup_phase2_instances() -> void:
 	for g in ["ghost_tug", "ghost_bomb", "ghost_wraith", "ghost_elite"]:
 		for n in get_tree().get_nodes_in_group(g):
 			if is_instance_valid(n):
 				n.queue_free()
+
 
 func _begin_death() -> void:
 	hp_locked = true
@@ -211,11 +295,15 @@ func _begin_death() -> void:
 	anim_play(&"phase3/death", false)
 	set_physics_process(false)
 
+
 func _set_hitbox_enabled(area: Area2D, enabled: bool) -> void:
 	if area == null:
 		return
 	area.set_deferred("monitoring", enabled)
 	area.set_deferred("monitorable", enabled)
+
+
+# ═══ 动画系统（与修女蛇同款接口）═══
 
 func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -> void:
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
@@ -223,19 +311,84 @@ func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -
 	_current_anim = anim_name
 	_current_anim_finished = false
 	_current_anim_loop = loop
-	if _spine_sprite != null and _spine_sprite.has_method("set_animation"):
-		_spine_sprite.call("set_animation", anim_name, loop)
+	if _anim_driver:
+		_anim_driver.play(0, anim_name, loop, AnimDriverSpine.PlayMode.REPLACE_TRACK)
+	elif _anim_mock:
+		_anim_mock.play(0, anim_name, loop)
+
 
 func baby_anim_play(anim_name: StringName, loop: bool) -> void:
-	if _baby_spine != null and _baby_spine.has_method("set_animation"):
-		_baby_spine.call("set_animation", anim_name, loop)
+	if _baby_spine == null:
+		return
+	# 婴儿直接通过 SpineSprite 的 AnimationState 播放
+	if _is_spine_sprite_compatible(_baby_spine):
+		var anim_state: Object = null
+		if _baby_spine.has_method("get_animation_state"):
+			anim_state = _baby_spine.get_animation_state()
+		if anim_state != null and anim_state.has_method("set_animation"):
+			anim_state.set_animation(String(anim_name), loop, 0)
+
 
 func anim_is_finished(anim_name: StringName) -> bool:
 	return _current_anim == anim_name and _current_anim_finished
 
+
+func baby_anim_is_finished(anim_name: StringName) -> bool:
+	# 婴儿的完成检测通过轮询 SpineSprite 的 TrackEntry
+	if _baby_spine == null:
+		return true
+	if not _is_spine_sprite_compatible(_baby_spine):
+		return true
+	var anim_state: Object = null
+	if _baby_spine.has_method("get_animation_state"):
+		anim_state = _baby_spine.get_animation_state()
+	if anim_state == null:
+		return true
+	var entry: Object = null
+	if anim_state.has_method("get_current"):
+		entry = anim_state.get_current(0)
+	if entry == null:
+		return true
+	# 检查当前轨道的动画是否完成
+	var done: bool = false
+	if entry.has_method("is_complete"):
+		done = entry.is_complete()
+	elif entry.has_method("isComplete"):
+		done = entry.isComplete()
+	return done
+
+
+func _on_anim_completed(_track: int, anim_name: StringName) -> void:
+	if anim_name == _current_anim:
+		_current_anim_finished = true
+
+
+# ═══ Spine 事件处理（与修女蛇同款事件提取）═══
+
 func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
-	var e := _extract_event_name(a1, a2, a3, a4)
+	var e := _extract_spine_event_name(a1, a2, a3, a4)
 	match e:
+		# Phase 1 start_attack 事件
+		&"start_attack_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
+		&"start_attack_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
+		&"battle_start": _battle_started = true
+		&"baby_release": baby_state = BabyState.THROWN
+		&"throw_done": pass
+		&"baby_return": baby_state = BabyState.IN_HUG
+		# Phase 1→2 过渡
+		&"phase2_ready":
+			_phase_transitioning = false
+			hp_locked = false
+		# Phase 2 事件
+		&"scythe_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
+		&"scythe_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
+		&"ground_hitbox_on": _set_hitbox_enabled(_ground_hitbox, true)
+		&"ground_hitbox_off": _set_hitbox_enabled(_ground_hitbox, false)
+		# Phase 2→3 过渡
+		&"phase3_ready":
+			_phase_transitioning = false
+			hp_locked = false
+		# Phase 3 事件
 		&"kick_hitbox_on": _set_hitbox_enabled(_kick_hitbox, true)
 		&"kick_hitbox_off": _set_hitbox_enabled(_kick_hitbox, false)
 		&"combo1_hitbox_on": _set_hitbox_enabled(_attack1_area, true)
@@ -246,12 +399,13 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		&"combo3_hitbox_off": _set_hitbox_enabled(_attack3_area, false)
 		&"dash_hitbox_on": _set_hitbox_enabled(_run_slash_hitbox, true)
 		&"dash_hitbox_off": _set_hitbox_enabled(_run_slash_hitbox, false)
-		&"ground_hitbox_on": _set_hitbox_enabled(_ground_hitbox, true)
-		&"ground_hitbox_off": _set_hitbox_enabled(_ground_hitbox, false)
+		&"slash_hitbox_on": _set_hitbox_enabled(_run_slash_hitbox, true)
+		&"slash_hitbox_off": _set_hitbox_enabled(_run_slash_hitbox, false)
 		&"death_finished": anim_play(&"phase3/death_loop", true)
 
+
 func _on_baby_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
-	var e := _extract_event_name(a1, a2, a3, a4)
+	var e := _extract_spine_event_name(a1, a2, a3, a4)
 	match e:
 		&"dash_go": _baby_dash_go_triggered = true
 		&"dash_hitbox_on": _set_hitbox_enabled(_baby_attack_area, true)
@@ -260,13 +414,37 @@ func _on_baby_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		&"realhurtbox_on": _set_hitbox_enabled(_baby_real_hurtbox, true)
 		&"realhurtbox_off": _set_hitbox_enabled(_baby_real_hurtbox, false)
 
-func _extract_event_name(a1 = null, a2 = null, a3 = null, a4 = null) -> StringName:
-	for v in [a4, a3, a2, a1]:
-		if v is StringName and StringName(v) != &"":
-			return v
-		if v is String and String(v) != "":
-			return StringName(v)
-	return &""
+
+func _extract_spine_event_name(a1 = null, a2 = null, a3 = null, a4 = null) -> StringName:
+	## 从 Spine animation_event 信号参数中提取事件名
+	## 与 StoneMaskBird/ChimeraNunSnake 同款提取方式
+	var spine_event: Object = null
+	for a in [a1, a2, a3, a4]:
+		if a == null:
+			continue
+		if a is Object and a.has_method("get_data"):
+			spine_event = a
+			break
+	if spine_event == null:
+		return &""
+	var data: Object = spine_event.get_data()
+	if data == null:
+		return &""
+	var event_name: String = ""
+	if data.has_method("get_event_name"):
+		event_name = data.get_event_name()
+	elif data.has_method("getEventName"):
+		event_name = data.getEventName()
+	elif data.has_method("get_name"):
+		event_name = data.get_name()
+	elif data.has_method("getName"):
+		event_name = data.getName()
+	if event_name == "":
+		return &""
+	return StringName(event_name)
+
+
+# ═══ 辅助方法 ═══
 
 func face_toward(target: Node2D) -> void:
 	if target == null:
@@ -277,26 +455,20 @@ func face_toward(target: Node2D) -> void:
 	if _spine_sprite != null:
 		_spine_sprite.scale.x = absf(_spine_sprite.scale.x) * (1.0 if dx > 0.0 else -1.0)
 
-func baby_anim_is_finished(anim_name: StringName) -> bool:
-	if _baby_spine == null or not _baby_spine.has_method("get_current_animation"):
-		return true
-	return _baby_spine.call("get_current_animation") == anim_name
 
 func _close_all_combo_hitboxes() -> void:
 	_set_hitbox_enabled(_attack1_area, false)
 	_set_hitbox_enabled(_attack2_area, false)
 	_set_hitbox_enabled(_attack3_area, false)
 
+
 func _set_baby_realhurtbox(enabled: bool) -> void:
 	_set_hitbox_enabled(_baby_real_hurtbox, enabled)
+
 
 func _set_realhurtbox_enabled(enabled: bool) -> void:
 	_set_hitbox_enabled(_real_hurtbox, enabled)
 
-func _disable_weak_stun_vanish() -> void:
-	weak_stun_time = 0.0
-	weak_stun_extend_time = 0.0
-	stun_duration = 0.0
 
 func _exit_tree() -> void:
 	if _player_imprisoned:
