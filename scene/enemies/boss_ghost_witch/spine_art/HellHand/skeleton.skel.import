@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://c2dq28uta4yjr"
+path="res://.godot/imported/skeleton.skel-80c05b4333f6f919072d7ec52f4a066f.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/HellHand/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-80c05b4333f6f919072d7ec52f4a066f.spskel"]
+
+[params]
+

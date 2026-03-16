@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://54u1c12jlkf2"
+path="res://.godot/imported/イラスト3.skel-a39b3efd2a91e99e2b682fe749e6e680.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/GhostTug/イラスト3.skel"
+dest_files=["res://.godot/imported/イラスト3.skel-a39b3efd2a91e99e2b682fe749e6e680.spskel"]
+
+[params]
+

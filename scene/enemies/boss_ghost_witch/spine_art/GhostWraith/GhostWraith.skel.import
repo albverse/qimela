@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://dw150wsk3sl8n"
+path="res://.godot/imported/GhostWraith.skel-d3eb17303c5d836e8eb1ae5c00931bf4.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/GhostWraith/GhostWraith.skel"
+dest_files=["res://.godot/imported/GhostWraith.skel-d3eb17303c5d836e8eb1ae5c00931bf4.spskel"]
+
+[params]
+

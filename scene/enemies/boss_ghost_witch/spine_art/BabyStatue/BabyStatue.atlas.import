@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://c20fv5hltjm5m"
+path="res://.godot/imported/BabyStatue.atlas-9a8fde1927f3a629ee7a730f4fbf50f4.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/BabyStatue/BabyStatue.atlas"
+dest_files=["res://.godot/imported/BabyStatue.atlas-9a8fde1927f3a629ee7a730f4fbf50f4.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

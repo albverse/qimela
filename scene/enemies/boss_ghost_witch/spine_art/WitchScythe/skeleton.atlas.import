@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://jfknmpoyvx4p"
+path="res://.godot/imported/skeleton.atlas-940e571f603bddc7466a707b4ec5e941.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/WitchScythe/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-940e571f603bddc7466a707b4ec5e941.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

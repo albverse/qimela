@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://cho2rr7wh8vyw"
+path="res://.godot/imported/GhostWraith.atlas-4296e7c53f32faf441ec31d2f720f3ab.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/GhostWraith/GhostWraith.atlas"
+dest_files=["res://.godot/imported/GhostWraith.atlas-4296e7c53f32faf441ec31d2f720f3ab.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

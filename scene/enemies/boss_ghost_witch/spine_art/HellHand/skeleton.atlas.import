@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://u7mjnsrhyshx"
+path="res://.godot/imported/skeleton.atlas-fffad3208ece494370cf66e83b4b25dc.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/HellHand/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-fffad3208ece494370cf66e83b4b25dc.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

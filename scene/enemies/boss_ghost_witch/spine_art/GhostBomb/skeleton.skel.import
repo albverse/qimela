@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://dly0sc5mi1v61"
+path="res://.godot/imported/skeleton.skel-b2381b8c01ea02656554b61069835ab8.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/GhostBomb/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-b2381b8c01ea02656554b61069835ab8.spskel"]
+
+[params]
+

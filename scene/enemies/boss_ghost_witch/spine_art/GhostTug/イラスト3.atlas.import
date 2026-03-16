@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://bt7lygbdviyny"
+path="res://.godot/imported/イラスト3.atlas-be0de59b40cc6bffcd34a21bc0d2afab.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/GhostTug/イラスト3.atlas"
+dest_files=["res://.godot/imported/イラスト3.atlas-be0de59b40cc6bffcd34a21bc0d2afab.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

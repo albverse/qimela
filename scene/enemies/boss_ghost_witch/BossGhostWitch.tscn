@@ -1,31 +1,37 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=14 format=3 uid="uid://b21iw5k3duuqj"]
 
-[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.gd" id="1"]
-[ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="2"]
+[ext_resource type="Script" uid="uid://b5122fksjcv00" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.gd" id="1"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2"]
 [ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/bt_boss_ghost_witch.tscn" id="bt_scene"]
-[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/BossGhostWitch/BossGhostWitch.tres" id="spine_boss"]
 [ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/BabyStatue/BabyStatue.tres" id="spine_baby"]
+[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/BossGhostWitch/BossGhostWitch.tres" id="spine_boss"]
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(64, 96)
-[sub_resource type="CircleShape2D" id="2"]
-radius = 20.0
+
 [sub_resource type="CircleShape2D" id="3"]
 radius = 28.0
+
+[sub_resource type="CircleShape2D" id="2"]
+radius = 20.0
+
 [sub_resource type="CircleShape2D" id="4"]
 radius = 36.0
+
 [sub_resource type="CircleShape2D" id="5"]
 radius = 48.0
-[sub_resource type="CircleShape2D" id="6"]
-radius = 100.0
-[sub_resource type="CircleShape2D" id="7"]
-radius = 300.0
+
 [sub_resource type="CircleShape2D" id="8"]
 radius = 500.0
 
+[sub_resource type="CircleShape2D" id="7"]
+radius = 300.0
+
+[sub_resource type="CircleShape2D" id="6"]
+radius = 100.0
+
 [node name="BossGhostWitch" type="CharacterBody2D"]
 collision_layer = 4
-collision_mask = 1
 platform_floor_layers = 0
 script = ExtResource("1")
 
@@ -33,6 +39,8 @@ script = ExtResource("1")
 shape = SubResource("1")
 
 [node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(-5.9999695, 59.00003)
+scale = Vector2(0.2514939, 0.2514939)
 skeleton_data_res = ExtResource("spine_boss")
 preview_skin = "Default"
 preview_animation = "-- Empty --"
@@ -82,6 +90,8 @@ position = Vector2(0, -60)
 position = Vector2(20, -20)
 
 [node name="SpineSprite" type="SpineSprite" parent="BabyStatue"]
+position = Vector2(-26, -97)
+scale = Vector2(0.42373547, 0.4237355)
 skeleton_data_res = ExtResource("spine_baby")
 preview_skin = "Default"
 preview_animation = "-- Empty --"
@@ -89,6 +99,7 @@ preview_frame = false
 preview_time = 0.0
 
 [node name="BabyBodyBox" type="Area2D" parent="BabyStatue"]
+position = Vector2(-25, -113)
 collision_layer = 64
 collision_mask = 2
 
@@ -96,6 +107,7 @@ collision_mask = 2
 shape = SubResource("2")
 
 [node name="BabyRealHurtbox" type="Area2D" parent="BabyStatue"]
+position = Vector2(-25, -113)
 collision_layer = 8
 collision_mask = 0
 monitoring = false
@@ -106,6 +118,7 @@ script = ExtResource("2")
 shape = SubResource("2")
 
 [node name="BabyAttackArea" type="Area2D" parent="BabyStatue"]
+position = Vector2(-25, -113)
 collision_layer = 32
 collision_mask = 2
 monitoring = false
@@ -115,6 +128,7 @@ monitorable = false
 shape = SubResource("3")
 
 [node name="BabyExplosionArea" type="Area2D" parent="BabyStatue"]
+position = Vector2(-25, -113)
 collision_layer = 32
 collision_mask = 2
 monitoring = false
@@ -124,6 +138,7 @@ monitorable = false
 shape = SubResource("4")
 
 [node name="BabyDetectArea" type="Area2D" parent="BabyStatue"]
+position = Vector2(-25, -113)
 collision_layer = 0
 collision_mask = 2
 
@@ -133,22 +148,26 @@ shape = SubResource("4")
 [node name="DetectArea500" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 2
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea500"]
 shape = SubResource("8")
 
 [node name="DetectArea300" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 2
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea300"]
 shape = SubResource("7")
 
 [node name="DetectArea100" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 2
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea100"]
 shape = SubResource("6")
 
-[node name="BeehaveTree" parent="." node_paths=PackedStringArray("actor") instance=ExtResource("bt_scene")]
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("bt_scene")]
+blackboard = NodePath("@Node@26832")
 actor = NodePath("..")
 
 [node name="KickHitbox" type="Area2D" parent="."]
@@ -156,6 +175,7 @@ collision_layer = 32
 collision_mask = 2
 monitoring = false
 monitorable = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="KickHitbox"]
 shape = SubResource("2")
 
@@ -164,6 +184,7 @@ collision_layer = 32
 collision_mask = 2
 monitoring = false
 monitorable = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Attack1Area"]
 shape = SubResource("3")
 
@@ -172,6 +193,7 @@ collision_layer = 32
 collision_mask = 2
 monitoring = false
 monitorable = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Attack2Area"]
 shape = SubResource("3")
 
@@ -180,6 +202,7 @@ collision_layer = 32
 collision_mask = 2
 monitoring = false
 monitorable = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Attack3Area"]
 shape = SubResource("4")
 
@@ -188,5 +211,6 @@ collision_layer = 32
 collision_mask = 2
 monitoring = false
 monitorable = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RunSlashHitbox"]
 shape = SubResource("5")

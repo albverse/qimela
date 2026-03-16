@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://dlk8f7puteyeq"
+path="res://.godot/imported/skeleton.skel-f7cc81c1d601ec1851844985deed1408.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/WitchScythe/skeleton.skel"
+dest_files=["res://.godot/imported/skeleton.skel-f7cc81c1d601ec1851844985deed1408.spskel"]
+
+[params]
+

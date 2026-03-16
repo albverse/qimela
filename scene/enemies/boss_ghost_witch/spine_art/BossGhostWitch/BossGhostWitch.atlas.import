@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://cxdq2wflkdefy"
+path="res://.godot/imported/BossGhostWitch.atlas-535f6291e3519045a24cfc8bfcad4bfb.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/boss_ghost_witch/spine_art/BossGhostWitch/BossGhostWitch.atlas"
+dest_files=["res://.godot/imported/BossGhostWitch.atlas-535f6291e3519045a24cfc8bfcad4bfb.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"
