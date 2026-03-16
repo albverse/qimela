@@ -59,12 +59,16 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	return FAILURE
 
 func _player_in_scythe_area(boss: BossGhostWitch) -> bool:
+	if not boss._scythe_detect_area.monitoring:
+		return false
 	for body in boss._scythe_detect_area.get_overlapping_bodies():
 		if body.is_in_group("player"):
 			return true
 	return false
 
 func _damage_player(boss: BossGhostWitch, amount: int) -> void:
+	if not boss._scythe_detect_area.monitoring:
+		return
 	for body in boss._scythe_detect_area.get_overlapping_bodies():
 		if body.is_in_group("player") and body.has_method("apply_damage"):
 			body.call("apply_damage", amount, boss.global_position)

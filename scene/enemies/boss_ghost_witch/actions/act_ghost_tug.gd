@@ -29,7 +29,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_tug_instance.add_to_group("ghost_tug")
 			if _tug_instance.has_method("setup"):
 				_tug_instance.call("setup", player, boss)
-			# 在玩家位置生成，作为世界子节点（不是玩家子节点）
+			# 生成在玩家位置，作为世界子节点
 			_tug_instance.global_position = player.global_position
 			boss.get_parent().add_child(_tug_instance)
 			_step = Step.PULLING
@@ -40,7 +40,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			if _tug_instance == null or not is_instance_valid(_tug_instance):
 				_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
 				return SUCCESS
-			# 用水平距离判定玩家是否到达镰刀范围（不依赖 Area2D.monitoring）
+			# 用水平距离判定玩家是否到达镰刀范围
 			var player := boss.get_priority_attack_target()
 			if player != null:
 				var h_dist := absf(player.global_position.x - boss.global_position.x)

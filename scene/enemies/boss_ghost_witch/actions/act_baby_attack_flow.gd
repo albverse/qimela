@@ -73,10 +73,11 @@ func _tick_repair(boss: BossGhostWitch) -> int:
 func _tick_check_player(boss: BossGhostWitch) -> int:
 	# 检测玩家是否在 BabyDetectArea 范围内
 	var player_in_range: bool = false
-	for body in boss._baby_detect_area.get_overlapping_bodies():
-		if body.is_in_group("player"):
-			player_in_range = true
-			break
+	if boss._baby_detect_area.monitoring:
+		for body in boss._baby_detect_area.get_overlapping_bodies():
+			if body.is_in_group("player"):
+				player_in_range = true
+				break
 
 	if player_in_range:
 		_dash_origin = boss._baby_statue.global_position

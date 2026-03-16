@@ -26,6 +26,11 @@ var _hitbox_frame_count: int = 0
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST
 	_hitbox_frame_count = 0
+	_rise_timer = 0.0
+	_fall_timer = 0.0
+	_ground_y = 0.0
+	_hover_end = 0.0
+	_stagger_end = 0.0
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch

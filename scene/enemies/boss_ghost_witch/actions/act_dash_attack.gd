@@ -43,7 +43,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Step.DASH:
 			actor.velocity.x = _dash_dir * boss.p3_dash_speed
 			actor.velocity.y = 0.0
-			if not _hit_player:
+			if not _hit_player and boss._scythe_detect_area.monitoring:
 				for body in boss._scythe_detect_area.get_overlapping_bodies():
 					if body.is_in_group("player") and body.has_method("apply_damage"):
 						body.call("apply_damage", 1, actor.global_position)
