@@ -331,6 +331,8 @@ func bt_phase3_combat() -> void:
 		velocity = Vector2.ZERO
 		return
 	var dx := player.global_position.x - global_position.x
+	var dist := absf(dx)
+
 	if not _scythe_in_hand:
 		velocity = Vector2.ZERO
 		anim_play(&"phase3/idle_no_scythe", true)
@@ -338,6 +340,7 @@ func bt_phase3_combat() -> void:
 			_scythe_instance.call("recall", global_position)
 			_scythe_recall_requested = false
 		return
+
 	if _player_imprisoned:
 		anim_play(&"phase3/run_slash", true)
 		_set_hitbox_enabled(_run_slash_hitbox, true)
@@ -347,17 +350,21 @@ func bt_phase3_combat() -> void:
 			_player_imprisoned = false
 			_set_hitbox_enabled(_run_slash_hitbox, false)
 		return
-	if absf(dx) <= 100.0:
+
+	if dist <= 100.0:
 		anim_play(&"phase3/kick", false)
 		velocity = Vector2.ZERO
+	elif dist > 500.0:
+		velocity = Vector2.ZERO
+		anim_play(&"phase3/idle", true)
+		if _scythe_instance == null:
+			_throw_scythe(player)
+	elif dist > 300.0:
+		anim_play(&"phase3/dash", true)
+		velocity.x = signf(dx) * p3_dash_speed
 	else:
 		anim_play(&"phase3/walk", true)
 		velocity.x = signf(dx) * p3_move_speed
-	if absf(dx) > 300.0 and absf(dx) <= 500.0:
-		anim_play(&"phase3/dash", true)
-		velocity.x = signf(dx) * p3_dash_speed
-	if _scythe_instance == null and absf(dx) > 500.0:
-		_throw_scythe(player)
 
 func _update_damage_hitboxes() -> void:
 	for hb in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
