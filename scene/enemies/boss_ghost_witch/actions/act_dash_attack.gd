@@ -49,7 +49,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 						body.call("apply_damage", 1, actor.global_position)
 						_hit_player = true
 						break
-			var traveled := abs(actor.global_position.x - _dash_start_x)
+			var traveled: float = absf(actor.global_position.x - _dash_start_x)
 			if traveled >= _dash_distance or actor.is_on_wall():
 				actor.velocity.x = 0.0
 				_step = Step.BRAKE

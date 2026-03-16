@@ -38,7 +38,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 			if not _slashed:
 				var player := boss.get_priority_attack_target()
 				if player != null:
-					var passed := (_run_dir > 0 and actor.global_position.x >= _target_x) \
+					var passed: bool = (_run_dir > 0 and actor.global_position.x >= _target_x) \
 								or (_run_dir < 0 and actor.global_position.x <= _target_x)
 					if passed:
 						if player.has_method("apply_damage"):
@@ -47,7 +47,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 						boss._player_imprisoned = false
 						if boss._hell_hand_instance and is_instance_valid(boss._hell_hand_instance):
 							boss._hell_hand_instance.queue_free()
-			var reached := (_run_dir > 0 and actor.global_position.x >= _overshoot_x) \
+			var reached: bool = (_run_dir > 0 and actor.global_position.x >= _overshoot_x) \
 						  or (_run_dir < 0 and actor.global_position.x <= _overshoot_x)
 			if reached or actor.is_on_wall():
 				actor.velocity.x = 0.0

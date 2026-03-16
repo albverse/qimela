@@ -13,7 +13,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 		actor.velocity.x = 0.0
 		return RUNNING
 
-	var h_dist := abs(player.global_position.x - actor.global_position.x)
+	var h_dist: float = absf(player.global_position.x - actor.global_position.x)
 	if h_dist < 30.0:
 		actor.velocity.x = 0.0
 		boss.anim_play(&"phase2/idle", true)

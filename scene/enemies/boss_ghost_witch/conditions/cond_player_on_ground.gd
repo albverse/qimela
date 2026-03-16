@@ -14,7 +14,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 	if player is CharacterBody2D:
 		var p := player as CharacterBody2D
 		if p.is_on_floor():
-			var y_diff := abs(p.global_position.y - actor.global_position.y)
+			var y_diff: float = absf(p.global_position.y - actor.global_position.y)
 			if y_diff <= y_threshold:
 				return SUCCESS
 	return FAILURE

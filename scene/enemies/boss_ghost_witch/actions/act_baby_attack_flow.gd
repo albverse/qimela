@@ -105,7 +105,7 @@ func _tick_dash(boss: BossGhostWitch, to_player: bool) -> int:
 		# 冲刺回：跳过蓄力，直接播冲刺循环动画
 		boss.baby_anim_play(&"baby/dash_loop", true)
 
-	var dir := sign(target.x - baby.global_position.x)
+	var dir: float = signf(target.x - baby.global_position.x)
 	baby.global_position.x += dir * boss.baby_dash_speed * dt
 
 	# 冲刺期间检测碰撞伤害

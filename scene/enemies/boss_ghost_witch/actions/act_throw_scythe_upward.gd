@@ -18,7 +18,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 			var player := boss.get_priority_attack_target()
 			if player == null:
 				return FAILURE
-			var h_dist := abs(actor.global_position.x - player.global_position.x)
+			var h_dist: float = absf(actor.global_position.x - player.global_position.x)
 			if h_dist < 30.0:
 				actor.velocity.x = 0.0
 				_step = Step.THROW_UP

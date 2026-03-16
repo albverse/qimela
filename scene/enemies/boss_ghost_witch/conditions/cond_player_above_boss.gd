@@ -11,5 +11,5 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 	var player: Node2D = boss.get_priority_attack_target()
 	if player == null:
 		return FAILURE
-	var y_diff := actor.global_position.y - player.global_position.y
+	var y_diff: float = actor.global_position.y - player.global_position.y
 	return SUCCESS if y_diff > y_threshold else FAILURE

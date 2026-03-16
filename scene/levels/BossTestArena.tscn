@@ -1,13 +1,103 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scene/Player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
+[ext_resource type="Script" path="res://systems/weather_controller.gd" id="3_weather"]
+[ext_resource type="Shader" path="res://shaders/thunder_post_fx.gdshader" id="4_shader"]
+[ext_resource type="Script" path="res://scene/thunder_post_fx.gd" id="5_fx"]
+[ext_resource type="Texture2D" path="res://Thunder.png" id="6_thunder"]
+
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(1600, 80)
 [sub_resource type="RectangleShape2D" id="2"]
 size = Vector2(260, 20)
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_boss"]
+shader = ExtResource("4_shader")
+shader_parameter/amount = 0.608
+shader_parameter/flash = 0.097
+shader_parameter/contrast = 4.0
+shader_parameter/gray_low = 0.0
+shader_parameter/gray_high = 1.0
+shader_parameter/color_retain = 0.011
+shader_parameter/flash_strength = 0.18
+
+[sub_resource type="Animation" id="Animation_reset"]
+length = 0.001
+
+[sub_resource type="Animation" id="Animation_thunder"]
+resource_name = "thunder"
+tracks/0/type = "method"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.16666667),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": [],
+"method": &"anim_emit_thunder_burst"
+}]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Thunder:visible")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.13333334, 0.23333335, 0.26666668, 0.36666667, 0.40000004, 0.53333336, 0.5666667, 0.70000005, 0.73333335, 0.8333334, 0.8666667, 0.9666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [true, true, false, false, true, false, true, false, true, true, false, false]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_boss"]
+_data = {
+&"RESET": SubResource("Animation_reset"),
+&"thunder": SubResource("Animation_thunder")
+}
+
 [node name="BossTestArena" type="Node2D"]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer"]
+visible = false
+material = SubResource("ShaderMaterial_boss")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_fx")
+fall_time = 1.0
+
+[node name="WeatherController" type="Node" parent="."]
+script = ExtResource("3_weather")
+interval_min = 0.3
+interval_max = 1.0
+start_delay = 0.5
+thunder_fx_path = NodePath("../CanvasLayer/ThunderPostFX")
+thunder_add_seconds = 3.0
+
+[node name="ThunderTimer" type="Timer" parent="WeatherController"]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController"]
+libraries = {
+&"": SubResource("AnimationLibrary_boss")
+}
+
+[node name="Thunder" type="Sprite2D" parent="WeatherController"]
+visible = false
+z_index = -2
+position = Vector2(400, 200)
+scale = Vector2(0.4, 0.43)
+texture = ExtResource("6_thunder")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(0, 320)
