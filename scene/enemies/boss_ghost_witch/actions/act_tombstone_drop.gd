@@ -22,6 +22,7 @@ var _hover_end: float = 0.0
 var _stagger_end: float = 0.0
 var _hitbox_frame_count: int = 0
 var _cast_anim_done: bool = false
+var _throw_anim_started: bool = false
 var _last_debug_step: int = -1
 @export var debug_tombstone_log: bool = true
 
@@ -36,6 +37,7 @@ func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST
 	_hitbox_frame_count = 0
 	_cast_anim_done = false
+	_throw_anim_started = false
 	_rise_timer = 0.0
 	_fall_timer = 0.0
 	_ground_y = 0.0
@@ -105,12 +107,17 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			boss.anim_play(&"phase2/tombstone_hover", true)
 			if Time.get_ticks_msec() >= _hover_end:
 				_step = Step.THROW
+				_throw_anim_started = false
 				_dbg("HOVER->THROW now=%d hover_end=%d" % [Time.get_ticks_msec(), int(_hover_end)])
 			return RUNNING
 
 		Step.THROW:
 			actor.velocity = Vector2.ZERO
-			boss.anim_play(&"phase2/tombstone_throw", false)
+			# 非循环动画只播一次；若每帧重播会不断清空 finished 标记，导致永远无法进入 FALLING
+			if not _throw_anim_started:
+				boss.anim_play(&"phase2/tombstone_throw", false)
+				_throw_anim_started = true
+				_dbg("THROW start: play tombstone_throw once")
 			if boss.anim_is_finished(&"phase2/tombstone_throw"):
 				_fall_timer = 0.0
 				_step = Step.FALLING
@@ -183,5 +190,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_step = Step.CAST
 	_hitbox_frame_count = 0
 	_cast_anim_done = false
+	_throw_anim_started = false
 	_dbg("interrupt: reset to CAST")
 	super(actor, blackboard)
