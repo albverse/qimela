@@ -416,6 +416,8 @@ func baby_anim_is_finished(anim_name: StringName) -> bool:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
+	if String(anim_name).begins_with("phase2/tombstone"):
+		print("[BOSS_TOMBSTONE_ANIM] completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished)
 
 
 # ═══ Spine 事件处理（与修女蛇同款事件提取）═══

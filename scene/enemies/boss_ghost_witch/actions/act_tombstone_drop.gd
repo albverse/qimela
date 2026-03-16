@@ -1,11 +1,10 @@
-## 起手施法 → 平滑上升到玩家头上 → 渐显 → 悬停 → 幽灵投掷 → 下落 → 落地冲击 → 僵直
+## 起手施法 → 平滑上升到玩家头上 → 悬停 → 幽灵投掷 → 下落 → 落地冲击 → 僵直
 extends ActionLeaf
 class_name ActTombstoneDrop
 
 enum Step {
 	CAST,           # 地面起手施法动画
 	RISE,           # 施法播完 → 平滑上升到目标位置（替代瞬移）
-	APPEAR,         # 在空中渐显（慢慢出现）
 	HOVER,          # 空中静止悬停（短暂压迫感）
 	THROW,          # 被幽灵向下投掷的瞬间（发力表现）
 	FALLING,        # 高速下落循环
@@ -22,27 +21,46 @@ var _fall_timer: float = 0.0
 var _hover_end: float = 0.0
 var _stagger_end: float = 0.0
 var _hitbox_frame_count: int = 0
+var _cast_anim_done: bool = false
+var _throw_anim_started: bool = false
+var _last_debug_step: int = -1
+@export var debug_tombstone_log: bool = true
+
+
+func _dbg(msg: String) -> void:
+	if not debug_tombstone_log:
+		return
+	print("[BOSS_TOMBSTONE] ", msg)
+
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST
 	_hitbox_frame_count = 0
+	_cast_anim_done = false
+	_throw_anim_started = false
 	_rise_timer = 0.0
 	_fall_timer = 0.0
 	_ground_y = 0.0
 	_hover_end = 0.0
 	_stagger_end = 0.0
+	_last_debug_step = -1
+	_dbg("before_run: reset state -> CAST")
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
 	var dt := get_physics_process_delta_time()
+	if _last_debug_step != _step:
+		_last_debug_step = _step
+		_dbg("enter_step=%s pos=%s vel=%s" % [str(_step), str(actor.global_position), str(actor.velocity)])
 
 	match _step:
 		Step.CAST:
 			boss.anim_play(&"phase2/tombstone_cast", false)
 			var player := boss.get_priority_attack_target()
 			if player == null:
+				_dbg("CAST: player is null -> FAILURE")
 				return FAILURE
 			# 记录地面 Y（Boss 此时站在地面）
 			_ground_y = actor.global_position.y
@@ -52,16 +70,24 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				player.global_position.y - boss.tombstone_offset_y
 			)
 			_step = Step.RISE
+			_dbg("CAST->RISE target_pos=%s ground_y=%.2f" % [str(_target_pos), _ground_y])
 			return RUNNING
 
 		Step.RISE:
-			if not boss.anim_is_finished(&"phase2/tombstone_cast"):
-				return RUNNING
+			# 只在进入 RISE 的起始阶段等待一次 cast 完成，避免切到 rise 后再次检查 cast 导致永久 false
+			if not _cast_anim_done:
+				if not boss.anim_is_finished(&"phase2/tombstone_cast"):
+					_dbg("RISE waiting cast finish: anim_finished=false")
+					return RUNNING
+				_cast_anim_done = true
+				_dbg("RISE gate opened: cast finished")
+
 			# 首次进入 RISE：跳过基础物理（重力+碰撞），切换到上升动画
 			if _rise_timer == 0.0:
 				boss.skip_gravity_and_move = true
 				_rise_origin = actor.global_position
 				boss.anim_play(&"phase2/tombstone_rise", true)
+				_dbg("RISE start: origin=%s target=%s rise_duration=%.3f" % [str(_rise_origin), str(_target_pos), boss.tombstone_rise_duration])
 			actor.velocity = Vector2.ZERO
 			_rise_timer += dt
 			var t := clampf(_rise_timer / boss.tombstone_rise_duration, 0.0, 1.0)
@@ -70,30 +96,32 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			actor.global_position = _rise_origin.lerp(_target_pos, eased)
 			if t >= 1.0:
 				actor.global_position = _target_pos
-				_step = Step.APPEAR
+				_hover_end = Time.get_ticks_msec() + boss.tombstone_hover_duration * 1000.0
+				_step = Step.HOVER
+				_dbg("RISE->HOVER t=%.3f hover_end=%d" % [t, int(_hover_end)])
 			return RUNNING
 
-		Step.APPEAR:
-			actor.velocity = Vector2.ZERO
-			boss.anim_play(&"phase2/tombstone_appear", false)
-			if boss.anim_is_finished(&"phase2/tombstone_appear"):
-				_step = Step.HOVER
-				_hover_end = Time.get_ticks_msec() + boss.tombstone_hover_duration * 1000.0
-			return RUNNING
 
 		Step.HOVER:
 			actor.velocity = Vector2.ZERO
 			boss.anim_play(&"phase2/tombstone_hover", true)
 			if Time.get_ticks_msec() >= _hover_end:
 				_step = Step.THROW
+				_throw_anim_started = false
+				_dbg("HOVER->THROW now=%d hover_end=%d" % [Time.get_ticks_msec(), int(_hover_end)])
 			return RUNNING
 
 		Step.THROW:
 			actor.velocity = Vector2.ZERO
-			boss.anim_play(&"phase2/tombstone_throw", false)
+			# 非循环动画只播一次；若每帧重播会不断清空 finished 标记，导致永远无法进入 FALLING
+			if not _throw_anim_started:
+				boss.anim_play(&"phase2/tombstone_throw", false)
+				_throw_anim_started = true
+				_dbg("THROW start: play tombstone_throw once")
 			if boss.anim_is_finished(&"phase2/tombstone_throw"):
 				_fall_timer = 0.0
 				_step = Step.FALLING
+				_dbg("THROW->FALLING")
 			return RUNNING
 
 		Step.FALLING:
@@ -115,6 +143,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			# 到达地面或超时（3 秒保底）
 			if actor.global_position.y >= _ground_y or _fall_timer > 3.0:
 				actor.global_position.y = _ground_y
+				var step_reason := "ground_reached" if actor.global_position.y >= _ground_y else "timeout"
+				_dbg("FALLING->LAND reason=%s fall_timer=%.3f" % [step_reason, _fall_timer])
 				_step = Step.LAND
 				_hitbox_frame_count = 0
 				# 恢复基础物理（重力+碰撞）
@@ -130,6 +160,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				boss._set_hitbox_enabled(boss._ground_hitbox, false)
 				_stagger_end = Time.get_ticks_msec() + boss.tombstone_stagger_duration * 1000.0
 				_step = Step.STAGGER
+				_dbg("LAND->STAGGER stagger_end=%d" % int(_stagger_end))
 			_hitbox_frame_count += 1
 			return RUNNING
 
@@ -138,6 +169,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				boss.anim_play(&"phase2/idle", true)
 			if Time.get_ticks_msec() >= _stagger_end:
 				_set_cooldown(actor, blackboard, "cd_tombstone", boss.tombstone_drop_cooldown)
+				_dbg("STAGGER->SUCCESS set cd_tombstone")
 				return SUCCESS
 			return RUNNING
 	return FAILURE
@@ -157,4 +189,7 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 			actor.global_position.y = _ground_y
 	_step = Step.CAST
 	_hitbox_frame_count = 0
+	_cast_anim_done = false
+	_throw_anim_started = false
+	_dbg("interrupt: reset to CAST")
 	super(actor, blackboard)

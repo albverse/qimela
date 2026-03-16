@@ -28,7 +28,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_tug_instance = boss._ghost_tug_scene.instantiate()
 			_tug_instance.add_to_group("ghost_tug")
 			if _tug_instance.has_method("setup"):
-				_tug_instance.call("setup", player, boss)
+				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
 			# 生成在玩家位置，作为世界子节点
 			_tug_instance.global_position = player.global_position
 			boss.get_parent().add_child(_tug_instance)
