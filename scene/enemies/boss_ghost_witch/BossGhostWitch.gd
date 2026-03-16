@@ -287,11 +287,22 @@ func bt_move_toward_player(speed: float, anim_name: StringName) -> void:
 func bt_cast_phase2_skill(blackboard: Blackboard, cooldown_key: String, cooldown_sec: float, anim_name: StringName) -> int:
 	var actor_id := str(get_instance_id())
 	var now := Time.get_ticks_msec() / 1000.0
-	if _bt_skill_anim == anim_name and now < _bt_skill_end_sec:
+
+	# 当前技能正在执行
+	if _bt_skill_anim == anim_name:
 		velocity = Vector2.ZERO
-		return BT_RUNNING
+		if now < _bt_skill_end_sec:
+			return BT_RUNNING
+		_bt_skill_anim = &""
+		return BT_SUCCESS
+
+	# 其他技能正在执行，不抢占
+	if _bt_skill_anim != &"" and now < _bt_skill_end_sec:
+		return BT_FAILURE
+
 	if now * 1000.0 < blackboard.get_value(cooldown_key, 0.0, actor_id):
 		return BT_FAILURE
+
 	anim_play(anim_name, false)
 	_bt_skill_anim = anim_name
 	_bt_skill_end_sec = now + 0.8
@@ -309,6 +320,9 @@ func bt_spawn_ghost_bomb(blackboard: Blackboard) -> int:
 		if bomb is Node2D:
 			(bomb as Node2D).global_position = global_position + Vector2(randf_range(-80.0, 80.0), -20.0)
 			get_tree().current_scene.add_child(bomb)
+			var player := get_priority_attack_target()
+			if player != null and bomb.has_method("setup"):
+				bomb.call("setup", player)
 	return BT_SUCCESS
 
 func bt_phase3_combat() -> void:

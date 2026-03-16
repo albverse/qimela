@@ -94,6 +94,11 @@ script = ExtResource("3")
 [node name="CondP2In500" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
 script = ExtResource("14")
 range_px = 500.0
+[node name="NotIn300ForTomb" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
+script = ExtResource("4")
+[node name="CondP2In300ForTomb" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq/NotIn300ForTomb"]
+script = ExtResource("14")
+range_px = 300.0
 [node name="CondCDTomb" type="Node" parent="RootSelector/Phase2Seq/P2Selector/P2TombstoneSeq"]
 script = ExtResource("16")
 cooldown_key = "cd_tombstone"
