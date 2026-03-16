@@ -8,6 +8,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 	var player := boss.get_priority_attack_target()
 	if player == null:
+		actor.velocity.x = 0.0
+		boss.anim_play(&"phase1/idle", true)
 		return RUNNING
 
 	var h_dist: float = absf(player.global_position.x - actor.global_position.x)
@@ -20,3 +22,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		boss.face_toward(player)
 		boss.anim_play(&"phase1/walk", true)
 	return RUNNING  # 永远 RUNNING，让 SelectorReactive 重评估
+
+func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	if actor != null:
+		actor.velocity.x = 0.0
+	super(actor, blackboard)

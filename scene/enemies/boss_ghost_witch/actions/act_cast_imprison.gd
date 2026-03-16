@@ -12,6 +12,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.CAST_ANIM:
@@ -37,7 +38,7 @@ func _spawn_hell_hand(boss: BossGhostWitch) -> void:
 	var hand: Node2D = boss._hell_hand_scene.instantiate()
 	hand.add_to_group("hell_hand")
 	if hand.has_method("setup"):
-		hand.call("setup", player, boss, boss.p3_imprison_escape_time, boss.p3_imprison_stun_time)
+		hand.call("setup", player, boss, boss.p3_imprison_stun_time)
 	hand.global_position = player.global_position
 	boss.get_parent().add_child(hand)
 	boss._hell_hand_instance = hand

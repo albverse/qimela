@@ -13,23 +13,25 @@ const PHASE3_HP_THRESHOLD: int = 10
 @export var baby_dash_speed: float = 400.0
 @export var baby_post_dash_wait: float = 0.7
 @export var baby_return_speed: float = 500.0
-@export var start_attack_loop_duration: float = 2.0
+@export var start_attack_loop_duration: float = 4.0
 
 @export_group("Phase 2")
-@export var ghost_tug_cooldown: float = 8.0
-@export var ghost_tug_pull_speed: float = 200.0
+@export var ghost_tug_cooldown: float = 5.0
+@export var ghost_tug_pull_speed: float = 400.0
 @export var ghost_bomb_interval: float = 5.0
-@export var ghost_bomb_light_energy: float = 1.0
-@export var scythe_slash_cooldown: float = 3.0
-@export var tombstone_drop_cooldown: float = 10.0
-@export var tombstone_fall_duration: float = 0.6
-@export var tombstone_hover_duration: float = 1.0
-@export var tombstone_offset_x_range: float = 80.0
-@export var tombstone_offset_y: float = 200.0
-@export var tombstone_stagger_duration: float = 1.5
-@export var undead_wind_cooldown: float = 12.0
-@export var undead_wind_spawn_duration: float = 6.0
-@export var undead_wind_total_count: int = 8
+@export var ghost_bomb_max_count: int = 3
+@export var ghost_bomb_light_energy: float = 5.0
+@export var scythe_slash_cooldown: float = 1.0
+@export var tombstone_drop_cooldown: float = 3.0
+@export var tombstone_fall_duration: float = 0.5
+@export var tombstone_hover_duration: float = 0.5
+@export var tombstone_offset_x_range: float = 70.0
+@export var tombstone_offset_y: float = 400.0
+@export var tombstone_stagger_duration: float = 1.0
+@export var tombstone_rise_duration: float = 0.8
+@export var undead_wind_cooldown: float = 15.0
+@export var undead_wind_spawn_duration: float = 7.0
+@export var undead_wind_total_count: int = 10
 
 @export_group("Phase 3")
 @export var p3_move_speed: float = 120.0
@@ -57,15 +59,22 @@ var baby_state: int = BabyState.IN_HUG
 var _phase_transitioning: bool = false
 var _battle_started: bool = false
 var _baby_dash_go_triggered: bool = false
+var _baby_flight_target: Vector2 = Vector2.ZERO
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
 var _hell_hand_instance: Node2D = null
 var _player_imprisoned: bool = false
+var skip_gravity_and_move: bool = false  # tombstone 空中阶段跳过重力+碰撞
 
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
+
+# 婴儿石像动画状态跟踪（防止每帧重复 set_animation 导致动画永远无法完成）
+var _current_baby_anim: StringName = &""
+var _current_baby_anim_finished: bool = false
+var _current_baby_anim_loop: bool = false
 
 # 动画驱动（与修女蛇同款）
 var _anim_driver: AnimDriverSpine = null
@@ -172,22 +181,28 @@ func _physics_process(dt: float) -> void:
 	if _anim_mock:
 		_anim_mock.tick(dt)
 
+	# 重力 + 碰撞（空中技能期间跳过，避免穿透地面）
+	if not skip_gravity_and_move:
+		if not is_on_floor():
+			velocity.y += dt * 1200.0
+		else:
+			velocity.y = maxf(velocity.y, 0.0)
+		move_and_slide()
+
+	# ── 以下位置更新必须在 move_and_slide 之后 ──
+	# 否则 BabyStatue 等子节点的 global_position 会被 Boss 移动带偏
+
 	# 骨骼跟随
 	_update_bone_follow()
+
+	# 婴儿石像飞行（THROWN 状态下向目标移动）
+	_tick_baby_flight(dt)
 
 	# 婴儿石像位置管理
 	_update_halo_baby()
 
 	# 伤害判定
 	_update_damage_hitboxes()
-
-	# 重力
-	if not is_on_floor():
-		velocity.y += dt * 1200.0
-	else:
-		velocity.y = maxf(velocity.y, 0.0)
-
-	move_and_slide()
 	# 不调用 super._physics_process()
 	# BeehaveTree 由其自身 _physics_process 驱动
 
@@ -201,6 +216,20 @@ func _update_halo_baby() -> void:
 		_baby_statue.global_position = _mark_hale.global_position
 	elif baby_state == BabyState.IN_HUG:
 		_baby_statue.global_position = _mark_hug.global_position
+
+
+func _tick_baby_flight(dt: float) -> void:
+	if baby_state != BabyState.THROWN:
+		return
+	var baby := _baby_statue
+	if baby == null:
+		return
+	var dir := (_baby_flight_target - baby.global_position).normalized()
+	baby.global_position += dir * baby_throw_speed * dt
+	# 到达目标位置 → 落地爆炸
+	if baby.global_position.distance_to(_baby_flight_target) < 15.0:
+		baby.global_position = _baby_flight_target
+		baby_state = BabyState.EXPLODED
 
 
 func _update_damage_hitboxes() -> void:
@@ -262,19 +291,31 @@ func _begin_phase_transition(target: int) -> void:
 	hp_locked = true
 	velocity = Vector2.ZERO
 	if target == Phase.PHASE2:
-		anim_play(&"phase1/phase1_to_phase2", false)
+		# 播放过渡动画，等待 phase2_ready spine 事件完成过渡
 		baby_state = BabyState.HALO
-		_set_hitbox_enabled(_baby_real_hurtbox, true)
-		_set_hitbox_enabled(_real_hurtbox, true)
-		current_phase = Phase.PHASE2
-		_baby_statue.visible = false
-		anim_play(&"phase2/idle", true)
+		anim_play(&"phase1/phase1_to_phase2", false)
+		# phase2_ready 事件会调用 _finish_phase2_transition()
 	else:
+		# 清理 Phase 2 残留，播放过渡动画
 		_cleanup_phase2_instances()
 		anim_play(&"phase2/phase2_to_phase3", false)
-		current_phase = Phase.PHASE3
-		_scythe_in_hand = true
-		anim_play(&"phase3/idle", true)
+		# phase3_ready 事件会调用 _finish_phase3_transition()
+
+
+func _finish_phase2_transition() -> void:
+	current_phase = Phase.PHASE2
+	_set_hitbox_enabled(_baby_real_hurtbox, true)
+	_set_hitbox_enabled(_real_hurtbox, true)
+	_baby_statue.visible = false
+	anim_play(&"phase2/idle", true)
+	hp_locked = false
+	_phase_transitioning = false
+
+
+func _finish_phase3_transition() -> void:
+	current_phase = Phase.PHASE3
+	_scythe_in_hand = true
+	anim_play(&"phase3/idle", true)
 	hp_locked = false
 	_phase_transitioning = false
 
@@ -320,6 +361,12 @@ func anim_play(anim_name: StringName, loop: bool, _interruptible: bool = true) -
 func baby_anim_play(anim_name: StringName, loop: bool) -> void:
 	if _baby_spine == null:
 		return
+	# 去重：同名同循环且未完成 → 跳过，避免每帧重置动画
+	if _current_baby_anim == anim_name and not _current_baby_anim_finished and _current_baby_anim_loop == loop:
+		return
+	_current_baby_anim = anim_name
+	_current_baby_anim_finished = false
+	_current_baby_anim_loop = loop
 	# 婴儿直接通过 SpineSprite 的 AnimationState 播放
 	if _is_spine_sprite_compatible(_baby_spine):
 		var anim_state: Object = null
@@ -334,6 +381,12 @@ func anim_is_finished(anim_name: StringName) -> bool:
 
 
 func baby_anim_is_finished(anim_name: StringName) -> bool:
+	# 名称不匹配 → 不是我们关心的动画
+	if _current_baby_anim != anim_name:
+		return false
+	# 已经标记完成
+	if _current_baby_anim_finished:
+		return true
 	# 婴儿的完成检测通过轮询 SpineSprite 的 TrackEntry
 	if _baby_spine == null:
 		return true
@@ -355,6 +408,8 @@ func baby_anim_is_finished(anim_name: StringName) -> bool:
 		done = entry.is_complete()
 	elif entry.has_method("isComplete"):
 		done = entry.isComplete()
+	if done:
+		_current_baby_anim_finished = true
 	return done
 
 
@@ -371,14 +426,17 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# Phase 1 start_attack 事件
 		&"start_attack_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
 		&"start_attack_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
-		&"battle_start": _battle_started = true
-		&"baby_release": baby_state = BabyState.THROWN
-		&"throw_done": pass
+		# battle_start 事件不再在此设置 _battle_started
+		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
+		&"baby_release":
+			baby_state = BabyState.THROWN
+			baby_anim_play(&"baby/spin", true)
+		&"throw_done":
+			anim_play(&"phase1/idle_no_baby", true)
 		&"baby_return": baby_state = BabyState.IN_HUG
 		# Phase 1→2 过渡
 		&"phase2_ready":
-			_phase_transitioning = false
-			hp_locked = false
+			_finish_phase2_transition()
 		# Phase 2 事件
 		&"scythe_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
 		&"scythe_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
@@ -386,8 +444,7 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		&"ground_hitbox_off": _set_hitbox_enabled(_ground_hitbox, false)
 		# Phase 2→3 过渡
 		&"phase3_ready":
-			_phase_transitioning = false
-			hp_locked = false
+			_finish_phase3_transition()
 		# Phase 3 事件
 		&"kick_hitbox_on": _set_hitbox_enabled(_kick_hitbox, true)
 		&"kick_hitbox_off": _set_hitbox_enabled(_kick_hitbox, false)

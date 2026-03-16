@@ -23,6 +23,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 	var dt := get_physics_process_delta_time()
 
 	match _step:
@@ -86,6 +87,8 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_step = Step.CAST_ENTER
+	if actor != null:
+		actor.velocity.x = 0.0
 	var boss := actor as BossGhostWitch
 	if boss:
 		boss._set_realhurtbox_enabled(true)

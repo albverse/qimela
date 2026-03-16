@@ -6,6 +6,7 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 	if boss._phase_transitioning:
 		return RUNNING  # 变身动画还没播完，保持 RUNNING
 	return FAILURE  # 变身结束，让 CondPhaseTransitioning 失败，退出此分支

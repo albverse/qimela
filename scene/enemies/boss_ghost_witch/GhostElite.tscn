@@ -5,7 +5,9 @@
 radius = 16.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 28.0
-[node name="GhostElite" type="Node2D"]
+[node name="GhostElite" type="CharacterBody2D"]
+collision_layer = 0
+collision_mask = 0
 script = ExtResource("1")
 [node name="SpineSprite" type="SpineSprite" parent="."]
 skeleton_data_res = ExtResource("spine_data")

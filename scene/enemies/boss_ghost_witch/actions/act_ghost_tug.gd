@@ -7,6 +7,9 @@ enum Step { CAST, PULLING, SCYTHE_SLASH, DONE }
 var _step: int = Step.CAST
 var _tug_instance: Node2D = null
 
+## 镰刀攻击范围（像素），用距离判定代替 Area2D.monitoring
+@export var scythe_reach_px: float = 100.0
+
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST
 
@@ -14,6 +17,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.CAST:
@@ -24,21 +28,25 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_tug_instance = boss._ghost_tug_scene.instantiate()
 			_tug_instance.add_to_group("ghost_tug")
 			if _tug_instance.has_method("setup"):
-				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
-			player.add_child(_tug_instance)  # 绑定到玩家
+				_tug_instance.call("setup", player, boss)
+			# 生成在玩家位置，作为世界子节点
+			_tug_instance.global_position = player.global_position
+			boss.get_parent().add_child(_tug_instance)
 			_step = Step.PULLING
 			return RUNNING
 		Step.PULLING:
 			boss.anim_play(&"phase2/ghost_tug_loop", true)
-			# 检查拔河是否被打断（ghostfist 击中拔河检测点）
+			# 检查拔河是否被打断（ghostfist 击中）
 			if _tug_instance == null or not is_instance_valid(_tug_instance):
-				# 被打断
 				_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
 				return SUCCESS
-			# 检查玩家是否到达镰刀检测区
-			if _player_in_scythe_area(boss):
-				_destroy_tug()
-				_step = Step.SCYTHE_SLASH
+			# 用水平距离判定玩家是否到达镰刀范围
+			var player := boss.get_priority_attack_target()
+			if player != null:
+				var h_dist := absf(player.global_position.x - boss.global_position.x)
+				if h_dist <= scythe_reach_px:
+					_destroy_tug()
+					_step = Step.SCYTHE_SLASH
 			return RUNNING
 		Step.SCYTHE_SLASH:
 			boss.anim_play(&"phase2/scythe_slash", false)
@@ -48,12 +56,6 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				return SUCCESS
 			return RUNNING
 	return FAILURE
-
-func _player_in_scythe_area(boss: BossGhostWitch) -> bool:
-	for body in boss._scythe_detect_area.get_overlapping_bodies():
-		if body.is_in_group("player"):
-			return true
-	return false
 
 func _destroy_tug() -> void:
 	if _tug_instance != null and is_instance_valid(_tug_instance):

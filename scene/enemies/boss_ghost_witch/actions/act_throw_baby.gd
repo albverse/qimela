@@ -13,6 +13,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 	var actor_id := str(actor.get_instance_id())
 	var player: Node2D = blackboard.get_value("player", null, actor_id)
 
@@ -21,19 +22,23 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			if player == null:
 				return FAILURE
 			_target_pos = player.global_position
+			# 提前设置飞行目标，因为 baby_release 后 CondBabyInHug 失败会中断本 Action
+			boss._baby_flight_target = _target_pos
+			boss.face_toward(player)
 			boss.anim_play(&"phase1/throw", false)
 			_step = Step.WAIT_ANIM
 			return RUNNING
 		Step.WAIT_ANIM:
 			# 等待 Spine 事件 "baby_release" 触发
 			# 事件回调中会设置 boss.baby_state = BabyState.THROWN
+			# 此时 CondBabyInHug 会失败，SequenceReactive 会中断本 Action
+			# 飞行移动由 boss._tick_baby_flight() 在 _physics_process 中处理
 			if boss.baby_state == BossGhostWitch.BabyState.THROWN:
 				_step = Step.BABY_FLYING
 			return RUNNING
 		Step.BABY_FLYING:
-			# 婴儿飞行中播放旋转动画
-			boss.baby_anim_play(&"baby/spin", true)
-			# 婴儿撞到地面 → 自动进入 EXPLODED
+			# 飞行移动由 boss._tick_baby_flight() 在 _physics_process 中处理
+			# 婴儿到达目标 → 自动进入 EXPLODED
 			if boss.baby_state != BossGhostWitch.BabyState.THROWN:
 				return SUCCESS
 			return RUNNING
@@ -41,4 +46,6 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_step = Step.ANIM_THROW
+	if actor != null:
+		actor.velocity.x = 0.0
 	super(actor, blackboard)

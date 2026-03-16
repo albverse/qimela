@@ -29,6 +29,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	# 婴儿攻击流期间 Boss 本体不移动
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.EXPLODE:
@@ -71,10 +73,11 @@ func _tick_repair(boss: BossGhostWitch) -> int:
 func _tick_check_player(boss: BossGhostWitch) -> int:
 	# 检测玩家是否在 BabyDetectArea 范围内
 	var player_in_range: bool = false
-	for body in boss._baby_detect_area.get_overlapping_bodies():
-		if body.is_in_group("player"):
-			player_in_range = true
-			break
+	if boss._baby_detect_area.monitoring:
+		for body in boss._baby_detect_area.get_overlapping_bodies():
+			if body.is_in_group("player"):
+				player_in_range = true
+				break
 
 	if player_in_range:
 		_dash_origin = boss._baby_statue.global_position
@@ -108,10 +111,11 @@ func _tick_dash(boss: BossGhostWitch, to_player: bool) -> int:
 	var dir: float = signf(target.x - baby.global_position.x)
 	baby.global_position.x += dir * boss.baby_dash_speed * dt
 
-	# 冲刺期间检测碰撞伤害
-	for body in boss._baby_attack_area.get_overlapping_bodies():
-		if body.is_in_group("player") and body.has_method("apply_damage"):
-			body.call("apply_damage", 1, baby.global_position)
+	# 冲刺期间检测碰撞伤害（monitoring 由 Spine 事件 dash_hitbox_on 开启）
+	if boss._baby_attack_area.monitoring:
+		for body in boss._baby_attack_area.get_overlapping_bodies():
+			if body.is_in_group("player") and body.has_method("apply_damage"):
+				body.call("apply_damage", 1, baby.global_position)
 
 	if abs(target.x - baby.global_position.x) < 10.0:
 		baby.global_position.x = target.x
