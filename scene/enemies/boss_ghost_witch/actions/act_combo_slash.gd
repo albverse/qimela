@@ -12,6 +12,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.COMBO1:
@@ -49,6 +50,8 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_step = Step.COMBO1
+	if actor != null:
+		actor.velocity.x = 0.0
 	var boss := actor as BossGhostWitch
 	if boss:
 		boss._close_all_combo_hitboxes()

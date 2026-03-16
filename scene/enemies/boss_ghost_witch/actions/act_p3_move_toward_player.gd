@@ -25,3 +25,8 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 		boss.face_toward(player)
 		boss.anim_play(&"phase3/walk", true)
 	return RUNNING
+
+func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	if actor != null:
+		actor.velocity.x = 0.0
+	super(actor, blackboard)

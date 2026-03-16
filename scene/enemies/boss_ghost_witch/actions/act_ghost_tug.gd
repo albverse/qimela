@@ -14,6 +14,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 
 	match _step:
 		Step.CAST:
