@@ -36,4 +36,6 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_step = Step.PLAY
+	if actor != null:
+		actor.velocity.x = 0.0
 	super(actor, blackboard)

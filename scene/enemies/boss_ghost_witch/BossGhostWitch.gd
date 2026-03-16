@@ -298,6 +298,8 @@ func _begin_phase_transition(target: int) -> void:
 
 
 func _finish_phase2_transition() -> void:
+	if not _phase_transitioning:
+		return  # 幂等保护：已完成则跳过（spine 事件 + anim_completed 双保险可能重复调用）
 	current_phase = Phase.PHASE2
 	_set_hitbox_enabled(_baby_real_hurtbox, true)
 	_set_hitbox_enabled(_real_hurtbox, true)
@@ -308,6 +310,8 @@ func _finish_phase2_transition() -> void:
 
 
 func _finish_phase3_transition() -> void:
+	if not _phase_transitioning:
+		return  # 幂等保护
 	current_phase = Phase.PHASE3
 	_scythe_in_hand = true
 	anim_play(&"phase3/idle", true)
@@ -411,6 +415,13 @@ func baby_anim_is_finished(anim_name: StringName) -> bool:
 func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 	if anim_name == _current_anim:
 		_current_anim_finished = true
+	# 双保险：过渡动画播完后，即使 spine 事件未触发也强制完成过渡
+	# （遵循 SPINE_GODOT_LATEST_INTEGRATED_STANDARD §2.3：信号 + 轮询双保险）
+	if _phase_transitioning:
+		if anim_name == &"phase1/phase1_to_phase2":
+			_finish_phase2_transition()
+		elif anim_name == &"phase2/phase2_to_phase3":
+			_finish_phase3_transition()
 
 
 # ═══ Spine 事件处理（与修女蛇同款事件提取）═══
@@ -421,7 +432,8 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# Phase 1 start_attack 事件
 		&"start_attack_hitbox_on": _set_hitbox_enabled(_scythe_detect_area, true)
 		&"start_attack_hitbox_off": _set_hitbox_enabled(_scythe_detect_area, false)
-		&"battle_start": _battle_started = true
+		# battle_start 事件不再在此设置 _battle_started
+		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
 		&"baby_release":
 			baby_state = BabyState.THROWN
 			baby_anim_play(&"baby/spin", true)

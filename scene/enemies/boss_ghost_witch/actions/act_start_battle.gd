@@ -1,13 +1,14 @@
-## 首次检测到玩家 → start_attack → start_attack_loop(4s) → start_attack_exter → 战斗开始
+## Boss 出场静默等待 → 检测到玩家 → start_attack → start_attack_loop(4s) → start_attack_exter → 战斗开始
+## 玩家检测在 Action 内部处理，避免 SequenceReactive 重评估条件导致中断
 extends ActionLeaf
 class_name ActStartBattle
 
-enum Step { PLAY_START, WAIT_START, PLAY_LOOP, WAIT_LOOP, PLAY_EXTER, WAIT_EXTER, DONE }
-var _step: int = Step.PLAY_START
+enum Step { IDLE_WAIT, PLAY_START, WAIT_START, PLAY_LOOP, WAIT_LOOP, PLAY_EXTER, WAIT_EXTER, DONE }
+var _step: int = Step.IDLE_WAIT
 var _loop_end_time: float = 0.0
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
-	_step = Step.PLAY_START
+	_step = Step.IDLE_WAIT
 
 func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -17,6 +18,15 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	actor.velocity.x = 0.0
 
 	match _step:
+		Step.IDLE_WAIT:
+			# Boss 出场后保持静默，播放 idle 动画，等待首次检测到玩家
+			boss.anim_play(&"phase1/idle", true)
+			var player := boss.get_priority_attack_target()
+			if player != null:
+				var dist: float = absf(player.global_position.x - actor.global_position.x)
+				if dist <= boss.detect_range_px:
+					_step = Step.PLAY_START
+			return RUNNING
 		Step.PLAY_START:
 			boss.anim_play(&"phase1/start_attack", false)
 			_step = Step.WAIT_START
@@ -60,5 +70,5 @@ func _damage_player(boss: BossGhostWitch, amount: int) -> void:
 			body.call("apply_damage", amount, boss.global_position)
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
-	_step = Step.PLAY_START
+	_step = Step.IDLE_WAIT
 	super(actor, blackboard)

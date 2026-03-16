@@ -84,16 +84,14 @@ phase = 1
 [node name="Sel_P1Actions" type="Node" parent="RootSelector/Seq_Phase1"]
 script = ExtResource("selector_reactive")
 
-; P1: 战斗未开始 + 玩家在范围 → 开场动画
+; P1: 战斗未开始 → 出场静默等待 + 检测玩家 → 开场动画序列
+; 玩家检测由 ActStartBattle 内部 IDLE_WAIT 步骤处理，不放在 SequenceReactive 条件中
+; 避免玩家距离变化导致 SequenceReactive 重评估中断动画序列
 [node name="Seq_StartBattle" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
 script = ExtResource("sequence_reactive")
 
 [node name="Cond_NotStarted" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
 script = ExtResource("cond_battle_not_started")
-
-[node name="Cond_PlayerInRange_Start" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
-script = ExtResource("cond_player_in_range")
-range_px = 500.0
 
 [node name="Act_StartBattle" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_StartBattle"]
 script = ExtResource("act_start_battle")

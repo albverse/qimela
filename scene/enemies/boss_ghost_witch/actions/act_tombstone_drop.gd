@@ -29,6 +29,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	actor.velocity.x = 0.0
 	var dt := get_physics_process_delta_time()
 
 	match _step:
