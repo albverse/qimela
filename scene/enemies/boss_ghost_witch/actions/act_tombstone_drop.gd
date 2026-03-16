@@ -1,11 +1,10 @@
-## 起手施法 → 平滑上升到玩家头上 → 渐显 → 悬停 → 幽灵投掷 → 下落 → 落地冲击 → 僵直
+## 起手施法 → 平滑上升到玩家头上 → 悬停 → 幽灵投掷 → 下落 → 落地冲击 → 僵直
 extends ActionLeaf
 class_name ActTombstoneDrop
 
 enum Step {
 	CAST,           # 地面起手施法动画
 	RISE,           # 施法播完 → 平滑上升到目标位置（替代瞬移）
-	APPEAR,         # 在空中渐显（慢慢出现）
 	HOVER,          # 空中静止悬停（短暂压迫感）
 	THROW,          # 被幽灵向下投掷的瞬间（发力表现）
 	FALLING,        # 高速下落循环
@@ -70,16 +69,10 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			actor.global_position = _rise_origin.lerp(_target_pos, eased)
 			if t >= 1.0:
 				actor.global_position = _target_pos
-				_step = Step.APPEAR
+				_hover_end = Time.get_ticks_msec() + boss.tombstone_hover_duration * 1000.0
+				_step = Step.HOVER
 			return RUNNING
 
-		Step.APPEAR:
-			actor.velocity = Vector2.ZERO
-			boss.anim_play(&"phase2/tombstone_appear", false)
-			if boss.anim_is_finished(&"phase2/tombstone_appear"):
-				_step = Step.HOVER
-				_hover_end = Time.get_ticks_msec() + boss.tombstone_hover_duration * 1000.0
-			return RUNNING
 
 		Step.HOVER:
 			actor.velocity = Vector2.ZERO
