@@ -98,7 +98,7 @@ script = ExtResource("act_start_battle")
 
 ; P1: 抱着宝宝 + 玩家在范围 → 扔宝宝
 [node name="Seq_ThrowBaby" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_BabyInHug" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_ThrowBaby"]
 script = ExtResource("cond_baby_in_hug")
@@ -112,7 +112,7 @@ script = ExtResource("act_throw_baby")
 
 ; P1: 宝宝不在怀中 → 宝宝攻击流程
 [node name="Seq_BabyAttack" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_BabyNotInHug" type="Node" parent="RootSelector/Seq_Phase1/Sel_P1Actions/Seq_BabyAttack"]
 script = ExtResource("cond_baby_not_in_hug")
@@ -215,7 +215,7 @@ script = ExtResource("act_ghost_tug")
 
 ; P2 被动: 生成幽灵炸弹（场上数量未满 + 炸弹CD就绪）
 [node name="Seq_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_BombCanSpawn" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
 script = ExtResource("cond_ghost_bomb_can_spawn")
@@ -247,7 +247,7 @@ script = ExtResource("selector_reactive")
 
 ; P3 优先级1: 禁锢检测 → 奔跑斩击 / 追踪扔镰刀
 [node name="Seq_ImprisonReact" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_Imprisoned" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ImprisonReact"]
 script = ExtResource("cond_player_imprisoned")
@@ -256,7 +256,7 @@ script = ExtResource("cond_player_imprisoned")
 script = ExtResource("selector")
 
 [node name="Seq_RunSlashIfGround" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ImprisonReact/Sel_ImprisonReactAction"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_PlayerOnGround_RS" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ImprisonReact/Sel_ImprisonReactAction/Seq_RunSlashIfGround"]
 script = ExtResource("cond_player_on_ground")
@@ -269,7 +269,7 @@ script = ExtResource("act_throw_scythe_upward")
 
 ; P3 优先级2: 禁锢（玩家在地面 + CD就绪 + 镰刀在手）
 [node name="Seq_Imprison" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_PlayerOnGround" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Imprison"]
 script = ExtResource("cond_player_on_ground")
@@ -287,7 +287,7 @@ script = ExtResource("act_cast_imprison")
 
 ; P3 优先级3: 召唤幽灵（玩家在跳板 + ≤500px + CD就绪 + 镰刀在手）
 [node name="Seq_SummonGhosts" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_SummonPlatform" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_SummonGhosts"]
 script = ExtResource("cond_player_on_platform")
@@ -309,7 +309,7 @@ script = ExtResource("act_summon_ghosts")
 
 ; P3 优先级4: 冲刺攻击（300~500px + CD就绪 + 镰刀在手）
 [node name="Seq_DashAttack" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_DashMaxRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_DashAttack"]
 script = ExtResource("cond_player_in_range")
@@ -335,7 +335,7 @@ script = ExtResource("act_dash_attack")
 
 ; P3 优先级5: 三连斩（≤200px + 玩家在上方 + CD就绪 + 镰刀在手）
 [node name="Seq_ComboSlash" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_ComboRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ComboSlash"]
 script = ExtResource("cond_player_in_range")
@@ -357,7 +357,7 @@ script = ExtResource("act_combo_slash")
 
 ; P3 优先级6: 踢击（≤100px + 玩家在地面 + CD就绪 + 镰刀在手）
 [node name="Seq_Kick" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_KickRange" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_Kick"]
 script = ExtResource("cond_player_in_range")
@@ -379,7 +379,7 @@ script = ExtResource("act_kick")
 
 ; P3 优先级7: 扔镰刀（所有技能不可用 + 镰刀在手）
 [node name="Seq_ThrowScythe" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_AllP3Blocked" type="Node" parent="RootSelector/Seq_Phase3/Sel_P3Actions/Seq_ThrowScythe"]
 script = ExtResource("cond_all_p3_skills_blocked")
