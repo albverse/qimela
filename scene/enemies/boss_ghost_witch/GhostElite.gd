@@ -26,8 +26,8 @@ func _ready() -> void:
 	_spine = get_node_or_null("SpineSprite")
 	_attack_area = get_node_or_null("AttackArea")
 	if _attack_area != null:
-		_attack_area.monitoring = false
-		_attack_area.monitorable = false
+		_attack_area.set_deferred("monitoring", false)
+		_attack_area.set_deferred("monitorable", false)
 
 	if _spine != null:
 		if _spine.has_signal("animation_event"):
@@ -75,9 +75,10 @@ func apply_hit(hit: HitData) -> bool:
 	_dying = true
 	_attacking = false
 	if _attack_area != null:
-		_attack_area.monitoring = false
-		_attack_area.monitorable = false
+		_attack_area.set_deferred("monitoring", false)
+		_attack_area.set_deferred("monitorable", false)
 	_play_anim(&"death", false)
+	print("[GHOST_ELITE_DEBUG] hit by ghostfist, playing death anim")
 	return true
 
 
@@ -86,12 +87,12 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 	match e:
 		&"attack_hitbox_on":
 			if _attack_area != null:
-				_attack_area.monitoring = true
-				_attack_area.monitorable = true
+				_attack_area.set_deferred("monitoring", true)
+				_attack_area.set_deferred("monitorable", true)
 		&"attack_hitbox_off":
 			if _attack_area != null:
-				_attack_area.monitoring = false
-				_attack_area.monitorable = false
+				_attack_area.set_deferred("monitoring", false)
+				_attack_area.set_deferred("monitorable", false)
 
 
 func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
@@ -102,6 +103,7 @@ func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
 		_play_anim(&"move", true)
 	elif anim_name == &"death":
 		if _boss != null and is_instance_valid(_boss):
+			print("[GHOST_ELITE_DEBUG] death anim finished, calling boss.apply_real_damage(1), boss.hp=%d" % _boss.hp)
 			_boss.apply_real_damage(1)
 		queue_free()
 

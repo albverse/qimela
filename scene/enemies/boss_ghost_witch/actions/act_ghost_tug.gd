@@ -1,4 +1,5 @@
 ## 召唤幽灵拔河拉玩家到近身 → 镰刀斩检测区 → 吸力停 → 镰刀斩
+## GhostTug 生成在玩家附近（玩家到Boss方向偏移），面朝玩家
 ## 可被 ghostfist 打断
 extends ActionLeaf
 class_name ActGhostTug
@@ -29,9 +30,16 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_tug_instance.add_to_group("ghost_tug")
 			if _tug_instance.has_method("setup"):
 				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
-			# 生成在玩家位置，作为世界子节点
-			_tug_instance.global_position = player.global_position
+			# 生成在玩家附近（玩家到Boss方向偏移 60px），面朝玩家
+			var dir_to_boss: float = signf(boss.global_position.x - player.global_position.x)
+			if dir_to_boss == 0.0:
+				dir_to_boss = 1.0
+			_tug_instance.global_position = Vector2(
+				player.global_position.x + dir_to_boss * 60.0,
+				player.global_position.y
+			)
 			boss.get_parent().add_child(_tug_instance)
+			print("[ACT_GHOST_TUG_DEBUG] spawned tug at %s (boss=%s, player=%s)" % [_tug_instance.global_position, boss.global_position, player.global_position])
 			_step = Step.PULLING
 			return RUNNING
 		Step.PULLING:

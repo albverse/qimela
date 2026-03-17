@@ -14,6 +14,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	bomb.global_position = boss.global_position
 	boss.get_parent().add_child(bomb)
 	_set_cooldown(actor, blackboard, "cd_bomb", boss.ghost_bomb_interval)
+	print("[ACT_SPAWN_BOMB_DEBUG] bomb spawned at %s, cd=%.1fs" % [bomb.global_position, boss.ghost_bomb_interval])
 	return SUCCESS  # 立即完成，不是 RUNNING
 
 func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:

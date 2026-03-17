@@ -1,4 +1,7 @@
 ## 7秒内逐渐生成10只幽灵 + 随机时间生成1只精英亡灵
+## 普通亡灵在Boss身后随机位置生成，直线往前飞
+## 精英亡灵每次单次技能发动期间只能召唤一个
+## 精英亡灵被玩家打败 → boss.hp - 1（由 GhostElite._on_death 调用）
 ## 期间 realhurtbox 不可攻击
 extends ActionLeaf
 class_name ActUndeadWind
@@ -31,6 +34,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			boss.anim_play(&"phase2/undead_wind_cast", false)
 			boss._set_realhurtbox_enabled(false)  # 期间不可攻击
 			_step = Step.SPAWNING
+			print("[ACT_UNDEAD_WIND_DEBUG] cast_enter, elite_spawn_time=%.1f" % _elite_spawn_time)
 			return RUNNING
 		Step.SPAWNING:
 			boss.anim_play(&"phase2/undead_wind_loop", true)
@@ -44,7 +48,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 					_spawn_wraith(boss)
 					_spawn_count += 1
 
-			# 精英亡灵
+			# 精英亡灵（每次技能发动只召唤一个）
 			if not _elite_spawned and _spawn_timer >= _elite_spawn_time:
 				_spawn_elite(boss)
 				_elite_spawned = true
@@ -57,6 +61,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			boss._set_realhurtbox_enabled(true)  # 恢复可攻击
 			if boss.anim_is_finished(&"phase2/undead_wind_end"):
 				_set_cooldown(actor, blackboard, "cd_wind", boss.undead_wind_cooldown)
+				print("[ACT_UNDEAD_WIND_DEBUG] cast_end, spawned %d wraiths, elite=%s" % [_spawn_count, _elite_spawned])
 				return SUCCESS
 			return RUNNING
 	return FAILURE
@@ -67,10 +72,21 @@ func _spawn_wraith(boss: BossGhostWitch) -> void:
 	# 设置 type (1,2,3 循环)
 	var wraith_type := (_type_cycle % 3) + 1
 	_type_cycle += 1
+	var player := boss.get_priority_attack_target()
 	if wraith.has_method("setup"):
-		var player := boss.get_priority_attack_target()
 		wraith.call("setup", wraith_type, player, boss.global_position)
-	wraith.global_position = boss.global_position
+	# 在 Boss 身后随机位置生成（远离玩家方向）
+	var behind_dir: float = -1.0
+	if player != null:
+		behind_dir = -signf(player.global_position.x - boss.global_position.x)
+		if behind_dir == 0.0:
+			behind_dir = -1.0
+	var random_offset_x: float = behind_dir * randf_range(20.0, 80.0)
+	var random_offset_y: float = randf_range(-30.0, 30.0)
+	wraith.global_position = Vector2(
+		boss.global_position.x + random_offset_x,
+		boss.global_position.y + random_offset_y
+	)
 	boss.get_parent().add_child(wraith)
 
 func _spawn_elite(boss: BossGhostWitch) -> void:
@@ -79,8 +95,19 @@ func _spawn_elite(boss: BossGhostWitch) -> void:
 	if elite.has_method("setup"):
 		var player := boss.get_priority_attack_target()
 		elite.call("setup", player, boss)  # 传入 boss 引用，被击杀时扣 boss HP
-	elite.global_position = boss.global_position
+	# 精英亡灵在 Boss 身后生成
+	var player := boss.get_priority_attack_target()
+	var behind_dir: float = -1.0
+	if player != null:
+		behind_dir = -signf(player.global_position.x - boss.global_position.x)
+		if behind_dir == 0.0:
+			behind_dir = -1.0
+	elite.global_position = Vector2(
+		boss.global_position.x + behind_dir * 50.0,
+		boss.global_position.y
+	)
 	boss.get_parent().add_child(elite)
+	print("[ACT_UNDEAD_WIND_DEBUG] elite spawned at %s" % elite.global_position)
 
 func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 	bb.set_value(key, Time.get_ticks_msec() + cd * 1000.0, str(actor.get_instance_id()))
