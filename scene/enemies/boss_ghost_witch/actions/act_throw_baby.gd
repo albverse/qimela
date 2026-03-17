@@ -24,6 +24,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			_target_pos = player.global_position
 			# 提前设置飞行目标，因为 baby_release 后 CondBabyInHug 失败会中断本 Action
 			boss._baby_flight_target = _target_pos
+			print("[ACT_THROW_BABY_DEBUG] sample_target at cast_start player=%s boss=%s target=%s" % [player.global_position, boss.global_position, _target_pos])
 			boss.face_toward(player)
 			boss.anim_play(&"phase1/throw", false)
 			_step = Step.WAIT_ANIM

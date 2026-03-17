@@ -247,28 +247,28 @@ func _on_kick_hitbox_body_entered(body: Node2D) -> void:
 ```
 SelectorReactiveComposite [P3Selector]
 │
-├── SequenceReactiveComposite [P3ImprisonReactSeq]     ← 优先级 1：检测到禁锢
+├── SequenceComposite [P3ImprisonReactSeq]             ← 优先级 1：检测到禁锢
 │   ├── CondPlayerImprisoned
 │   └── SelectorComposite [P3ImprisonReactAction]
-│       ├── SequenceReactiveComposite [P3RunSlashIfGround]
+│       ├── SequenceComposite [P3RunSlashIfGround]
 │       │   ├── CondPlayerOnGround
 │       │   └── ActRunSlash
 │       └── ActThrowScytheUpward
 │
-├── SequenceReactiveComposite [P3ImprisonCastSeq]      ← 优先级 2：禁锢
+├── SequenceComposite [P3ImprisonCastSeq]              ← 优先级 2：禁锢
 │   ├── CondPlayerOnGround
 │   ├── CondCooldownReady (key="cd_imprison", cd=10)
 │   ├── CondScytheInHand
 │   └── ActCastImprison
 │
-├── SequenceReactiveComposite [P3SummonSeq]            ← 优先级 3：召唤幽灵
+├── SequenceComposite [P3SummonSeq]                    ← 优先级 3：召唤幽灵
 │   ├── CondPlayerOnPlatform
 │   ├── CondPlayerInRange (range=500)
 │   ├── CondCooldownReady (key="cd_summon", cd=p3_summon_cooldown)
 │   ├── CondScytheInHand
 │   └── ActSummonGhosts
 │
-├── SequenceReactiveComposite [P3DashSeq]              ← 优先级 4：冲刺
+├── SequenceComposite [P3DashSeq]                      ← 优先级 4：冲刺
 │   ├── CondPlayerInRange (range=500)
 │   ├── InverterDecorator
 │   │   └── CondPlayerInRange (range=300)
@@ -276,21 +276,21 @@ SelectorReactiveComposite [P3Selector]
 │   ├── CondScytheInHand
 │   └── ActDashAttack
 │
-├── SequenceReactiveComposite [P3ComboSeq]             ← 优先级 5：三连斩
+├── SequenceComposite [P3ComboSeq]                     ← 优先级 5：三连斩
 │   ├── CondPlayerInRange (range=200)
 │   ├── CondPlayerAboveBoss
 │   ├── CondCooldownReady (key="cd_combo", cd=1)
 │   ├── CondScytheInHand
 │   └── ActComboSlash
 │
-├── SequenceReactiveComposite [P3KickSeq]              ← 优先级 6：踢人
+├── SequenceComposite [P3KickSeq]                      ← 优先级 6：踢人
 │   ├── CondPlayerInRange (range=100)
 │   ├── CondPlayerOnGround
 │   ├── CondCooldownReady (key="cd_kick", cd=1)
 │   ├── CondScytheInHand
 │   └── ActKick
 │
-├── SequenceReactiveComposite [P3ThrowScytheSeq]       ← 优先级 7：扔镰刀
+├── SequenceComposite [P3ThrowScytheSeq]               ← 优先级 7：扔镰刀
 │   ├── CondAllP3SkillsOnCooldownOrBlocked
 │   ├── CondScytheInHand
 │   └── ActThrowScythe
@@ -301,6 +301,10 @@ SelectorReactiveComposite [P3Selector]
     │   └── ActP3MoveTowardPlayer
     └── ActP3IdleNoScythe                               ← 镰刀不在手 → 原地待机
 ```
+
+> 现行规则（与代码同步）：
+> - **攻击/施法分支统一采用 `SequenceComposite`（非响应式）**，技能一旦选中必须执行至 `SUCCESS/FAILURE` 才进行下一次技能选择。
+> - 仅保留阶段级与兜底移动等非攻击流使用响应式结构，用于实时阶段切换与状态维护。
 
 ---
 
@@ -1382,4 +1386,3 @@ func _cleanup_all_instances() -> void:
 ```
 
 ---
-

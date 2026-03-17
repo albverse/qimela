@@ -53,31 +53,30 @@ BeehaveTree
 ```
 SelectorReactiveComposite [P2Selector]
 │
-├── SequenceReactiveComposite [P2ScytheSlashSeq]     ← 优先级 1（最高）
+├── SequenceComposite [P2ScytheSlashSeq]             ← 优先级 1（最高）
 │   ├── CondPlayerInRange (range=100)
 │   ├── CondCooldownReady (key="cd_scythe", cooldown=scythe_slash_cooldown)
 │   └── ActScytheSlash
 │
-├── SequenceReactiveComposite [P2TombstoneSeq]       ← 优先级 2
+├── SequenceComposite [P2TombstoneSeq]               ← 优先级 2
 │   ├── CondPlayerInRange (range=500)
 │   ├── CondCooldownReady (key="cd_tombstone", cooldown=tombstone_drop_cooldown)
 │   └── ActTombstoneDrop
 │
-├── SequenceReactiveComposite [P2UndeadWindSeq]      ← 优先级 3
+├── SequenceComposite [P2UndeadWindSeq]              ← 优先级 3
 │   ├── CondPlayerInRange (range=300)
 │   ├── InverterDecorator
 │   │   └── CondPlayerInRange (range=100)             ← NOT: 100px以内不触发
 │   ├── CondCooldownReady (key="cd_wind", cooldown=undead_wind_cooldown)
 │   └── ActUndeadWind
 │
-├── SequenceReactiveComposite [P2GhostTugSeq]        ← 优先级 4
+├── SequenceComposite [P2GhostTugSeq]                ← 优先级 4
 │   ├── InverterDecorator
 │   │   └── CondPlayerInRange (range=500)             ← NOT: 500px以内不触发
 │   ├── CondCooldownReady (key="cd_tug", cooldown=ghost_tug_cooldown)
 │   └── ActGhostTug
 │
-├── SequenceReactiveComposite [P2PassiveBombSeq]     ← 被动技能（空闲时）
-│   ├── CondAllSkillsOnCooldown
+├── SequenceComposite [P2PassiveBombSeq]             ← 被动技能（空闲时）
 │   ├── CondGhostBombCanSpawn (max_count=3)
 │   ├── CondCooldownReady (key="cd_bomb", cooldown=ghost_bomb_interval)
 │   └── ActSpawnGhostBomb
@@ -92,7 +91,7 @@ SelectorReactiveComposite [P2Selector]
 100px < 距离 ≤ 300px → 先检查亡灵气流（cd=15s）; 冷却中 → 飞天砸落
 300px < 距离 ≤ 500px → 飞天砸落（cd=3s）; 冷却中 → 缓慢向玩家移动
 距离 > 500px       → 幽灵拔河（cd=5s）; 冷却中 → 缓慢向玩家移动
-所有技能冷却中     → 释放自爆幽灵 / 缓慢向玩家移动
+炸弹 CD 就绪且数量未满 → 释放自爆幽灵 / 否则缓慢向玩家移动
 任何时候玩家超出全部攻击检测范围 → 缓慢向玩家移动（SelectorReactive 自然落到末位兜底分支）
 ```
 
@@ -192,22 +191,8 @@ func tick(actor: Node, _bb: Blackboard) -> int:
     return SUCCESS if boss != null and not boss._battle_started else FAILURE
 ```
 
-#### CondAllSkillsOnCooldown
-
-```gdscript
-## Phase 2 用：检查所有主动技能是否都在冷却中
-class_name CondAllSkillsOnCooldown extends ConditionLeaf
-
-func tick(actor: Node, blackboard: Blackboard) -> int:
-    var actor_id := str(actor.get_instance_id())
-    var now_ms: float = Time.get_ticks_msec()
-    # 只要任意一个技能可用，就返回 FAILURE（不是"全部冷却中"）
-    for key in ["cd_scythe", "cd_tombstone", "cd_wind", "cd_tug"]:
-        var end_time: float = blackboard.get_value(key, 0.0, actor_id)
-        if now_ms >= end_time:
-            return FAILURE  # 有技能可用
-    return SUCCESS  # 全部冷却中
-```
+> `CondAllSkillsOnCooldown` 已从当前实现中移除（历史方案）。
+> 现版本的 `GhostBomb` 只依赖：`CondGhostBombCanSpawn + CondCooldownReady(cd_bomb)`。
 
 #### CondGhostBombCanSpawn
 
@@ -794,11 +779,11 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 #### ActGhostTug（幽灵拔河 — 攻击流2）
 
 ```gdscript
-## 召唤幽灵拔河拉玩家到近身 → 镰刀斩检测区 → 吸力停 → 镰刀斩
+## 召唤幽灵拔河拉玩家到近身（≤100px）→ 结束，交由行为树下一拍进入镰刀斩
 ## 可被 ghostfist 打断
 class_name ActGhostTug extends ActionLeaf
 
-enum Step { CAST, PULLING, SCYTHE_SLASH, DONE }
+enum Step { CAST, PULLING, DONE }
 var _step: int = Step.CAST
 var _tug_instance: Node2D = null
 
@@ -817,41 +802,39 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
             if player == null: return FAILURE
             _tug_instance = boss._ghost_tug_scene.instantiate()
             _tug_instance.add_to_group("ghost_tug")
+            # 生成在玩家→Boss方向偏移位置
+            var dir_to_boss: float = signf(boss.global_position.x - player.global_position.x)
+            if dir_to_boss == 0.0:
+                dir_to_boss = 1.0
+            _tug_instance.global_position = Vector2(player.global_position.x + dir_to_boss * 60.0, player.global_position.y)
             if _tug_instance.has_method("setup"):
                 _tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
-            player.add_child(_tug_instance)  # 绑定到玩家的 center3 位置
+            boss.get_parent().add_child(_tug_instance)
             _step = Step.PULLING
             return RUNNING
         Step.PULLING:
             boss.anim_play(&"phase2/ghost_tug_loop", true)
-            # 检查拔河是否被打断（ghostfist 击中拔河检测点）
+            # 检查拔河是否被打断（ghostfist 击中）
             if _tug_instance == null or not is_instance_valid(_tug_instance):
-                # 被打断
                 _set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
-                return SUCCESS  # 返回 SUCCESS 让 Selector 重评估
-            # 检查玩家是否到达镰刀检测区
-            if _player_in_scythe_area(boss):
+                return SUCCESS
+            # 用水平距离判定玩家是否到达 100px 近战区
+            var player := boss.get_priority_attack_target()
+            if player == null: return RUNNING
+            var h_dist := absf(player.global_position.x - boss.global_position.x)
+            if h_dist <= 100.0:
                 _destroy_tug()
-                _step = Step.SCYTHE_SLASH
-            return RUNNING
-        Step.SCYTHE_SLASH:
-            boss.anim_play(&"phase2/scythe_slash", false)
-            if boss.anim_is_finished(&"phase2/scythe_slash"):
                 _set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
-                _set_cooldown(actor, blackboard, "cd_scythe", boss.scythe_slash_cooldown)
                 return SUCCESS
             return RUNNING
     return FAILURE
 
-func _player_in_scythe_area(boss: BossGhostWitch) -> bool:
-    for body in boss._scythe_detect_area.get_overlapping_bodies():
-        if body.is_in_group("player"):
-            return true
-    return false
-
 func _destroy_tug() -> void:
     if _tug_instance != null and is_instance_valid(_tug_instance):
-        _tug_instance.queue_free()
+        if _tug_instance.has_method("begin_despawn"):
+            _tug_instance.call("begin_despawn", 0.5)
+        else:
+            _tug_instance.queue_free()
         _tug_instance = null
 
 func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:

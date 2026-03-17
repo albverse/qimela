@@ -205,7 +205,6 @@ func _connect_gf_signals() -> void:
 							break
 					_on_gf_anim_complete(target_node, track_entry if track_entry else a1)
 			)
-	print("[PA_TEST] _connect_gf_signals complete, L=%s R=%s" % [_gf_L != null, _gf_R != null])
 
 
 
@@ -226,7 +225,6 @@ func _find_spine_event(a1, a2, a3, a4):
 
 
 func _on_gf_spine_event(ss: SpineSprite, event: SpineEvent) -> void:
-	print("[PA_TEST] _on_gf_spine_event CALLED! ss=%s event=%s" % [ss.name if ss else "null", event != null])
 	
 	if _ghost_fist == null:
 		return
