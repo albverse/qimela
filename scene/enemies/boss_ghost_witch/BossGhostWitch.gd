@@ -64,6 +64,7 @@ var _baby_flight_dir: Vector2 = Vector2.ZERO
 var _baby_flight_timer: float = 0.0
 const BABY_FLIGHT_TIMEOUT: float = 2.0
 const BABY_FLIGHT_HIT_RADIUS: float = 30.0
+const BABY_GROUND_TOUCH_MAX_DIST: float = 10.0
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -249,20 +250,23 @@ func _tick_baby_flight(dt: float) -> void:
 	_baby_flight_timer += dt
 	var prev_pos := baby.global_position
 	var next_pos := prev_pos + _baby_flight_dir * baby_throw_speed * dt
+	var delta := next_pos - prev_pos
+	var prev_probe := _get_baby_flight_probe_pos()
+	var next_probe := prev_probe + delta
 
 	# 先处理玩家碰撞（只允许玩家/地面触发爆炸）
 	var player := get_priority_attack_target()
 	if player != null and is_instance_valid(player):
-		if next_pos.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+		if next_probe.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
 			baby.global_position = next_pos
 			baby_state = BabyState.EXPLODED
 			_baby_flight_dir = Vector2.ZERO
-			print("[BABY_THROW_DEBUG] collide player => explode pos=%s timer=%.3f" % [baby.global_position, _baby_flight_timer])
+			print("[BABY_THROW_DEBUG] collide player => explode pos=%s probe=%s timer=%.3f" % [baby.global_position, next_probe, _baby_flight_timer])
 			return
 
-	# 地面碰撞检测：仅接受 Ground，不接受 PlatformA/B/C（避免空中平台误触发）
+	# 地面碰撞检测：使用骨骼 core 探针，避免 Node2D 原点误差导致空爆
 	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(prev_pos, next_pos)
+	var q := PhysicsRayQueryParameters2D.create(prev_probe, next_probe)
 	q.collide_with_bodies = true
 	q.collide_with_areas = false
 	q.collision_mask = 1  # World(1)
@@ -280,17 +284,23 @@ func _tick_baby_flight(dt: float) -> void:
 			collider_class = str(collider.get_class())
 			if "collision_layer" in collider:
 				collider_layer = int(collider.collision_layer)
-		var is_platform_abc := collider_name in ["PlatformA", "PlatformB", "PlatformC"]
-		if is_platform_abc:
-			# 明确忽略 PlatformABC 碰撞，让婴儿继续飞行
+		var is_platform := _is_baby_platform_collider(collider, collider_name)
+		if is_platform:
 			baby.global_position = next_pos
-			print("[BABY_THROW_DEBUG] ignored PlatformABC collision: collider=%s class=%s layer=%s pos=%s" % [collider_name, collider_class, collider_layer, hit.get("position", Vector2.ZERO)])
+			print("[BABY_THROW_DEBUG] ignored platform collision: collider=%s class=%s layer=%s probe_hit=%s probe_from=%s probe_to=%s" % [collider_name, collider_class, collider_layer, hit.get("position", Vector2.ZERO), prev_probe, next_probe])
 		else:
-			baby.global_position = hit.get("position", next_pos)
-			baby_state = BabyState.EXPLODED
-			_baby_flight_dir = Vector2.ZERO
-			print("[BABY_THROW_DEBUG] collide world=>explode collider=%s class=%s layer=%s from=%s to=%s hit=%s timer=%.3f" % [collider_name, collider_class, collider_layer, prev_pos, next_pos, baby.global_position, _baby_flight_timer])
-			return
+			var hit_pos: Vector2 = hit.get("position", next_probe)
+			var is_ground: bool = (collider_name == "Ground")
+			var probe_gap_to_ground: float = hit_pos.y - next_probe.y
+			if is_ground and probe_gap_to_ground > BABY_GROUND_TOUCH_MAX_DIST:
+				baby.global_position = next_pos
+				print("[BABY_THROW_DEBUG] skip early-ground-hit gap=%.2f > %.2f collider=%s probe_from=%s probe_to=%s probe_hit=%s" % [probe_gap_to_ground, BABY_GROUND_TOUCH_MAX_DIST, collider_name, prev_probe, next_probe, hit_pos])
+			else:
+				baby.global_position = hit_pos - (next_probe - next_pos)
+				baby_state = BabyState.EXPLODED
+				_baby_flight_dir = Vector2.ZERO
+				print("[BABY_THROW_DEBUG] collide world=>explode collider=%s class=%s layer=%s probe_from=%s probe_to=%s probe_hit=%s node_pos=%s timer=%.3f" % [collider_name, collider_class, collider_layer, prev_probe, next_probe, hit_pos, baby.global_position, _baby_flight_timer])
+				return
 	else:
 		baby.global_position = next_pos
 
@@ -300,6 +310,28 @@ func _tick_baby_flight(dt: float) -> void:
 		_baby_flight_dir = Vector2.ZERO
 		print("[BABY_THROW_DEBUG] timeout %.3fs without collision => returning" % _baby_flight_timer)
 		return
+
+
+func _get_baby_flight_probe_pos() -> Vector2:
+	# 用 core 骨骼作为碰撞探针，减少 Node 原点与立绘偏移造成的误判
+	var core_pos: Vector2 = _get_baby_bone_world_position("core")
+	if core_pos != Vector2.ZERO:
+		return core_pos
+	return _baby_statue.global_position
+
+
+func _is_baby_platform_collider(collider: Object, collider_name: String) -> bool:
+	if collider_name.begins_with("Platform"):
+		return true
+	if collider == null:
+		return false
+	# BossTestArena 的平台脚本
+	var script_ref: Script = collider.get_script() if collider.has_method("get_script") else null
+	if script_ref != null:
+		var script_path := String(script_ref.resource_path)
+		if script_path.ends_with("scene/levels/collapsing_platform.gd"):
+			return true
+	return false
 
 
 func _update_damage_hitboxes() -> void:
