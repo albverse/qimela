@@ -35,6 +35,34 @@ var slot_L_available: bool:
 			return true
 		return chains[1].state == ChainState.IDLE
 
+func _resolve_chain_hit_host(collider_obj: Object) -> Node:
+	var col_node: Node = collider_obj as Node
+	if col_node == null:
+		return null
+	var host_node: Node = col_node
+	if col_node.is_in_group("enemy_hurtbox") and col_node.has_method("get_host"):
+		var h: Node = col_node.call("get_host") as Node
+		if h != null:
+			host_node = h
+	if col_node is Area2D and (not col_node.is_in_group("enemy_hurtbox")):
+		var parent_node: Node = (col_node as Area2D).get_parent()
+		if parent_node != null:
+			host_node = parent_node
+	return host_node
+
+
+func _is_chain_ignored_target(node: Node) -> bool:
+	if node == null:
+		return false
+	if node.is_in_group("boss_ghost_witch_summoned_ghost"):
+		return true
+	# 兜底：直接按各幽灵分组兜住旧资源
+	for g in ["ghost_elite", "ghost_wraith", "ghost_summon", "ghost_bomb", "ghost_tug"]:
+		if node.is_in_group(g):
+			return true
+	return false
+
+
 class ChainHitResolver:
 	var system: PlayerChainSystem
 
@@ -49,7 +77,22 @@ class ChainHitResolver:
 		c.ray_q_interact.from = prev_pos
 		c.ray_q_interact.to = end_pos
 
-		var hit_interact: Dictionary = space.intersect_ray(c.ray_q_interact)
+		var hit_interact: Dictionary = {}
+		var ex_interact: Array[RID] = [system.player.get_rid()]
+		for _i: int in range(6):
+			c.ray_q_interact.exclude = ex_interact
+			var hi: Dictionary = space.intersect_ray(c.ray_q_interact)
+			if hi.size() == 0:
+				break
+			var col_obj_i: Object = hi.get("collider")
+			var col_i: CollisionObject2D = col_obj_i as CollisionObject2D
+			var host_i: Node = system._resolve_chain_hit_host(col_obj_i)
+			if system._is_chain_ignored_target(host_i):
+				if col_i != null:
+					ex_interact.append(col_i.get_rid())
+				continue
+			hit_interact = hi
+			break
 
 		var hit_block: Dictionary = {}
 		var block_pos: Vector2 = Vector2.ZERO
@@ -66,6 +109,11 @@ class ChainHitResolver:
 				if (col_b.collision_layer & system.player.chain_interact_mask) != 0:
 					ex.append(col_b.get_rid())
 					continue
+			var host_b: Node = system._resolve_chain_hit_host(col_obj_b)
+			if system._is_chain_ignored_target(host_b):
+				if col_b != null:
+					ex.append(col_b.get_rid())
+				continue
 
 			hit_block = hb
 			block_pos = hb["position"]
@@ -676,6 +724,10 @@ func _handle_interact_area(slot: int, area: Area2D, source: String) -> void:
 	else:
 		host = area.get_parent()
 	if host == null:
+		return
+	if _is_chain_ignored_target(host):
+		if debug_interact:
+			print("[ChainInteract] ignored boss ghost host=%s" % host.name)
 		return
 
 	if host.has_method("on_chain_hit"):
