@@ -195,7 +195,7 @@ script = ExtResource("act_undead_wind")
 
 ; P2 优先级4: 幽灵拖拽（玩家远距离 >500px + CD就绪）
 [node name="Seq_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Inv_TugRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
 script = ExtResource("inverter")

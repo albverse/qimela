@@ -80,6 +80,14 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 	bb.set_value(key, Time.get_ticks_msec() + cd * 1000.0, str(actor.get_instance_id()))
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	var boss := actor as BossGhostWitch
+	var player: Node2D = null
+	var h_dist: float = -1.0
+	if boss != null:
+		player = boss.get_priority_attack_target()
+		if player != null:
+			h_dist = absf(player.global_position.x - boss.global_position.x)
+	print("[ACT_GHOST_TUG_DEBUG] interrupt step=%d h_dist=%.2f boss=%s player=%s tug_valid=%s" % [_step, h_dist, boss.global_position if boss != null else Vector2.ZERO, player.global_position if player != null else Vector2.ZERO, _tug_instance != null and is_instance_valid(_tug_instance)])
 	_destroy_tug()
 	_step = Step.CAST
 	super(actor, blackboard)
