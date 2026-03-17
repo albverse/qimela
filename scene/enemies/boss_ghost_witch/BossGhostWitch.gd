@@ -65,6 +65,7 @@ var _baby_flight_timer: float = 0.0
 const BABY_FLIGHT_TIMEOUT: float = 2.0
 const BABY_FLIGHT_HIT_RADIUS: float = 30.0
 const BABY_GROUND_TOUCH_MAX_DIST: float = 10.0
+var _waiting_phase3_gate: bool = false
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -208,6 +209,10 @@ func _physics_process(dt: float) -> void:
 
 	# 伤害判定
 	_update_damage_hitboxes()
+	# Phase 3 状态诊断日志（每 120 帧 ≈ 2秒输出一次）
+	if current_phase == Phase.PHASE3 and Engine.get_physics_frames() % 120 == 0:
+		print("[BOSS_P3_DIAG] phase=%d transitioning=%s hp_locked=%s scythe=%s anim=%s anim_finished=%s vx=%.1f pos=%s" % [current_phase, _phase_transitioning, hp_locked, _scythe_in_hand, _current_anim, _current_anim_finished, velocity.x, global_position])
+
 	# 不调用 super._physics_process()
 	# BeehaveTree 由其自身 _physics_process 驱动
 
@@ -230,9 +235,13 @@ func _tick_baby_flight(dt: float) -> void:
 	if baby == null:
 		return
 
-	# 首帧计算飞行方向（从当前位置朝目标方向，之后不再改变）
+	# 首帧计算飞行方向（从骨骼探针位置朝目标方向，之后不再改变）
+	# 必须使用 probe（core 骨骼）而非 baby.global_position（node 原点）
+	# 两者有 ~120px Y 偏移，用 node 原点会导致飞行方向偏离目标
 	if _baby_flight_dir == Vector2.ZERO:
-		var to_target := _baby_flight_target - baby.global_position
+		var probe_start := _get_baby_flight_probe_pos()
+		var to_target := _baby_flight_target - probe_start
+		print("[BABY_THROW_DEBUG] calc_dir: probe_start=%s node_pos=%s target=%s to_target=%s" % [probe_start, baby.global_position, _baby_flight_target, to_target])
 		if to_target.length() <= 0.01:
 			# 避免目标点与当前位置重合导致方向为零，改为朝玩家方向飞
 			var p := get_priority_attack_target()
@@ -406,10 +415,11 @@ func _begin_phase_transition(target: int) -> void:
 		anim_play(&"phase1/phase1_to_phase2", false)
 		# phase2_ready 事件会调用 _finish_phase2_transition()
 	else:
-		# 清理 Phase 2 残留，播放过渡动画
+		# 清理 Phase 2 残留，播放死亡动画并等待外部信号门控
 		_cleanup_phase2_instances()
-		anim_play(&"phase2/phase2_to_phase3", false)
-		# phase3_ready 事件会调用 _finish_phase3_transition()
+		_waiting_phase3_gate = false
+		anim_play(&"phase2/death", false)
+		# phase2/death 播放完毕后保持末尾帧，等待 trigger_phase3_transition() 被调用
 
 
 func _finish_phase2_transition() -> void:
@@ -422,12 +432,27 @@ func _finish_phase2_transition() -> void:
 	_phase_transitioning = false
 
 
+func trigger_phase3_transition() -> void:
+	## 外部信号门控：收到信号后从 phase2/death 末尾帧过渡到 phase3
+	print("[BOSS_P3_GATE_DEBUG] trigger_phase3_transition called: _phase_transitioning=%s _waiting_phase3_gate=%s current_phase=%s" % [_phase_transitioning, _waiting_phase3_gate, current_phase])
+	if not _phase_transitioning:
+		return
+	if _waiting_phase3_gate:
+		return  # 已经触发过，防止重复调用
+	_waiting_phase3_gate = true
+	anim_play(&"phase2/phase2_to_phase3", false)
+	print("[BOSS_P3_GATE_DEBUG] playing phase2/phase2_to_phase3, waiting for phase3_ready event")
+	# phase3_ready spine 事件会调用 _finish_phase3_transition()
+
+
 func _finish_phase3_transition() -> void:
+	print("[BOSS_P3_GATE_DEBUG] _finish_phase3_transition called! Entering Phase 3")
 	current_phase = Phase.PHASE3
 	_scythe_in_hand = true
 	anim_play(&"phase3/idle", true)
 	hp_locked = false
 	_phase_transitioning = false
+	_waiting_phase3_gate = false
 
 
 func _cleanup_phase2_instances() -> void:
@@ -546,11 +571,18 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
 		&"baby_release":
 			# 在真正 release 帧重新采样玩家位置，避免抛出目标滞后导致偏移
-			var p := get_priority_attack_target()
+			# 必须使用 player 组获取真实玩家，不可用 get_priority_attack_target()
+			# 后者可能返回奇美拉等非玩家目标导致目标点偏移
+			var players := get_tree().get_nodes_in_group("player")
+			var p: Node2D = null
+			if not players.is_empty():
+				p = players[0] as Node2D
+			var attack_target := get_priority_attack_target()
 			if p != null:
 				var old_target := _baby_flight_target
 				_baby_flight_target = p.global_position
-				print("[BABY_THROW_TARGET_DEBUG] refresh_on_release old=%s new=%s player=%s boss=%s delta=%.2f" % [old_target, _baby_flight_target, p.global_position, global_position, old_target.distance_to(_baby_flight_target)])
+				var target_mismatch := (attack_target != p)
+				print("[BABY_THROW_TARGET_DEBUG] refresh_on_release old=%s new=%s player=%s attack_target=%s attack_target_pos=%s target_mismatch=%s boss=%s baby_pos=%s" % [old_target, _baby_flight_target, p.global_position, attack_target.name if attack_target != null else "null", attack_target.global_position if attack_target != null else Vector2.ZERO, target_mismatch, global_position, _baby_statue.global_position])
 			baby_state = BabyState.THROWN
 			_baby_flight_dir = Vector2.ZERO  # 让 _tick_baby_flight 首帧重新计算方向
 			_baby_flight_timer = 0.0

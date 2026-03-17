@@ -6,6 +6,8 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
 	if boss == null:
 		return FAILURE
+	if Engine.get_physics_frames() % 120 == 0:
+		print("[ACT_P3_MOVE_DIAG] tick: phase=%d scythe=%s anim=%s vx=%.1f" % [boss.current_phase, boss._scythe_in_hand, boss._current_anim, boss.velocity.x])
 	if not boss._scythe_in_hand:
 		actor.velocity.x = 0.0
 		boss.anim_play(&"phase3/idle_no_scythe", true)

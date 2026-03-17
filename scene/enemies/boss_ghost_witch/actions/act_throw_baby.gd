@@ -19,13 +19,21 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 	match _step:
 		Step.ANIM_THROW:
-			if player == null:
+			# 必须使用 player 组获取真实玩家节点，blackboard 中的 player 可能为空或偏移
+			var real_player: Node2D = null
+			var players := boss.get_tree().get_nodes_in_group("player")
+			if not players.is_empty():
+				real_player = players[0] as Node2D
+			if real_player == null:
+				print("[ACT_THROW_BABY_DEBUG] FAIL: no player found in 'player' group")
 				return FAILURE
-			_target_pos = player.global_position
+			_target_pos = real_player.global_position
 			# 提前设置飞行目标，因为 baby_release 后 CondBabyInHug 失败会中断本 Action
 			boss._baby_flight_target = _target_pos
-			print("[ACT_THROW_BABY_DEBUG] sample_target at cast_start player=%s boss=%s target=%s" % [player.global_position, boss.global_position, _target_pos])
-			boss.face_toward(player)
+			var bb_player_pos: Vector2 = player.global_position if player != null else Vector2.ZERO
+			var bb_mismatch := (player != real_player)
+			print("[ACT_THROW_BABY_DEBUG] sample_target at cast_start real_player=%s bb_player=%s bb_mismatch=%s boss=%s target=%s" % [real_player.global_position, bb_player_pos, bb_mismatch, boss.global_position, _target_pos])
+			boss.face_toward(real_player)
 			boss.anim_play(&"phase1/throw", false)
 			_step = Step.WAIT_ANIM
 			return RUNNING
