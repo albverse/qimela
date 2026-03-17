@@ -17,6 +17,7 @@ var _step_entered: bool = false
 var _cast_end_wait_frames: int = 0
 var _cast_end_wait_sec: float = 0.0
 var _last_cast_end_anim: StringName = &""
+var _cast_end_anim_started: bool = false
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST_ENTER
@@ -29,6 +30,7 @@ func before_run(actor: Node, _bb: Blackboard) -> void:
 	_cast_end_wait_frames = 0
 	_cast_end_wait_sec = 0.0
 	_last_cast_end_anim = &""
+	_cast_end_anim_started = false
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -71,7 +73,13 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				_step_entered = false
 			return RUNNING
 		Step.CAST_END:
-			boss.anim_play(&"phase2/undead_wind_end", false)
+			if not _cast_end_anim_started:
+				boss.anim_play(&"phase2/undead_wind_end", false)
+				_cast_end_anim_started = true
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END start_play anim=%s finished=%s" % [boss._current_anim, boss._current_anim_finished])
+			elif boss._current_anim != &"phase2/undead_wind_end":
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END anim_drift detected current=%s, replay undead_wind_end" % boss._current_anim)
+				boss.anim_play(&"phase2/undead_wind_end", false)
 			boss._set_realhurtbox_enabled(true)  # 恢复可攻击
 			_cast_end_wait_frames += 1
 			_cast_end_wait_sec += dt
@@ -140,6 +148,7 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	_cast_end_wait_frames = 0
 	_cast_end_wait_sec = 0.0
 	_last_cast_end_anim = &""
+	_cast_end_anim_started = false
 	if actor != null:
 		actor.velocity.x = 0.0
 	var boss := actor as BossGhostWitch

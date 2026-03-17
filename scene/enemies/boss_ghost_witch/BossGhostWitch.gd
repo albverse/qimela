@@ -545,6 +545,12 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# battle_start 事件不再在此设置 _battle_started
 		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
 		&"baby_release":
+			# 在真正 release 帧重新采样玩家位置，避免抛出目标滞后导致偏移
+			var p := get_priority_attack_target()
+			if p != null:
+				var old_target := _baby_flight_target
+				_baby_flight_target = p.global_position
+				print("[BABY_THROW_TARGET_DEBUG] refresh_on_release old=%s new=%s player=%s boss=%s delta=%.2f" % [old_target, _baby_flight_target, p.global_position, global_position, old_target.distance_to(_baby_flight_target)])
 			baby_state = BabyState.THROWN
 			_baby_flight_dir = Vector2.ZERO  # 让 _tick_baby_flight 首帧重新计算方向
 			_baby_flight_timer = 0.0
