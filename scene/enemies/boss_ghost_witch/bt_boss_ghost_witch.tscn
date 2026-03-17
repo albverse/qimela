@@ -17,7 +17,6 @@
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_in_range.gd" id="cond_player_in_range"]
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_cooldown_ready.gd" id="cond_cooldown_ready"]
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_ghost_bomb_can_spawn.gd" id="cond_ghost_bomb_can_spawn"]
-[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_all_skills_on_cooldown.gd" id="cond_all_skills_on_cooldown"]
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_all_p3_skills_blocked.gd" id="cond_all_p3_skills_blocked"]
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_scythe_in_hand.gd" id="cond_scythe_in_hand"]
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/conditions/cond_player_imprisoned.gd" id="cond_player_imprisoned"]
@@ -213,12 +212,9 @@ cooldown_sec = 5.0
 [node name="Act_GhostTug" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_GhostTug"]
 script = ExtResource("act_ghost_tug")
 
-; P2 被动: 生成幽灵炸弹（所有技能CD中 + 场上数量未满 + 炸弹CD就绪）
+; P2 被动: 生成幽灵炸弹（场上数量未满 + 炸弹CD就绪）
 [node name="Seq_SpawnBomb" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
 script = ExtResource("sequence_reactive")
-
-[node name="Cond_AllOnCD" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
-script = ExtResource("cond_all_skills_on_cooldown")
 
 [node name="Cond_BombCanSpawn" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_SpawnBomb"]
 script = ExtResource("cond_ghost_bomb_can_spawn")
