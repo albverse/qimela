@@ -64,6 +64,7 @@ var _baby_flight_dir: Vector2 = Vector2.ZERO
 var _baby_flight_timer: float = 0.0
 const BABY_FLIGHT_TIMEOUT: float = 2.0
 const BABY_FLIGHT_HIT_RADIUS: float = 30.0
+const BABY_GROUND_TOUCH_MAX_DIST: float = 10.0
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -231,32 +232,106 @@ func _tick_baby_flight(dt: float) -> void:
 
 	# 首帧计算飞行方向（从当前位置朝目标方向，之后不再改变）
 	if _baby_flight_dir == Vector2.ZERO:
-		_baby_flight_dir = (_baby_flight_target - baby.global_position).normalized()
+		var to_target := _baby_flight_target - baby.global_position
+		if to_target.length() <= 0.01:
+			# 避免目标点与当前位置重合导致方向为零，改为朝玩家方向飞
+			var p := get_priority_attack_target()
+			var fallback_dir_x := 1.0
+			if p != null:
+				fallback_dir_x = signf(p.global_position.x - baby.global_position.x)
+			if is_zero_approx(fallback_dir_x):
+				fallback_dir_x = 1.0
+			_baby_flight_dir = Vector2(fallback_dir_x, 0.0)
+			print("[BABY_THROW_DEBUG] target overlapped spawn, fallback flight dir=%s target=%s spawn=%s" % [_baby_flight_dir, _baby_flight_target, baby.global_position])
+		else:
+			_baby_flight_dir = to_target.normalized()
 		_baby_flight_timer = 0.0
 
 	_baby_flight_timer += dt
-	baby.global_position += _baby_flight_dir * baby_throw_speed * dt
+	var prev_pos := baby.global_position
+	var next_pos := prev_pos + _baby_flight_dir * baby_throw_speed * dt
+	var delta := next_pos - prev_pos
+	var prev_probe := _get_baby_flight_probe_pos()
+	var next_probe := prev_probe + delta
 
-	# 检测是否碰到玩家
+	# 先处理玩家碰撞（只允许玩家/地面触发爆炸）
 	var player := get_priority_attack_target()
 	if player != null and is_instance_valid(player):
-		if baby.global_position.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+		if next_probe.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+			baby.global_position = next_pos
 			baby_state = BabyState.EXPLODED
 			_baby_flight_dir = Vector2.ZERO
+			print("[BABY_THROW_DEBUG] collide player => explode pos=%s probe=%s timer=%.3f" % [baby.global_position, next_probe, _baby_flight_timer])
 			return
 
-	# 检测是否碰到地面（baby的y >= boss站立的y，即地面高度）
-	if baby.global_position.y >= global_position.y:
-		baby.global_position.y = global_position.y
-		baby_state = BabyState.EXPLODED
-		_baby_flight_dir = Vector2.ZERO
-		return
+	# 地面碰撞检测：使用骨骼 core 探针，避免 Node2D 原点误差导致空爆
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(prev_probe, next_probe)
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	q.collision_mask = 1  # World(1)
+	# 排除 Boss 本体，避免射线在抛射起点立即命中自身导致空爆
+	q.exclude = [self.get_rid()]
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty():
+		var collider: Object = hit.get("collider", null)
+		var collider_name := "<null>"
+		var collider_class := "<null>"
+		var collider_layer := -1
+		if collider != null:
+			if collider.has_method("get_name"):
+				collider_name = str(collider.get_name())
+			collider_class = str(collider.get_class())
+			if "collision_layer" in collider:
+				collider_layer = int(collider.collision_layer)
+		var is_platform := _is_baby_platform_collider(collider, collider_name)
+		if is_platform:
+			baby.global_position = next_pos
+			print("[BABY_THROW_DEBUG] ignored platform collision: collider=%s class=%s layer=%s probe_hit=%s probe_from=%s probe_to=%s" % [collider_name, collider_class, collider_layer, hit.get("position", Vector2.ZERO), prev_probe, next_probe])
+		else:
+			var hit_pos: Vector2 = hit.get("position", next_probe)
+			var is_ground: bool = (collider_name == "Ground")
+			var probe_gap_to_ground: float = hit_pos.y - next_probe.y
+			if is_ground and probe_gap_to_ground > BABY_GROUND_TOUCH_MAX_DIST:
+				baby.global_position = next_pos
+				print("[BABY_THROW_DEBUG] skip early-ground-hit gap=%.2f > %.2f collider=%s probe_from=%s probe_to=%s probe_hit=%s" % [probe_gap_to_ground, BABY_GROUND_TOUCH_MAX_DIST, collider_name, prev_probe, next_probe, hit_pos])
+			else:
+				baby.global_position = hit_pos - (next_probe - next_pos)
+				baby_state = BabyState.EXPLODED
+				_baby_flight_dir = Vector2.ZERO
+				print("[BABY_THROW_DEBUG] collide world=>explode collider=%s class=%s layer=%s probe_from=%s probe_to=%s probe_hit=%s node_pos=%s timer=%.3f" % [collider_name, collider_class, collider_layer, prev_probe, next_probe, hit_pos, baby.global_position, _baby_flight_timer])
+				return
+	else:
+		baby.global_position = next_pos
 
 	# 2秒超时 → 直接返航，跳过爆炸
 	if _baby_flight_timer >= BABY_FLIGHT_TIMEOUT:
 		baby_state = BabyState.RETURNING
 		_baby_flight_dir = Vector2.ZERO
+		print("[BABY_THROW_DEBUG] timeout %.3fs without collision => returning" % _baby_flight_timer)
 		return
+
+
+func _get_baby_flight_probe_pos() -> Vector2:
+	# 用 core 骨骼作为碰撞探针，减少 Node 原点与立绘偏移造成的误判
+	var core_pos: Vector2 = _get_baby_bone_world_position("core")
+	if core_pos != Vector2.ZERO:
+		return core_pos
+	return _baby_statue.global_position
+
+
+func _is_baby_platform_collider(collider: Object, collider_name: String) -> bool:
+	if collider_name.begins_with("Platform"):
+		return true
+	if collider == null:
+		return false
+	# BossTestArena 的平台脚本
+	var script_ref: Script = collider.get_script() if collider.has_method("get_script") else null
+	if script_ref != null:
+		var script_path := String(script_ref.resource_path)
+		if script_path.ends_with("scene/levels/collapsing_platform.gd"):
+			return true
+	return false
 
 
 func _update_damage_hitboxes() -> void:
@@ -453,6 +528,10 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_finished = true
 	if String(anim_name).begins_with("phase2/tombstone"):
 		print("[BOSS_TOMBSTONE_ANIM] completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished)
+	if String(anim_name).begins_with("phase2/undead_wind"):
+		print("[BOSS_UNDEAD_WIND_ANIM] completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished, " loop=", _current_anim_loop)
+	elif _current_anim == &"phase2/undead_wind_end":
+		print("[BOSS_UNDEAD_WIND_ANIM] completed_other_anim_while_waiting_end completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished)
 
 
 # ═══ Spine 事件处理（与修女蛇同款事件提取）═══

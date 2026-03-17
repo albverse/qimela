@@ -28,9 +28,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				return FAILURE
 			_tug_instance = boss._ghost_tug_scene.instantiate()
 			_tug_instance.add_to_group("ghost_tug")
-			if _tug_instance.has_method("setup"):
-				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
-			# 生成在玩家附近（玩家到Boss方向偏移 60px），面朝玩家
+			# 生成在玩家→Boss方向的前方 60px 处
 			var dir_to_boss: float = signf(boss.global_position.x - player.global_position.x)
 			if dir_to_boss == 0.0:
 				dir_to_boss = 1.0
@@ -39,7 +37,9 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				player.global_position.y
 			)
 			boss.get_parent().add_child(_tug_instance)
-			print("[ACT_GHOST_TUG_DEBUG] spawned tug at %s (boss=%s, player=%s)" % [_tug_instance.global_position, boss.global_position, player.global_position])
+			if _tug_instance.has_method("setup"):
+				_tug_instance.call("setup", player, boss, boss.ghost_tug_pull_speed)
+			print("[ACT_GHOST_TUG_DEBUG] spawned tug at %s dir_to_boss=%.1f (boss=%s, player=%s)" % [_tug_instance.global_position, dir_to_boss, boss.global_position, player.global_position])
 			_step = Step.PULLING
 			return RUNNING
 		Step.PULLING:

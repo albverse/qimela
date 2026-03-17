@@ -173,7 +173,7 @@ script = ExtResource("act_tombstone_drop")
 
 ; P2 优先级3: 亡灵之风（100~300px + 风CD就绪）
 [node name="Seq_UndeadWind" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_WindRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_UndeadWind"]
 script = ExtResource("cond_player_in_range")
