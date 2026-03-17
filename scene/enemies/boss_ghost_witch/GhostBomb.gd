@@ -2,7 +2,8 @@ extends MonsterBase
 class_name GhostBomb
 
 @export var move_speed: float = 60.0
-@export var explode_delay: float = 1.0
+@export var explode_delay: float = 0.6
+@export var explode_trigger_radius: float = 70.0
 @export var light_energy: float = 5.0
 @export var s_curve_amplitude: float = 25.0
 @export var s_curve_frequency: float = 5.0
@@ -14,6 +15,7 @@ var _appeared: bool = false
 var _t: float = 0.0
 
 var _spine: Node = null
+var _hurt_area: Area2D = null
 var _explosion_area: Area2D = null
 var _light_area: Area2D = null
 
@@ -24,6 +26,7 @@ func _ready() -> void:
 	add_to_group("ghost_bomb")
 
 	_spine = get_node_or_null("SpineSprite")
+	_hurt_area = get_node_or_null("HurtArea")
 	_explosion_area = get_node_or_null("ExplosionArea")
 	_light_area = get_node_or_null("LightArea")
 	_set_area_enabled(_explosion_area, false)
@@ -56,6 +59,12 @@ func _physics_process(dt: float) -> void:
 	if not _appeared or _target == null or not is_instance_valid(_target):
 		return
 
+
+	# 玩家进入检测区（HurtArea）立即触发爆炸
+	if _should_trigger_explode_by_area():
+		_trigger_explode("player_enter_hurt_area")
+		return
+
 	_t += dt
 	var to_target := (_target.global_position - global_position)
 	var dir := to_target.normalized()
@@ -63,21 +72,39 @@ func _physics_process(dt: float) -> void:
 	var wave := sin(_t * s_curve_frequency) * s_curve_amplitude
 	global_position += (dir * move_speed + lateral * wave) * dt
 
-	if global_position.distance_to(_target.global_position) < 30.0:
+	if global_position.distance_to(_target.global_position) < explode_trigger_radius:
 		_touch_time += dt
 		if _touch_time >= explode_delay:
-			_exploding = true
-			_play_anim(&"explode", false)
+			_trigger_explode("distance_timeout")
 	else:
 		_touch_time = 0.0
 
 
 func apply_hit(hit: HitData) -> bool:
 	if hit != null and hit.weapon_id == &"ghost_fist":
-		print("[GHOST_BOMB_DEBUG] destroyed by ghostfist")
-		queue_free()
+		_trigger_explode("ghost_fist_hit")
 		return true
 	return false
+
+
+
+
+func _should_trigger_explode_by_area() -> bool:
+	if _hurt_area == null:
+		return false
+	for body in _hurt_area.get_overlapping_bodies():
+		if body != null and body.is_in_group("player"):
+			print("[GHOST_BOMB_DEBUG] player entered hurt area: player=%s bomb_pos=%s" % [body.name, global_position])
+			return true
+	return false
+
+
+func _trigger_explode(reason: String) -> void:
+	if _exploding:
+		return
+	_exploding = true
+	print("[GHOST_BOMB_DEBUG] trigger explode reason=%s touch_time=%.2f dist_to_target=%.2f" % [reason, _touch_time, global_position.distance_to(_target.global_position) if _target != null and is_instance_valid(_target) else -1.0])
+	_play_anim(&"explode", false)
 
 
 func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
