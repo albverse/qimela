@@ -32,6 +32,7 @@ const PHASE3_HP_THRESHOLD: int = 10
 @export var undead_wind_cooldown: float = 15.0
 @export var undead_wind_spawn_duration: float = 7.0
 @export var undead_wind_total_count: int = 10
+@export var undead_wind_cast_end_timeout: float = 3.5
 
 @export_group("Phase 3")
 @export var p3_move_speed: float = 120.0
