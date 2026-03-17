@@ -10,6 +10,7 @@ var _player: Node2D = null
 var _boss: Node2D = null
 var _dying: bool = false
 var _pulling: bool = false  # appear 完成后开始拉扯
+var _follow_offset_x: float = 60.0
 
 var _spine: Node = null
 
@@ -71,12 +72,16 @@ func _physics_process(dt: float) -> void:
 	var dir_x: float = signf(_boss.global_position.x - _player.global_position.x)
 	if is_zero_approx(dir_x):
 		dir_x = 1.0
+	# 立绘节点始终跟随玩家，保持在玩家->Boss方向的前方
+	global_position = Vector2(_player.global_position.x + dir_x * _follow_offset_x, _player.global_position.y)
 	if "velocity" in _player:
 		_player.velocity.x = dir_x * pull_speed
 	if _player.has_method("set_external_pull_constraint"):
 		_player.call("set_external_pull_constraint", true, dir_x, opposite_move_multiplier)
+	if _player.has_method("set_external_pull_velocity_x"):
+		_player.call("set_external_pull_velocity_x", dir_x * pull_speed)
 	if Engine.get_physics_frames() % 20 == 0:
-		print("[GHOST_TUG_DEBUG] sustain_pull: dir=%s speed=%s player=%s boss=%s dt=%.3f" % [dir_x, pull_speed, _player.global_position, _boss.global_position, dt])
+		print("[GHOST_TUG_DEBUG] sustain_pull: dir=%s speed=%s tug_pos=%s player=%s boss=%s dt=%.3f" % [dir_x, pull_speed, global_position, _player.global_position, _boss.global_position, dt])
 
 
 func _force_start_pull() -> void:
@@ -118,6 +123,8 @@ func _pull_player_toward_boss() -> void:
 		_player.velocity.x = dir_x * pull_speed
 	if _player.has_method("set_external_pull_constraint"):
 		_player.call("set_external_pull_constraint", true, dir_x, opposite_move_multiplier)
+	if _player.has_method("set_external_pull_velocity_x"):
+		_player.call("set_external_pull_velocity_x", dir_x * pull_speed)
 	print("[GHOST_TUG_DEBUG] pull_pulse: dir=%s speed=%s player_pos=%s boss_pos=%s" % [dir_x, pull_speed, _player.global_position, _boss.global_position])
 
 
@@ -127,6 +134,8 @@ func _release_player() -> void:
 			_player.call("set_external_control_frozen", false)
 		if _player.has_method("clear_external_pull_constraint"):
 			_player.call("clear_external_pull_constraint")
+		if _player.has_method("set_external_pull_velocity_x"):
+			_player.call("set_external_pull_velocity_x", 0.0)
 
 
 func _exit_tree() -> void:

@@ -266,22 +266,30 @@ func _tick_baby_flight(dt: float) -> void:
 	q.collide_with_bodies = true
 	q.collide_with_areas = false
 	q.collision_mask = 1  # World(1)
+	# 排除 Boss 本体，避免射线在抛射起点立即命中自身导致空爆
+	q.exclude = [self.get_rid()]
 	var hit := space.intersect_ray(q)
 	if not hit.is_empty():
 		var collider: Object = hit.get("collider", null)
 		var collider_name := "<null>"
-		if collider != null and collider.has_method("get_name"):
-			collider_name = str(collider.get_name())
+		var collider_class := "<null>"
+		var collider_layer := -1
+		if collider != null:
+			if collider.has_method("get_name"):
+				collider_name = str(collider.get_name())
+			collider_class = str(collider.get_class())
+			if "collision_layer" in collider:
+				collider_layer = int(collider.collision_layer)
 		var is_platform_abc := collider_name in ["PlatformA", "PlatformB", "PlatformC"]
 		if is_platform_abc:
 			# 明确忽略 PlatformABC 碰撞，让婴儿继续飞行
 			baby.global_position = next_pos
-			print("[BABY_THROW_DEBUG] ignored PlatformABC collision: collider=%s pos=%s" % [collider_name, hit.get("position", Vector2.ZERO)])
+			print("[BABY_THROW_DEBUG] ignored PlatformABC collision: collider=%s class=%s layer=%s pos=%s" % [collider_name, collider_class, collider_layer, hit.get("position", Vector2.ZERO)])
 		else:
 			baby.global_position = hit.get("position", next_pos)
 			baby_state = BabyState.EXPLODED
 			_baby_flight_dir = Vector2.ZERO
-			print("[BABY_THROW_DEBUG] collide world=>explode collider=%s pos=%s timer=%.3f" % [collider_name, baby.global_position, _baby_flight_timer])
+			print("[BABY_THROW_DEBUG] collide world=>explode collider=%s class=%s layer=%s from=%s to=%s hit=%s timer=%.3f" % [collider_name, collider_class, collider_layer, prev_pos, next_pos, baby.global_position, _baby_flight_timer])
 			return
 	else:
 		baby.global_position = next_pos

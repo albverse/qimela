@@ -87,7 +87,13 @@ func tick(dt: float) -> void:
 				speed *= opposite_mult
 				if _player.has_method("log_msg"):
 					_player.log_msg("PULL", "opposite move damped: input=%.1f pull=%.1f mult=%.2f" % [input_dir, pull_dir_x, opposite_mult])
-		_player.velocity.x = input_dir * speed
+		var base_vx: float = input_dir * speed
+		var pull_vx: float = 0.0
+		if _player.has_method("get_external_pull_velocity_x"):
+			pull_vx = float(_player.call("get_external_pull_velocity_x"))
+		_player.velocity.x = base_vx + pull_vx
+		if not is_zero_approx(pull_vx) and _player.has_method("log_msg") and Engine.get_physics_frames() % 20 == 0:
+			_player.log_msg("PULL", "compose_vx base=%.1f pull=%.1f final=%.1f" % [base_vx, pull_vx, _player.velocity.x])
 
 	# ── 重力 ──
 	_player.velocity.y += _player.gravity * dt
