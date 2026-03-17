@@ -36,6 +36,7 @@ func _ready() -> void:
 			_spine.animation_completed.connect(_on_anim_completed_raw)
 
 	_play_anim(&"appear", false)
+	print("[GHOST_BOMB_DEBUG] _ready: spawned at %s" % global_position)
 
 
 func setup(target: Node2D, override_light_energy: float = -1.0) -> void:
@@ -73,6 +74,7 @@ func _physics_process(dt: float) -> void:
 
 func apply_hit(hit: HitData) -> bool:
 	if hit != null and hit.weapon_id == &"ghost_fist":
+		print("[GHOST_BOMB_DEBUG] destroyed by ghostfist")
 		queue_free()
 		return true
 	return false

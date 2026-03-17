@@ -78,6 +78,7 @@ func apply_hit(hit: HitData) -> bool:
 		_attack_area.monitoring = false
 		_attack_area.monitorable = false
 	_play_anim(&"death", false)
+	print("[GHOST_ELITE_DEBUG] hit by ghostfist, playing death anim")
 	return true
 
 
@@ -102,6 +103,7 @@ func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
 		_play_anim(&"move", true)
 	elif anim_name == &"death":
 		if _boss != null and is_instance_valid(_boss):
+			print("[GHOST_ELITE_DEBUG] death anim finished, calling boss.apply_real_damage(1), boss.hp=%d" % _boss.hp)
 			_boss.apply_real_damage(1)
 		queue_free()
 

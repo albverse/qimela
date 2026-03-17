@@ -243,7 +243,15 @@ func _update_damage_hitboxes() -> void:
 
 func _update_bone_follow() -> void:
 	if current_phase == Phase.PHASE1:
-		_baby_real_hurtbox.global_position = _baby_statue.global_position
+		# 跟随 BabyStatue spine 骨骼 "core" 的世界位置
+		var core_pos: Vector2 = _get_baby_bone_world_position("core")
+		if core_pos != Vector2.ZERO:
+			_baby_real_hurtbox.global_position = core_pos
+		else:
+			# 骨骼未找到时使用 BabyStatue 位置并记录日志
+			_baby_real_hurtbox.global_position = _baby_statue.global_position
+			if Engine.get_physics_frames() % 300 == 0:
+				print("[BOSS_HURTBOX_DEBUG] Phase1: core bone not found on BabyStatue spine, falling back to BabyStatue.global_position=%s" % _baby_statue.global_position)
 	else:
 		if _anim_driver != null:
 			var hale_pos: Vector2 = _anim_driver.get_bone_world_position("hale")
@@ -504,6 +512,32 @@ func _extract_spine_event_name(a1 = null, a2 = null, a3 = null, a4 = null) -> St
 
 
 # ═══ 辅助方法 ═══
+
+func _get_baby_bone_world_position(bone_name: String) -> Vector2:
+	## 从 BabyStatue 的 SpineSprite 获取骨骼的世界坐标
+	if _baby_spine == null:
+		return Vector2.ZERO
+	# 优先: get_global_bone_transform
+	if _baby_spine.has_method("get_global_bone_transform"):
+		var t: Transform2D = _baby_spine.get_global_bone_transform(bone_name)
+		if t.origin != Vector2.ZERO:
+			return t.origin
+	# Fallback: skeleton.find_bone → to_global
+	if not _baby_spine.has_method("get_skeleton"):
+		return Vector2.ZERO
+	var skeleton: Object = _baby_spine.get_skeleton()
+	if skeleton == null:
+		return Vector2.ZERO
+	if not skeleton.has_method("find_bone"):
+		return Vector2.ZERO
+	var bone: Object = skeleton.find_bone(bone_name)
+	if bone == null:
+		if Engine.get_physics_frames() % 600 == 0:
+			print("[BOSS_HURTBOX_DEBUG] BabyStatue spine bone '%s' not found in skeleton" % bone_name)
+		return Vector2.ZERO
+	var bone_local: Vector2 = Vector2(bone.get_world_x(), bone.get_world_y())
+	return _baby_spine.to_global(bone_local)
+
 
 func face_toward(target: Node2D) -> void:
 	if target == null:

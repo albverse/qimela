@@ -16,11 +16,17 @@ preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
 [node name="HurtArea" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HurtArea"]
 shape = SubResource("1")
 [node name="ExplosionArea" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ExplosionArea"]
 shape = SubResource("2")
 [node name="LightArea" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LightArea"]
 shape = SubResource("2")

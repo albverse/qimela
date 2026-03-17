@@ -8,7 +8,7 @@ var _t: float = 0.0
 var _type: int = 1
 var _dying: bool = false
 var _player: Node2D = null
-var _origin: Vector2 = Vector2.ZERO
+var _fly_dir: float = 1.0  # 飞行方向（+1 向右，-1 向左），在 setup 时确定，之后不变
 
 var _spine: Node = null
 var _current_anim: StringName = &""
@@ -29,7 +29,15 @@ func _ready() -> void:
 func setup(wraith_type: int, player: Node2D, spawn_pos: Vector2) -> void:
 	_type = clampi(wraith_type, 1, 3)
 	_player = player
-	_origin = spawn_pos
+	# 飞行方向：Boss 面朝玩家的方向（从 spawn_pos 指向玩家），确定后不再改变
+	if player != null:
+		var dx: float = player.global_position.x - spawn_pos.x
+		_fly_dir = 1.0 if dx >= 0.0 else -1.0
+	else:
+		_fly_dir = 1.0
+	# 翻转 Spine 朝向飞行方向
+	if _spine != null:
+		_spine.scale.x = absf(_spine.scale.x) * _fly_dir
 
 
 func _physics_process(dt: float) -> void:
@@ -39,20 +47,14 @@ func _physics_process(dt: float) -> void:
 	if _t >= lifetime:
 		queue_free()
 		return
-	if _player == null or not is_instance_valid(_player):
-		return
 
-	var dir_x := signf(_player.global_position.x - global_position.x)
-	if dir_x == 0.0:
-		dir_x = signf(_player.global_position.x - _origin.x)
-	if dir_x == 0.0:
-		dir_x = 1.0
-	global_position.x += dir_x * speed * dt
+	# 直线飞行（方向在 setup 时固定，不追踪玩家）
+	global_position.x += _fly_dir * speed * dt
 
-	if global_position.distance_to(_player.global_position) < 22.0 and _player.has_method("apply_damage"):
-		_player.call("apply_damage", 1, global_position)
-
-	_play_anim(_move_anim(), true)
+	# 碰到玩家造成伤害
+	if _player != null and is_instance_valid(_player):
+		if global_position.distance_to(_player.global_position) < 22.0 and _player.has_method("apply_damage"):
+			_player.call("apply_damage", 1, global_position)
 
 
 func apply_hit(hit: HitData) -> bool:
@@ -62,6 +64,7 @@ func apply_hit(hit: HitData) -> bool:
 		return false
 	_dying = true
 	_play_anim(_death_anim(), false)
+	print("[GHOST_WRAITH_DEBUG] hit by ghostfist, type=%d" % _type)
 	return true
 
 
