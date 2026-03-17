@@ -54,9 +54,9 @@ func _resolve_chain_hit_host(collider_obj: Object) -> Node:
 func _is_chain_ignored_target(node: Node) -> bool:
 	if node == null:
 		return false
-	if node.is_in_group("boss_ghost_witch_summoned_ghost"):
+	if node.is_in_group("ghost"):
 		return true
-	# 兜底：直接按各幽灵分组兜住旧资源
+	# 兼容历史配置：个别 ghost 场景尚未补 group 时仍拦截
 	for g in ["ghost_elite", "ghost_wraith", "ghost_summon", "ghost_bomb", "ghost_tug"]:
 		if node.is_in_group(g):
 			return true
