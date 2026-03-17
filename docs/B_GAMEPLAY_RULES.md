@@ -32,6 +32,11 @@ IDLE → FLYING → STUCK/LINKED → DISSOLVING → IDLE
 - 溶解：tween `shader_parameter/burn`
 - shader 路径：`res://shaders/chain_sand_dissolve.gdshader`
 
+### Ghost 类规则（新增）
+- 所有 `ghost` 组实体（含 BossGhostWitch 召唤的幽灵）**不接受 chain 等常规武器命中/链接**。
+- `ghost` 类实体仅允许被 `ghost_fist` 命中生效。
+- 新增 ghost 实体时，必须加入组：`ghost`。
+
 ### 断裂预警
 - 接近最大长度时颜色渐变为红色
 - warn_start_ratio: 0.80

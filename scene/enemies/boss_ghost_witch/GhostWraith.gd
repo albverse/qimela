@@ -18,6 +18,7 @@ func _ready() -> void:
 	has_hp = false
 	super._ready()
 	add_to_group("ghost_wraith")
+	add_to_group("ghost")
 
 	_spine = get_node_or_null("SpineSprite")
 	if _spine != null and _spine.has_signal("animation_completed"):

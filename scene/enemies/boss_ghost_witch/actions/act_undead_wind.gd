@@ -13,6 +13,11 @@ var _spawn_count: int = 0
 var _elite_spawned: bool = false
 var _elite_spawn_time: float = 0.0  # 随机决定精英生成时机
 var _type_cycle: int = 0  # 0,1,2 循环 → type1,type2,type3
+var _step_entered: bool = false
+var _cast_end_wait_frames: int = 0
+var _cast_end_wait_sec: float = 0.0
+var _last_cast_end_anim: StringName = &""
+var _cast_end_anim_started: bool = false
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST_ENTER
@@ -21,6 +26,11 @@ func before_run(actor: Node, _bb: Blackboard) -> void:
 	_elite_spawned = false
 	_elite_spawn_time = randf_range(1.0, 6.0)
 	_type_cycle = 0
+	_step_entered = false
+	_cast_end_wait_frames = 0
+	_cast_end_wait_sec = 0.0
+	_last_cast_end_anim = &""
+	_cast_end_anim_started = false
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -29,11 +39,16 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	actor.velocity.x = 0.0
 	var dt := get_physics_process_delta_time()
 
+	if not _step_entered:
+		_step_entered = true
+		print("[ACT_UNDEAD_WIND_DEBUG] enter_step=%d anim=%s hp=%d" % [_step, boss._current_anim, boss.hp])
+
 	match _step:
 		Step.CAST_ENTER:
 			boss.anim_play(&"phase2/undead_wind_cast", false)
 			boss._set_realhurtbox_enabled(false)  # 期间不可攻击
 			_step = Step.SPAWNING
+			_step_entered = false
 			print("[ACT_UNDEAD_WIND_DEBUG] cast_enter, elite_spawn_time=%.1f" % _elite_spawn_time)
 			return RUNNING
 		Step.SPAWNING:
@@ -55,13 +70,27 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 			if _spawn_timer >= boss.undead_wind_spawn_duration:
 				_step = Step.CAST_END
+				_step_entered = false
 			return RUNNING
 		Step.CAST_END:
-			boss.anim_play(&"phase2/undead_wind_end", false)
+			if not _cast_end_anim_started:
+				boss.anim_play(&"phase2/undead_wind_end", false)
+				_cast_end_anim_started = true
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END start_play anim=%s finished=%s" % [boss._current_anim, boss._current_anim_finished])
+			elif boss._current_anim != &"phase2/undead_wind_end":
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END anim_drift detected current=%s, replay undead_wind_end" % boss._current_anim)
+				boss.anim_play(&"phase2/undead_wind_end", false)
 			boss._set_realhurtbox_enabled(true)  # 恢复可攻击
+			_cast_end_wait_frames += 1
+			_cast_end_wait_sec += dt
+			if boss._current_anim != _last_cast_end_anim:
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END anim_changed from=%s to=%s finished=%s loop=%s" % [_last_cast_end_anim, boss._current_anim, boss._current_anim_finished, boss._current_anim_loop])
+				_last_cast_end_anim = boss._current_anim
+			if _cast_end_wait_frames % 30 == 0:
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END waiting frames=%d sec=%.2f current_anim=%s finished_flag=%s anim_is_finished_end=%s loop=%s" % [_cast_end_wait_frames, _cast_end_wait_sec, boss._current_anim, boss._current_anim_finished, boss.anim_is_finished(&"phase2/undead_wind_end"), boss._current_anim_loop])
 			if boss.anim_is_finished(&"phase2/undead_wind_end"):
 				_set_cooldown(actor, blackboard, "cd_wind", boss.undead_wind_cooldown)
-				print("[ACT_UNDEAD_WIND_DEBUG] cast_end, spawned %d wraiths, elite=%s" % [_spawn_count, _elite_spawned])
+				print("[ACT_UNDEAD_WIND_DEBUG] cast_end success, spawned %d wraiths, elite=%s" % [_spawn_count, _elite_spawned])
 				return SUCCESS
 			return RUNNING
 	return FAILURE
@@ -113,7 +142,13 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 	bb.set_value(key, Time.get_ticks_msec() + cd * 1000.0, str(actor.get_instance_id()))
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	print("[ACT_UNDEAD_WIND_DEBUG] interrupt at step=%d cast_end_wait_frames=%d cast_end_wait_sec=%.2f current_anim=%s finished=%s" % [_step, _cast_end_wait_frames, _cast_end_wait_sec, (actor as BossGhostWitch)._current_anim if actor is BossGhostWitch else &"", (actor as BossGhostWitch)._current_anim_finished if actor is BossGhostWitch else false])
 	_step = Step.CAST_ENTER
+	_step_entered = false
+	_cast_end_wait_frames = 0
+	_cast_end_wait_sec = 0.0
+	_last_cast_end_anim = &""
+	_cast_end_anim_started = false
 	if actor != null:
 		actor.velocity.x = 0.0
 	var boss := actor as BossGhostWitch

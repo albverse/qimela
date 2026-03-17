@@ -18,6 +18,7 @@ func _ready() -> void:
 	has_hp = false
 	super._ready()
 	add_to_group("ghost_summon")
+	add_to_group("ghost")
 
 	_spine = get_node_or_null("SpineSprite")
 	_ghost_hit_area = get_node_or_null("GhostHitArea")
