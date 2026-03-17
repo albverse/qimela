@@ -4,7 +4,7 @@
 extends ActionLeaf
 class_name ActGhostTug
 
-enum Step { CAST, PULLING, SCYTHE_SLASH, DONE }
+enum Step { CAST, PULLING, DONE }
 var _step: int = Step.CAST
 var _tug_instance: Node2D = null
 
@@ -46,6 +46,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			boss.anim_play(&"phase2/ghost_tug_loop", true)
 			# 检查拔河是否被打断（ghostfist 击中）
 			if _tug_instance == null or not is_instance_valid(_tug_instance):
+				print("[ACT_GHOST_TUG_DEBUG] finish reason=tug_destroyed_by_hit_or_cleanup step=PULLING")
 				_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
 				return SUCCESS
 			# 用水平距离判定玩家是否到达镰刀范围
@@ -57,14 +58,11 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				if h_dist <= scythe_reach_px:
 					print("[ACT_GHOST_TUG_DEBUG] pulling_check ENTER_SCYTHE_RANGE h_dist=%.2f reach=%.2f boss=%s player=%s" % [h_dist, scythe_reach_px, boss.global_position, player.global_position])
 					_destroy_tug()
-					_step = Step.SCYTHE_SLASH
-			return RUNNING
-		Step.SCYTHE_SLASH:
-			boss.anim_play(&"phase2/scythe_slash", false)
-			if boss.anim_is_finished(&"phase2/scythe_slash"):
-				_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
-				_set_cooldown(actor, blackboard, "cd_scythe", boss.scythe_slash_cooldown)
-				return SUCCESS
+					print("[ACT_GHOST_TUG_DEBUG] finish reason=player_enter_scythe_range h_dist=%.2f" % h_dist)
+					_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
+					return SUCCESS
+			else:
+				print("[ACT_GHOST_TUG_DEBUG] pulling_check player_missing -> keep_running")
 			return RUNNING
 	return FAILURE
 
