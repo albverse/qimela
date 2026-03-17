@@ -52,7 +52,10 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			var player := boss.get_priority_attack_target()
 			if player != null:
 				var h_dist := absf(player.global_position.x - boss.global_position.x)
+				if Engine.get_physics_frames() % 20 == 0:
+					print("[ACT_GHOST_TUG_DEBUG] pulling_check h_dist=%.2f reach=%.2f boss_x=%.2f player_x=%.2f tug_pos=%s" % [h_dist, scythe_reach_px, boss.global_position.x, player.global_position.x, _tug_instance.global_position if _tug_instance != null else Vector2.ZERO])
 				if h_dist <= scythe_reach_px:
+					print("[ACT_GHOST_TUG_DEBUG] pulling_check ENTER_SCYTHE_RANGE h_dist=%.2f reach=%.2f boss=%s player=%s" % [h_dist, scythe_reach_px, boss.global_position, player.global_position])
 					_destroy_tug()
 					_step = Step.SCYTHE_SLASH
 			return RUNNING
@@ -67,7 +70,10 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 func _destroy_tug() -> void:
 	if _tug_instance != null and is_instance_valid(_tug_instance):
-		_tug_instance.queue_free()
+		if _tug_instance.has_method("begin_despawn"):
+			_tug_instance.call("begin_despawn", 0.5)
+		else:
+			_tug_instance.queue_free()
 		_tug_instance = null
 
 func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:

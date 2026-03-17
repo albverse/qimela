@@ -128,6 +128,19 @@ func _pull_player_toward_boss() -> void:
 	print("[GHOST_TUG_DEBUG] pull_pulse: dir=%s speed=%s player_pos=%s boss_pos=%s" % [dir_x, pull_speed, _player.global_position, _boss.global_position])
 
 
+
+
+func begin_despawn(duration_sec: float = 0.5) -> void:
+	if _dying:
+		return
+	_dying = true
+	_pulling = false
+	_release_player()
+	print("[GHOST_TUG_DEBUG] begin_despawn duration=%.2f pos=%s" % [duration_sec, global_position])
+	var tw := create_tween()
+	tw.tween_property(self, "modulate:a", 0.0, maxf(duration_sec, 0.01))
+	tw.finished.connect(queue_free)
+
 func _release_player() -> void:
 	if _player != null and is_instance_valid(_player):
 		if _player.has_method("set_external_control_frozen"):
