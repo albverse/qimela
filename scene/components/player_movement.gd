@@ -95,6 +95,12 @@ func tick(dt: float) -> void:
 		if not is_zero_approx(pull_vx) and _player.has_method("log_msg") and Engine.get_physics_frames() % 20 == 0:
 			_player.log_msg("PULL", "compose_vx base=%.1f pull=%.1f final=%.1f" % [base_vx, pull_vx, _player.velocity.x])
 
+	# ── GhostTug 弹射覆盖（优先级最高，覆盖一切水平输入）──
+	if _player.has_method("get_tug_knockback_vx"):
+		var kb_vx: float = float(_player.call("get_tug_knockback_vx"))
+		if not is_zero_approx(kb_vx):
+			_player.velocity.x = kb_vx
+
 	# ── 重力 ──
 	_player.velocity.y += _player.gravity * dt
 

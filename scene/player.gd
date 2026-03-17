@@ -79,6 +79,7 @@ var _external_pull_constraint_active: bool = false
 var _external_pull_dir_x: float = 0.0
 var _external_pull_opposite_mult: float = 1.0
 var _external_pull_velocity_x: float = 0.0
+var _tug_knockback_vx: float = 0.0  # GhostTug 弹射速度（覆盖一切水平输入）
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
 
@@ -572,6 +573,15 @@ func set_external_pull_velocity_x(vx: float) -> void:
 
 func get_external_pull_velocity_x() -> float:
 	return _external_pull_velocity_x
+
+
+func set_tug_knockback_vx(vx: float) -> void:
+	_tug_knockback_vx = vx
+
+
+func get_tug_knockback_vx() -> float:
+	return _tug_knockback_vx
+
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	# 测试无敌模式：跳过所有伤害

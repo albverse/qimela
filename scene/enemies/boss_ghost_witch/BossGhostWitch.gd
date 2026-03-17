@@ -560,11 +560,18 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
 		&"baby_release":
 			# 在真正 release 帧重新采样玩家位置，避免抛出目标滞后导致偏移
-			var p := get_priority_attack_target()
+			# 必须使用 player 组获取真实玩家，不可用 get_priority_attack_target()
+			# 后者可能返回奇美拉等非玩家目标导致目标点偏移
+			var players := get_tree().get_nodes_in_group("player")
+			var p: Node2D = null
+			if not players.is_empty():
+				p = players[0] as Node2D
+			var attack_target := get_priority_attack_target()
 			if p != null:
 				var old_target := _baby_flight_target
 				_baby_flight_target = p.global_position
-				print("[BABY_THROW_TARGET_DEBUG] refresh_on_release old=%s new=%s player=%s boss=%s delta=%.2f" % [old_target, _baby_flight_target, p.global_position, global_position, old_target.distance_to(_baby_flight_target)])
+				var target_mismatch := (attack_target != p)
+				print("[BABY_THROW_TARGET_DEBUG] refresh_on_release old=%s new=%s player=%s attack_target=%s attack_target_pos=%s target_mismatch=%s boss=%s baby_pos=%s" % [old_target, _baby_flight_target, p.global_position, attack_target.name if attack_target != null else "null", attack_target.global_position if attack_target != null else Vector2.ZERO, target_mismatch, global_position, _baby_statue.global_position])
 			baby_state = BabyState.THROWN
 			_baby_flight_dir = Vector2.ZERO  # 让 _tick_baby_flight 首帧重新计算方向
 			_baby_flight_timer = 0.0
