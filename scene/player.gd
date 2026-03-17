@@ -75,6 +75,9 @@ var facing: int = 1
 var jump_request: bool = false
 var _player_locked: bool = false
 var _external_control_frozen: bool = false  # 由奇美拉等外部实体控制时冻结玩家输入
+var _external_pull_constraint_active: bool = false
+var _external_pull_dir_x: float = 0.0
+var _external_pull_opposite_mult: float = 1.0
 var _pending_chain_fire_side: String = ""  # "R" / "L" / ""
 var _block_chain_fire_this_frame: bool = false
 
@@ -526,10 +529,39 @@ func set_external_control_frozen(frozen: bool) -> void:
 	_external_control_frozen = frozen
 	if frozen:
 		jump_request = false
+		clear_external_pull_constraint()
 
 
 func is_external_control_frozen() -> bool:
 	return _external_control_frozen
+
+
+func set_external_pull_constraint(active: bool, pull_dir_x: float = 0.0, opposite_mult: float = 1.0) -> void:
+	_external_pull_constraint_active = active
+	_external_pull_dir_x = signf(pull_dir_x)
+	_external_pull_opposite_mult = clampf(opposite_mult, 0.0, 1.0)
+	if _external_pull_constraint_active:
+		print("[PLAYER_PULL_CONSTRAINT_DEBUG] active=true dir=%.1f opposite_mult=%.2f" % [_external_pull_dir_x, _external_pull_opposite_mult])
+
+
+func clear_external_pull_constraint() -> void:
+	if _external_pull_constraint_active:
+		print("[PLAYER_PULL_CONSTRAINT_DEBUG] active=false")
+	_external_pull_constraint_active = false
+	_external_pull_dir_x = 0.0
+	_external_pull_opposite_mult = 1.0
+
+
+func has_external_pull_constraint() -> bool:
+	return _external_pull_constraint_active
+
+
+func get_external_pull_dir_x() -> float:
+	return _external_pull_dir_x
+
+
+func get_external_pull_opposite_mult() -> float:
+	return _external_pull_opposite_mult
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
 	# 测试无敌模式：跳过所有伤害

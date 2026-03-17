@@ -5,6 +5,7 @@ extends MonsterBase
 class_name GhostTug
 
 @export var pull_speed: float = 400.0
+@export var opposite_move_multiplier: float = 0.33
 var _player: Node2D = null
 var _boss: Node2D = null
 var _dying: bool = false
@@ -36,9 +37,11 @@ func setup(player: Node2D, boss: Node2D, pull_speed_override: float = -1.0) -> v
 	_boss = boss
 	if pull_speed_override > 0.0:
 		pull_speed = pull_speed_override
-	# 面朝玩家方向
-	if _spine != null and player != null and boss != null:
-		var dx: float = player.global_position.x - boss.global_position.x
+	# 面朝玩家方向（基于 GhostTug 自身位置，而非 Boss）
+	if _spine != null and player != null:
+		var dx: float = player.global_position.x - global_position.x
+		if is_zero_approx(dx):
+			dx = 1.0
 		_spine.scale.x = absf(_spine.scale.x) * (1.0 if dx > 0.0 else -1.0)
 
 
@@ -57,9 +60,23 @@ func apply_hit(hit: HitData) -> bool:
 	return true
 
 
-func _physics_process(_dt: float) -> void:
-	# 拉力不在此处执行 - 由 Spine 事件 "move" 脉冲触发
-	pass
+func _physics_process(dt: float) -> void:
+	# 持续拉力 + 逆向移动限速；Spine 事件额外脉冲加强手感
+	if _dying or not _pulling:
+		return
+	if _player == null or _boss == null:
+		return
+	if not is_instance_valid(_player) or not is_instance_valid(_boss):
+		return
+	var dir_x: float = signf(_boss.global_position.x - _player.global_position.x)
+	if is_zero_approx(dir_x):
+		dir_x = 1.0
+	if "velocity" in _player:
+		_player.velocity.x = dir_x * pull_speed
+	if _player.has_method("set_external_pull_constraint"):
+		_player.call("set_external_pull_constraint", true, dir_x, opposite_move_multiplier)
+	if Engine.get_physics_frames() % 20 == 0:
+		print("[GHOST_TUG_DEBUG] sustain_pull: dir=%s speed=%s player=%s boss=%s dt=%.3f" % [dir_x, pull_speed, _player.global_position, _boss.global_position, dt])
 
 
 func _force_start_pull() -> void:
@@ -99,6 +116,8 @@ func _pull_player_toward_boss() -> void:
 	# 设置朝向 Boss 的水平速度脉冲
 	if "velocity" in _player:
 		_player.velocity.x = dir_x * pull_speed
+	if _player.has_method("set_external_pull_constraint"):
+		_player.call("set_external_pull_constraint", true, dir_x, opposite_move_multiplier)
 	print("[GHOST_TUG_DEBUG] pull_pulse: dir=%s speed=%s player_pos=%s boss_pos=%s" % [dir_x, pull_speed, _player.global_position, _boss.global_position])
 
 
@@ -106,6 +125,8 @@ func _release_player() -> void:
 	if _player != null and is_instance_valid(_player):
 		if _player.has_method("set_external_control_frozen"):
 			_player.call("set_external_control_frozen", false)
+		if _player.has_method("clear_external_pull_constraint"):
+			_player.call("clear_external_pull_constraint")
 
 
 func _exit_tree() -> void:

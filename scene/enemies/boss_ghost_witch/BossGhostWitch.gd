@@ -231,31 +231,66 @@ func _tick_baby_flight(dt: float) -> void:
 
 	# 首帧计算飞行方向（从当前位置朝目标方向，之后不再改变）
 	if _baby_flight_dir == Vector2.ZERO:
-		_baby_flight_dir = (_baby_flight_target - baby.global_position).normalized()
+		var to_target := _baby_flight_target - baby.global_position
+		if to_target.length() <= 0.01:
+			# 避免目标点与当前位置重合导致方向为零，改为朝玩家方向飞
+			var p := get_priority_attack_target()
+			var fallback_dir_x := 1.0
+			if p != null:
+				fallback_dir_x = signf(p.global_position.x - baby.global_position.x)
+			if is_zero_approx(fallback_dir_x):
+				fallback_dir_x = 1.0
+			_baby_flight_dir = Vector2(fallback_dir_x, 0.0)
+			print("[BABY_THROW_DEBUG] target overlapped spawn, fallback flight dir=%s target=%s spawn=%s" % [_baby_flight_dir, _baby_flight_target, baby.global_position])
+		else:
+			_baby_flight_dir = to_target.normalized()
 		_baby_flight_timer = 0.0
 
 	_baby_flight_timer += dt
-	baby.global_position += _baby_flight_dir * baby_throw_speed * dt
+	var prev_pos := baby.global_position
+	var next_pos := prev_pos + _baby_flight_dir * baby_throw_speed * dt
 
-	# 检测是否碰到玩家
+	# 先处理玩家碰撞（只允许玩家/地面触发爆炸）
 	var player := get_priority_attack_target()
 	if player != null and is_instance_valid(player):
-		if baby.global_position.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+		if next_pos.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+			baby.global_position = next_pos
 			baby_state = BabyState.EXPLODED
 			_baby_flight_dir = Vector2.ZERO
+			print("[BABY_THROW_DEBUG] collide player => explode pos=%s timer=%.3f" % [baby.global_position, _baby_flight_timer])
 			return
 
-	# 检测是否碰到地面（baby的y >= boss站立的y，即地面高度）
-	if baby.global_position.y >= global_position.y:
-		baby.global_position.y = global_position.y
-		baby_state = BabyState.EXPLODED
-		_baby_flight_dir = Vector2.ZERO
-		return
+	# 地面碰撞检测：仅接受 Ground，不接受 PlatformA/B/C（避免空中平台误触发）
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(prev_pos, next_pos)
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	q.collision_mask = 1  # World(1)
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty():
+		var collider: Object = hit.get("collider", null)
+		var collider_name := "<null>"
+		if collider != null and collider.has_method("get_name"):
+			collider_name = str(collider.get_name())
+		var is_platform_abc := collider_name in ["PlatformA", "PlatformB", "PlatformC"]
+		if is_platform_abc:
+			# 明确忽略 PlatformABC 碰撞，让婴儿继续飞行
+			baby.global_position = next_pos
+			print("[BABY_THROW_DEBUG] ignored PlatformABC collision: collider=%s pos=%s" % [collider_name, hit.get("position", Vector2.ZERO)])
+		else:
+			baby.global_position = hit.get("position", next_pos)
+			baby_state = BabyState.EXPLODED
+			_baby_flight_dir = Vector2.ZERO
+			print("[BABY_THROW_DEBUG] collide world=>explode collider=%s pos=%s timer=%.3f" % [collider_name, baby.global_position, _baby_flight_timer])
+			return
+	else:
+		baby.global_position = next_pos
 
 	# 2秒超时 → 直接返航，跳过爆炸
 	if _baby_flight_timer >= BABY_FLIGHT_TIMEOUT:
 		baby_state = BabyState.RETURNING
 		_baby_flight_dir = Vector2.ZERO
+		print("[BABY_THROW_DEBUG] timeout %.3fs without collision => returning" % _baby_flight_timer)
 		return
 
 

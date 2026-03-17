@@ -79,6 +79,14 @@ func tick(dt: float) -> void:
 		var speed: float = _player.move_speed
 		if move_intent == MoveIntent.RUN:
 			speed *= _player.run_speed_mult
+		# 外部拉扯约束（GhostTug）：逆着拉力方向输入时速度衰减
+		if _player.has_method("has_external_pull_constraint") and _player.call("has_external_pull_constraint"):
+			var pull_dir_x: float = float(_player.call("get_external_pull_dir_x"))
+			var opposite_mult: float = float(_player.call("get_external_pull_opposite_mult"))
+			if not is_zero_approx(input_dir) and not is_zero_approx(pull_dir_x) and signf(input_dir) != signf(pull_dir_x):
+				speed *= opposite_mult
+				if _player.has_method("log_msg"):
+					_player.log_msg("PULL", "opposite move damped: input=%.1f pull=%.1f mult=%.2f" % [input_dir, pull_dir_x, opposite_mult])
 		_player.velocity.x = input_dir * speed
 
 	# ── 重力 ──

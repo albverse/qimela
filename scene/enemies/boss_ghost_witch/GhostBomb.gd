@@ -2,7 +2,8 @@ extends MonsterBase
 class_name GhostBomb
 
 @export var move_speed: float = 60.0
-@export var explode_delay: float = 1.0
+@export var explode_delay: float = 0.6
+@export var explode_trigger_radius: float = 70.0
 @export var light_energy: float = 5.0
 @export var s_curve_amplitude: float = 25.0
 @export var s_curve_frequency: float = 5.0
@@ -63,10 +64,11 @@ func _physics_process(dt: float) -> void:
 	var wave := sin(_t * s_curve_frequency) * s_curve_amplitude
 	global_position += (dir * move_speed + lateral * wave) * dt
 
-	if global_position.distance_to(_target.global_position) < 30.0:
+	if global_position.distance_to(_target.global_position) < explode_trigger_radius:
 		_touch_time += dt
 		if _touch_time >= explode_delay:
 			_exploding = true
+			print("[GHOST_BOMB_DEBUG] trigger explode touch_time=%.2f dist=%.2f radius=%.1f" % [_touch_time, global_position.distance_to(_target.global_position), explode_trigger_radius])
 			_play_anim(&"explode", false)
 	else:
 		_touch_time = 0.0
