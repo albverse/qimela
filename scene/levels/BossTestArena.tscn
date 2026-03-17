@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://c4tsmdwk0jphy"]
+[gd_scene load_steps=16 format=3 uid="uid://c4tsmdwk0jphy"]
 
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="1"]
 [ext_resource type="PackedScene" uid="uid://b21iw5k3duuqj" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="5_nn1jk"]
 [ext_resource type="Texture2D" uid="uid://c75cd5rw2fry7" path="res://Thunder.png" id="6_thunder"]
 [ext_resource type="Script" uid="uid://4xso4psn30uu" path="res://scene/levels/collapsing_platform.gd" id="7_platform"]
+[ext_resource type="Script" path="res://scene/levels/boss_test_arena.gd" id="8_arena"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_boss"]
 shader = ExtResource("4_shader")
@@ -64,6 +65,7 @@ size = Vector2(1600, 80)
 size = Vector2(260, 20)
 
 [node name="BossTestArena" type="Node2D"]
+script = ExtResource("8_arena")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 layer = 0
@@ -170,3 +172,13 @@ ignore_rotation = false
 
 [node name="BossSpawn" parent="." instance=ExtResource("2")]
 position = Vector2(70, 230)
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="BtnPhase3" type="Button" parent="UI"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 200.0
+offset_bottom = 50.0
+text = "Trigger Phase3 Transition"

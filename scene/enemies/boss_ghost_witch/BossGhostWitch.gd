@@ -65,6 +65,7 @@ var _baby_flight_timer: float = 0.0
 const BABY_FLIGHT_TIMEOUT: float = 2.0
 const BABY_FLIGHT_HIT_RADIUS: float = 30.0
 const BABY_GROUND_TOUCH_MAX_DIST: float = 10.0
+var _waiting_phase3_gate: bool = false
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -406,10 +407,11 @@ func _begin_phase_transition(target: int) -> void:
 		anim_play(&"phase1/phase1_to_phase2", false)
 		# phase2_ready 事件会调用 _finish_phase2_transition()
 	else:
-		# 清理 Phase 2 残留，播放过渡动画
+		# 清理 Phase 2 残留，播放死亡动画并等待外部信号门控
 		_cleanup_phase2_instances()
-		anim_play(&"phase2/phase2_to_phase3", false)
-		# phase3_ready 事件会调用 _finish_phase3_transition()
+		_waiting_phase3_gate = false
+		anim_play(&"phase2/death", false)
+		# phase2/death 播放完毕后保持末尾帧，等待 trigger_phase3_transition() 被调用
 
 
 func _finish_phase2_transition() -> void:
@@ -422,12 +424,24 @@ func _finish_phase2_transition() -> void:
 	_phase_transitioning = false
 
 
+func trigger_phase3_transition() -> void:
+	## 外部信号门控：收到信号后从 phase2/death 末尾帧过渡到 phase3
+	if not _phase_transitioning:
+		return
+	if _waiting_phase3_gate:
+		return  # 已经触发过，防止重复调用
+	_waiting_phase3_gate = true
+	anim_play(&"phase2/phase2_to_phase3", false)
+	# phase3_ready spine 事件会调用 _finish_phase3_transition()
+
+
 func _finish_phase3_transition() -> void:
 	current_phase = Phase.PHASE3
 	_scythe_in_hand = true
 	anim_play(&"phase3/idle", true)
 	hp_locked = false
 	_phase_transitioning = false
+	_waiting_phase3_gate = false
 
 
 func _cleanup_phase2_instances() -> void:
