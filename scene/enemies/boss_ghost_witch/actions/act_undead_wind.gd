@@ -16,6 +16,7 @@ var _type_cycle: int = 0  # 0,1,2 循环 → type1,type2,type3
 var _step_entered: bool = false
 var _cast_end_wait_frames: int = 0
 var _cast_end_wait_sec: float = 0.0
+var _last_cast_end_anim: StringName = &""
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST_ENTER
@@ -27,6 +28,7 @@ func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step_entered = false
 	_cast_end_wait_frames = 0
 	_cast_end_wait_sec = 0.0
+	_last_cast_end_anim = &""
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -73,16 +75,14 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			boss._set_realhurtbox_enabled(true)  # 恢复可攻击
 			_cast_end_wait_frames += 1
 			_cast_end_wait_sec += dt
-			var cast_end_timeout: float = boss.undead_wind_cast_end_timeout if boss.undead_wind_cast_end_timeout > 0.0 else 3.5
+			if boss._current_anim != _last_cast_end_anim:
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END anim_changed from=%s to=%s finished=%s loop=%s" % [_last_cast_end_anim, boss._current_anim, boss._current_anim_finished, boss._current_anim_loop])
+				_last_cast_end_anim = boss._current_anim
 			if _cast_end_wait_frames % 30 == 0:
-				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END waiting frames=%d sec=%.2f timeout=%.2f current_anim=%s anim_finished=%s" % [_cast_end_wait_frames, _cast_end_wait_sec, cast_end_timeout, boss._current_anim, boss.anim_is_finished(&"phase2/undead_wind_end")])
+				print("[ACT_UNDEAD_WIND_DEBUG] CAST_END waiting frames=%d sec=%.2f current_anim=%s finished_flag=%s anim_is_finished_end=%s loop=%s" % [_cast_end_wait_frames, _cast_end_wait_sec, boss._current_anim, boss._current_anim_finished, boss.anim_is_finished(&"phase2/undead_wind_end"), boss._current_anim_loop])
 			if boss.anim_is_finished(&"phase2/undead_wind_end"):
 				_set_cooldown(actor, blackboard, "cd_wind", boss.undead_wind_cooldown)
 				print("[ACT_UNDEAD_WIND_DEBUG] cast_end success, spawned %d wraiths, elite=%s" % [_spawn_count, _elite_spawned])
-				return SUCCESS
-			if _cast_end_wait_sec >= cast_end_timeout:
-				_set_cooldown(actor, blackboard, "cd_wind", boss.undead_wind_cooldown)
-				print("[ACT_UNDEAD_WIND_DEBUG] cast_end forced success timeout sec=%.2f current_anim=%s spawned=%d elite=%s" % [_cast_end_wait_sec, boss._current_anim, _spawn_count, _elite_spawned])
 				return SUCCESS
 			return RUNNING
 	return FAILURE
@@ -134,11 +134,12 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 	bb.set_value(key, Time.get_ticks_msec() + cd * 1000.0, str(actor.get_instance_id()))
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
-	print("[ACT_UNDEAD_WIND_DEBUG] interrupt at step=%d cast_end_wait_frames=%d cast_end_wait_sec=%.2f" % [_step, _cast_end_wait_frames, _cast_end_wait_sec])
+	print("[ACT_UNDEAD_WIND_DEBUG] interrupt at step=%d cast_end_wait_frames=%d cast_end_wait_sec=%.2f current_anim=%s finished=%s" % [_step, _cast_end_wait_frames, _cast_end_wait_sec, (actor as BossGhostWitch)._current_anim if actor is BossGhostWitch else &"", (actor as BossGhostWitch)._current_anim_finished if actor is BossGhostWitch else false])
 	_step = Step.CAST_ENTER
 	_step_entered = false
 	_cast_end_wait_frames = 0
 	_cast_end_wait_sec = 0.0
+	_last_cast_end_anim = &""
 	if actor != null:
 		actor.velocity.x = 0.0
 	var boss := actor as BossGhostWitch

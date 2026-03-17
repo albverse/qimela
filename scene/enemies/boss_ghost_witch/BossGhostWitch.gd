@@ -32,7 +32,6 @@ const PHASE3_HP_THRESHOLD: int = 10
 @export var undead_wind_cooldown: float = 15.0
 @export var undead_wind_spawn_duration: float = 7.0
 @export var undead_wind_total_count: int = 10
-@export var undead_wind_cast_end_timeout: float = 3.5
 
 @export_group("Phase 3")
 @export var p3_move_speed: float = 120.0
@@ -529,6 +528,10 @@ func _on_anim_completed(_track: int, anim_name: StringName) -> void:
 		_current_anim_finished = true
 	if String(anim_name).begins_with("phase2/tombstone"):
 		print("[BOSS_TOMBSTONE_ANIM] completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished)
+	if String(anim_name).begins_with("phase2/undead_wind"):
+		print("[BOSS_UNDEAD_WIND_ANIM] completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished, " loop=", _current_anim_loop)
+	elif _current_anim == &"phase2/undead_wind_end":
+		print("[BOSS_UNDEAD_WIND_ANIM] completed_other_anim_while_waiting_end completed=", anim_name, " current=", _current_anim, " finished=", _current_anim_finished)
 
 
 # ═══ Spine 事件处理（与修女蛇同款事件提取）═══
