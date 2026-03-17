@@ -1,16 +1,16 @@
 extends StaticBody2D
 class_name CollapsingPlatform
 
-## 消失平台：玩家站上后 2 秒消失，3 秒后恢复
-## 蓝图 §3.4: Timer + set_deferred("disabled", true/false)
+## 消失平台：玩家触碰后开始倒计时，即使离开也会到时消失，冷却后恢复
+## 触发条件：玩家站上平台即触发（触碰即锁定倒计时，中途离开不取消）
 
-@export var collapse_delay: float = 2.0  # 站上后多久消失
+@export var collapse_delay: float = 2.0  # 触碰后多久消失
 @export var respawn_delay: float = 3.0   # 消失后多久恢复
 
 var _collapse_timer: float = -1.0  # <0 表示未激活
 var _respawn_timer: float = -1.0
 var _collapsed: bool = false
-var _player_on: bool = false
+var _triggered: bool = false  # 是否已触发倒计时（一旦触发不可取消）
 
 
 func _physics_process(dt: float) -> void:
@@ -22,17 +22,17 @@ func _physics_process(dt: float) -> void:
 				_respawn()
 		return
 
-	# 检测玩家是否在平台上（通过碰撞检测）
-	_player_on = _is_player_standing()
-
-	if _player_on:
-		if _collapse_timer < 0.0:
+	# 尚未触发：检测玩家是否触碰平台
+	if not _triggered:
+		if _is_player_standing():
+			_triggered = true
 			_collapse_timer = collapse_delay
+
+	# 已触发：倒计时（即使玩家离开也继续）
+	if _triggered:
 		_collapse_timer -= dt
 		if _collapse_timer <= 0.0:
 			_collapse()
-	else:
-		_collapse_timer = -1.0
 
 
 func _is_player_standing() -> bool:
@@ -56,6 +56,7 @@ func _is_player_standing() -> bool:
 
 func _collapse() -> void:
 	_collapsed = true
+	_triggered = false
 	_collapse_timer = -1.0
 	_respawn_timer = respawn_delay
 	# 禁用碰撞形状

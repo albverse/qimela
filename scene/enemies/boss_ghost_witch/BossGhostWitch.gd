@@ -209,6 +209,10 @@ func _physics_process(dt: float) -> void:
 
 	# 伤害判定
 	_update_damage_hitboxes()
+	# Phase 3 状态诊断日志（每 120 帧 ≈ 2秒输出一次）
+	if current_phase == Phase.PHASE3 and Engine.get_physics_frames() % 120 == 0:
+		print("[BOSS_P3_DIAG] phase=%d transitioning=%s hp_locked=%s scythe=%s anim=%s anim_finished=%s vx=%.1f pos=%s" % [current_phase, _phase_transitioning, hp_locked, _scythe_in_hand, _current_anim, _current_anim_finished, velocity.x, global_position])
+
 	# 不调用 super._physics_process()
 	# BeehaveTree 由其自身 _physics_process 驱动
 
@@ -231,9 +235,13 @@ func _tick_baby_flight(dt: float) -> void:
 	if baby == null:
 		return
 
-	# 首帧计算飞行方向（从当前位置朝目标方向，之后不再改变）
+	# 首帧计算飞行方向（从骨骼探针位置朝目标方向，之后不再改变）
+	# 必须使用 probe（core 骨骼）而非 baby.global_position（node 原点）
+	# 两者有 ~120px Y 偏移，用 node 原点会导致飞行方向偏离目标
 	if _baby_flight_dir == Vector2.ZERO:
-		var to_target := _baby_flight_target - baby.global_position
+		var probe_start := _get_baby_flight_probe_pos()
+		var to_target := _baby_flight_target - probe_start
+		print("[BABY_THROW_DEBUG] calc_dir: probe_start=%s node_pos=%s target=%s to_target=%s" % [probe_start, baby.global_position, _baby_flight_target, to_target])
 		if to_target.length() <= 0.01:
 			# 避免目标点与当前位置重合导致方向为零，改为朝玩家方向飞
 			var p := get_priority_attack_target()
@@ -426,16 +434,19 @@ func _finish_phase2_transition() -> void:
 
 func trigger_phase3_transition() -> void:
 	## 外部信号门控：收到信号后从 phase2/death 末尾帧过渡到 phase3
+	print("[BOSS_P3_GATE_DEBUG] trigger_phase3_transition called: _phase_transitioning=%s _waiting_phase3_gate=%s current_phase=%s" % [_phase_transitioning, _waiting_phase3_gate, current_phase])
 	if not _phase_transitioning:
 		return
 	if _waiting_phase3_gate:
 		return  # 已经触发过，防止重复调用
 	_waiting_phase3_gate = true
 	anim_play(&"phase2/phase2_to_phase3", false)
+	print("[BOSS_P3_GATE_DEBUG] playing phase2/phase2_to_phase3, waiting for phase3_ready event")
 	# phase3_ready spine 事件会调用 _finish_phase3_transition()
 
 
 func _finish_phase3_transition() -> void:
+	print("[BOSS_P3_GATE_DEBUG] _finish_phase3_transition called! Entering Phase 3")
 	current_phase = Phase.PHASE3
 	_scythe_in_hand = true
 	anim_play(&"phase3/idle", true)

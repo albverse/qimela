@@ -4,8 +4,9 @@
 extends MonsterBase
 class_name GhostTug
 
-@export var knockback_distance_px: float = 20.0
-@export var knockback_duration: float = 0.15
+@export var knockback_distance_px: float = 60.0
+@export var knockback_duration: float = 0.25
+@export var knockback_vertical_impulse: float = -200.0  # 向上弹起（负值=向上）
 var _player: Node2D = null
 var _boss: Node2D = null
 var _dying: bool = false
@@ -118,7 +119,10 @@ func _knockback_player() -> void:
 	# 设置弹射速度（通过 tug_knockback_vx，在 PlayerMovement.tick 中覆盖一切水平输入）
 	if _player.has_method("set_tug_knockback_vx"):
 		_player.call("set_tug_knockback_vx", dir_x * kb_speed)
-	print("[GHOST_TUG_DEBUG] knockback_pulse: dir=%s speed=%.1f dist=%.1f duration=%.3f player_pos=%s boss_pos=%s" % [dir_x, kb_speed, knockback_distance_px, knockback_duration, _player.global_position, _boss.global_position])
+	# 垂直弹起（受伤被弹飞效果）
+	if "velocity" in _player:
+		_player.velocity.y = knockback_vertical_impulse
+	print("[GHOST_TUG_DEBUG] knockback_pulse: dir=%s speed=%.1f dist=%.1f duration=%.3f vy=%.1f player_pos=%s boss_pos=%s" % [dir_x, kb_speed, knockback_distance_px, knockback_duration, knockback_vertical_impulse, _player.global_position, _boss.global_position])
 	# Tween 衰减速度到 0，完成后解冻玩家
 	if _knockback_tween != null and _knockback_tween.is_valid():
 		_knockback_tween.kill()
