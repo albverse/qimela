@@ -53,16 +53,12 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 			var player := boss.get_priority_attack_target()
 			if player != null:
 				var h_dist := absf(player.global_position.x - boss.global_position.x)
-				if Engine.get_physics_frames() % 20 == 0:
-					print("[ACT_GHOST_TUG_DEBUG] pulling_check h_dist=%.2f reach=%.2f boss_x=%.2f player_x=%.2f tug_pos=%s" % [h_dist, scythe_reach_px, boss.global_position.x, player.global_position.x, _tug_instance.global_position if _tug_instance != null else Vector2.ZERO])
 				if h_dist <= scythe_reach_px:
 					print("[ACT_GHOST_TUG_DEBUG] pulling_check ENTER_SCYTHE_RANGE h_dist=%.2f reach=%.2f boss=%s player=%s" % [h_dist, scythe_reach_px, boss.global_position, player.global_position])
 					_destroy_tug()
 					print("[ACT_GHOST_TUG_DEBUG] finish reason=player_enter_scythe_range h_dist=%.2f" % h_dist)
 					_set_cooldown(actor, blackboard, "cd_tug", boss.ghost_tug_cooldown)
 					return SUCCESS
-			else:
-				print("[ACT_GHOST_TUG_DEBUG] pulling_check player_missing -> keep_running")
 			return RUNNING
 	return FAILURE
 

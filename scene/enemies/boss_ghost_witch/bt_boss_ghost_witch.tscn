@@ -138,8 +138,9 @@ phase = 2
 script = ExtResource("selector")
 
 ; P2 优先级1: 镰刀劈砍（≤100px + CD就绪）
+; 使用非响应式 Sequence：开始挥砍后不因距离瞬时变化被条件重评估打断
 [node name="Seq_ScytheSlash" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions"]
-script = ExtResource("sequence_reactive")
+script = ExtResource("sequence")
 
 [node name="Cond_ScytheRange" type="Node" parent="RootSelector/Seq_Phase2/Sel_P2Actions/Seq_ScytheSlash"]
 script = ExtResource("cond_player_in_range")
