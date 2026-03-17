@@ -60,6 +60,10 @@ var _phase_transitioning: bool = false
 var _battle_started: bool = false
 var _baby_dash_go_triggered: bool = false
 var _baby_flight_target: Vector2 = Vector2.ZERO
+var _baby_flight_dir: Vector2 = Vector2.ZERO
+var _baby_flight_timer: float = 0.0
+const BABY_FLIGHT_TIMEOUT: float = 2.0
+const BABY_FLIGHT_HIT_RADIUS: float = 30.0
 var _scythe_in_hand: bool = true
 var _scythe_instance: Node2D = null
 var _scythe_recall_requested: bool = false
@@ -224,12 +228,35 @@ func _tick_baby_flight(dt: float) -> void:
 	var baby := _baby_statue
 	if baby == null:
 		return
-	var dir := (_baby_flight_target - baby.global_position).normalized()
-	baby.global_position += dir * baby_throw_speed * dt
-	# 到达目标位置 → 落地爆炸
-	if baby.global_position.distance_to(_baby_flight_target) < 15.0:
-		baby.global_position = _baby_flight_target
+
+	# 首帧计算飞行方向（从当前位置朝目标方向，之后不再改变）
+	if _baby_flight_dir == Vector2.ZERO:
+		_baby_flight_dir = (_baby_flight_target - baby.global_position).normalized()
+		_baby_flight_timer = 0.0
+
+	_baby_flight_timer += dt
+	baby.global_position += _baby_flight_dir * baby_throw_speed * dt
+
+	# 检测是否碰到玩家
+	var player := get_priority_attack_target()
+	if player != null and is_instance_valid(player):
+		if baby.global_position.distance_to(player.global_position) < BABY_FLIGHT_HIT_RADIUS:
+			baby_state = BabyState.EXPLODED
+			_baby_flight_dir = Vector2.ZERO
+			return
+
+	# 检测是否碰到地面（baby的y >= boss站立的y，即地面高度）
+	if baby.global_position.y >= global_position.y:
+		baby.global_position.y = global_position.y
 		baby_state = BabyState.EXPLODED
+		_baby_flight_dir = Vector2.ZERO
+		return
+
+	# 2秒超时 → 直接返航，跳过爆炸
+	if _baby_flight_timer >= BABY_FLIGHT_TIMEOUT:
+		baby_state = BabyState.RETURNING
+		_baby_flight_dir = Vector2.ZERO
+		return
 
 
 func _update_damage_hitboxes() -> void:
@@ -440,6 +467,8 @@ func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 		# 由 ActStartBattle 在完整动画序列结束后设置，避免 SequenceReactive 提前中断
 		&"baby_release":
 			baby_state = BabyState.THROWN
+			_baby_flight_dir = Vector2.ZERO  # 让 _tick_baby_flight 首帧重新计算方向
+			_baby_flight_timer = 0.0
 			baby_anim_play(&"baby/spin", true)
 		&"throw_done":
 			anim_play(&"phase1/idle_no_baby", true)

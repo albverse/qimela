@@ -4,9 +4,13 @@ class_name ActCastImprison
 
 enum Step { CAST_ANIM, WAIT_CAST, MONITOR, DONE }
 var _step: int = Step.CAST_ANIM
+var _wait_cast_frames: int = 0
+var _last_diag_time: float = 0.0
 
 func before_run(actor: Node, _bb: Blackboard) -> void:
 	_step = Step.CAST_ANIM
+	_wait_cast_frames = 0
+	print("[ACT_IMPRISON_DEBUG] before_run: starting imprison sequence")
 
 func tick(actor: Node, blackboard: Blackboard) -> int:
 	var boss := actor as BossGhostWitch
@@ -18,15 +22,30 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Step.CAST_ANIM:
 			boss.anim_play(&"phase3/imprison", false)
 			_step = Step.WAIT_CAST
+			_wait_cast_frames = 0
+			print("[ACT_IMPRISON_DEBUG] CAST_ANIM → WAIT_CAST: playing phase3/imprison")
 			return RUNNING
 		Step.WAIT_CAST:
+			_wait_cast_frames += 1
+			var now_ms: float = Time.get_ticks_msec()
+			# 每2秒输出诊断日志
+			if now_ms - _last_diag_time > 2000.0:
+				_last_diag_time = now_ms
+				print("[ACT_IMPRISON_DEBUG] WAIT_CAST: frames=%d, _current_anim=%s, _current_anim_finished=%s, anim_is_finished('phase3/imprison')=%s" % [
+					_wait_cast_frames,
+					boss._current_anim,
+					boss._current_anim_finished,
+					boss.anim_is_finished(&"phase3/imprison")
+				])
 			if boss.anim_is_finished(&"phase3/imprison"):
+				print("[ACT_IMPRISON_DEBUG] WAIT_CAST → MONITOR: imprison anim finished after %d frames" % _wait_cast_frames)
 				_spawn_hell_hand(boss)
 				_step = Step.MONITOR
 			return RUNNING
 		Step.MONITOR:
 			if boss._hell_hand_instance == null or not is_instance_valid(boss._hell_hand_instance):
 				_set_cooldown(actor, blackboard, "cd_imprison", boss.p3_imprison_cooldown)
+				print("[ACT_IMPRISON_DEBUG] MONITOR → SUCCESS: hell hand gone, cd set")
 				return SUCCESS
 			return RUNNING
 	return FAILURE

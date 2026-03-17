@@ -52,6 +52,10 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	return FAILURE
 
 func _tick_explode(boss: BossGhostWitch) -> int:
+	# 超时未命中 → 跳过爆炸，直接返航
+	if boss.baby_state == BossGhostWitch.BabyState.RETURNING:
+		_step = Step.RETURN_HOME
+		return RUNNING
 	if boss.baby_state != BossGhostWitch.BabyState.EXPLODED:
 		return RUNNING
 	boss.baby_anim_play(&"baby/explode", false)
