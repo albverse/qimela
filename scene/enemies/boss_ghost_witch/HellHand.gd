@@ -158,15 +158,19 @@ func _capture_player() -> void:
 
 func _is_player_in_capture_area() -> bool:
 	if _capture_area == null:
-		var dist_check := _player != null and is_instance_valid(_player) and global_position.distance_to(_player.global_position) < 64.0
-		print("[HELL_HAND_DEBUG] _is_player_in_area: no CaptureArea, distance fallback=%s" % dist_check)
-		return dist_check
+		print("[HELL_HAND_DEBUG] _is_player_in_area: CaptureArea is NULL, cannot detect player")
+		return false
 	var bodies := _capture_area.get_overlapping_bodies()
 	for body in bodies:
 		if body != null and body.is_in_group("player"):
 			print("[HELL_HAND_DEBUG] _is_player_in_area: found player in CaptureArea bodies=%d" % bodies.size())
 			return true
-	print("[HELL_HAND_DEBUG] _is_player_in_area: player NOT in CaptureArea bodies=%d" % bodies.size())
+	# 输出所有检测到的 body 名称用于调试
+	var body_names: Array[String] = []
+	for body in bodies:
+		if body != null:
+			body_names.append("%s(layer=%d)" % [body.name, body.collision_layer if "collision_layer" in body else -1])
+	print("[HELL_HAND_DEBUG] _is_player_in_area: player NOT in CaptureArea bodies=%d names=%s player_pos=%s hand_pos=%s" % [bodies.size(), str(body_names), _player.global_position if _player != null and is_instance_valid(_player) else "null", global_position])
 	return false
 
 
