@@ -22,10 +22,15 @@ func _ready() -> void:
 	_spine = get_node_or_null("SpineSprite")
 	_capture_area = get_node_or_null("CaptureArea")
 	if _spine != null:
-		if _spine.has_signal("animation_event"):
-			_spine.animation_event.connect(_on_spine_event)
-		if _spine.has_signal("animation_completed"):
+		var has_completed := _spine.has_signal("animation_completed")
+		var has_event := _spine.has_signal("animation_event")
+		print("[HELL_HAND_DEBUG] _ready: spine found, animation_completed=%s animation_event=%s pos=%s" % [has_completed, has_event, global_position])
+		if has_completed:
 			_spine.animation_completed.connect(_on_anim_completed_raw)
+		if has_event:
+			_spine.animation_event.connect(_on_spine_event)
+	else:
+		print("[HELL_HAND_DEBUG] _ready: SpineSprite NOT found! pos=%s" % global_position)
 	_play_anim(&"appear", false)
 
 
@@ -37,12 +42,15 @@ func setup(player: Node2D, boss: BossGhostWitch, stun_time: float) -> void:
 
 func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 	var event_name := _extract_spine_event_name(a1, a2, a3, a4)
+	print("[HELL_HAND_DEBUG] spine_event: name=%s state=%d" % [event_name, _state])
 	if event_name != &"capture_check":
 		return
 	if _is_player_in_capture_area():
+		print("[HELL_HAND_DEBUG] capture_check: player IN area → capture + hold")
 		_capture_player()
 		_play_anim(&"hold", true)
 	else:
+		print("[HELL_HAND_DEBUG] capture_check: player NOT in area → close")
 		_state = HandState.CLOSING
 		_play_anim(&"close", false)
 
@@ -56,10 +64,13 @@ func _physics_process(_dt: float) -> void:
 
 func _on_anim_completed_raw(a1 = null, a2 = null, a3 = null) -> void:
 	var anim_name := _extract_completed_anim_name(a1, a2, a3)
+	print("[HELL_HAND_DEBUG] anim_completed: name=%s state=%d captured=%s" % [anim_name, _state, _player_captured])
 	if anim_name == &"appear" and not _player_captured:
+		print("[HELL_HAND_DEBUG] appear done, not captured → close")
 		_state = HandState.CLOSING
 		_play_anim(&"close", false)
 	elif anim_name == &"close":
+		print("[HELL_HAND_DEBUG] close done → queue_free")
 		_release_player()
 		queue_free()
 
@@ -104,6 +115,7 @@ func _exit_tree() -> void:
 
 
 func _play_anim(anim_name: StringName, loop: bool) -> void:
+	print("[HELL_HAND_DEBUG] _play_anim: name=%s loop=%s spine=%s pos=%s" % [anim_name, loop, _spine != null, global_position])
 	if _spine == null:
 		return
 	var anim_state: Object = null
@@ -112,7 +124,9 @@ func _play_anim(anim_name: StringName, loop: bool) -> void:
 	elif _spine.has_method("getAnimationState"):
 		anim_state = _spine.getAnimationState()
 	if anim_state == null:
+		print("[HELL_HAND_DEBUG] _play_anim: anim_state is NULL, cannot play %s" % anim_name)
 		return
+	print("[HELL_HAND_DEBUG] _play_anim: anim_state found, has set_animation=%s has setAnimation=%s" % [anim_state.has_method("set_animation"), anim_state.has_method("setAnimation")])
 	if anim_state.has_method("set_animation"):
 		anim_state.set_animation(String(anim_name), loop, 0)
 	elif anim_state.has_method("setAnimation"):
