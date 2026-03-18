@@ -21,6 +21,12 @@ var _hit_area: Area2D = null
 var _current_anim_name: StringName = &""
 var _current_anim_loop: bool = false
 
+# 备用捕获：距离检测（防止 Spine 事件或 Area2D 时序问题导致漏捕）
+var _appear_elapsed: float = 0.0
+const CAPTURE_FALLBACK_TIME: float = 0.25  # appear 播放 0.25s 后做距离备用检测
+const CAPTURE_FALLBACK_RADIUS: float = 55.0  # 备用捕获半径（px）
+var _fallback_capture_done: bool = false
+
 
 func _ready() -> void:
 	species_id = &"hell_hand"
@@ -50,6 +56,8 @@ func _ready() -> void:
 	else:
 		print("[HELL_HAND_DEBUG] _ready: HitArea NOT found, ghostfist hit via apply_hit only")
 
+	_appear_elapsed = 0.0
+	_fallback_capture_done = false
 	_play_anim(&"appear", false)
 	print("[HELL_HAND_DEBUG] _ready complete: state=%d pos=%s" % [_state, global_position])
 
@@ -100,6 +108,15 @@ func _physics_process(_dt: float) -> void:
 
 	match _state:
 		HandState.APPEAR:
+			_appear_elapsed += _dt
+			# 备用捕获：在 Spine capture_check 事件未能触发时，用距离检测兜底
+			if not _player_captured and not _fallback_capture_done and _appear_elapsed >= CAPTURE_FALLBACK_TIME:
+				_fallback_capture_done = true
+				if _try_capture_by_distance():
+					print("[HELL_HAND_DEBUG] APPEAR: fallback distance capture SUCCESS")
+					return
+				else:
+					print("[HELL_HAND_DEBUG] APPEAR: fallback distance capture MISS")
 			# appear 动画播完且 capture_check 未捕获 → 收回消失
 			if _is_current_anim_finished() and not _player_captured:
 				print("[HELL_HAND_DEBUG] APPEAR: appear anim finished (polled), not captured → CLOSING")
@@ -154,6 +171,22 @@ func _capture_player() -> void:
 	if _boss != null and is_instance_valid(_boss):
 		_boss._player_imprisoned = true
 	print("[HELL_HAND_DEBUG] _capture_player: stun_time=%.2f imprison_end=%d" % [_stun_time, _imprison_end])
+
+
+func _try_capture_by_distance() -> bool:
+	## 备用捕获：纯距离检测，不依赖 Area2D 重叠
+	if _player == null or not is_instance_valid(_player):
+		return false
+	var dist: float = global_position.distance_to(_player.global_position)
+	print("[HELL_HAND_DEBUG] _try_capture_by_distance: dist=%.1f radius=%.1f hand_pos=%s player_pos=%s" % [dist, CAPTURE_FALLBACK_RADIUS, global_position, _player.global_position])
+	if dist <= CAPTURE_FALLBACK_RADIUS:
+		_capture_player()
+		return true
+	# 也尝试 Area2D 检测（可能此时已生效）
+	if _is_player_in_capture_area():
+		_capture_player()
+		return true
+	return false
 
 
 func _is_player_in_capture_area() -> bool:

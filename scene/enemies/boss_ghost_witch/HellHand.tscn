@@ -2,7 +2,7 @@
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/HellHand.gd" id="1"]
 [ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/HellHand/HellHand.tres" id="spine_data"]
 [sub_resource type="CircleShape2D" id="1"]
-radius = 32.0
+radius = 50.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 20.0
 [node name="HellHand" type="CharacterBody2D"]
