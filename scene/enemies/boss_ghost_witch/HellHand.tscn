@@ -2,7 +2,7 @@
 [ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/HellHand.gd" id="1"]
 [ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/boss_ghost_witch/spine_art/HellHand/HellHand.tres" id="spine_data"]
 [sub_resource type="CircleShape2D" id="1"]
-radius = 32.0
+radius = 50.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 20.0
 [node name="HellHand" type="CharacterBody2D"]
@@ -16,8 +16,12 @@ preview_animation = "-- Empty --"
 preview_frame = false
 preview_time = 0.0
 [node name="CaptureArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2  # PlayerBody(2) / Inspector 第2层
 [node name="CollisionShape2D" type="CollisionShape2D" parent="CaptureArea"]
 shape = SubResource("1")
 [node name="HitArea" type="Area2D" parent="."]
+collision_layer = 4  # EnemyBody(3) / Inspector 第3层
+collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HitArea"]
 shape = SubResource("2")

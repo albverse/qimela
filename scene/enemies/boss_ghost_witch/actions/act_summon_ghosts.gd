@@ -26,8 +26,9 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	match _step:
 		Step.CAST:
 			if not _cast_done:
-				boss.anim_play(&"phase3/summon", false)
-				_wave_interval = 5.0 / float(boss.p3_summon_wave_count)
+				if _wave_timer == 0.0:
+					boss.anim_play(&"phase3/summon", false)
+					_wave_interval = 5.0 / float(boss.p3_summon_wave_count)
 
 			_wave_timer += dt
 			var expected_waves := int(_wave_timer / _wave_interval)
@@ -61,16 +62,38 @@ func _spawn_wave(boss: BossGhostWitch) -> void:
 	var player := boss.get_priority_attack_target()
 	if player == null:
 		return
-	var positions: Array[Vector2] = []
-	positions.append(player.global_position)
+	# 地面 Y 坐标：直接使用 Boss 所在 Y（Boss 始终站在地面，避免射线命中单向平台）
+	var ground_y: float = boss.global_position.y
+
+	# 生成位置：玩家 X 轴线下方的地面 + 随机偏移，保证间距 ≥ 60px
+	var used_positions: Array[Vector2] = []
+	var base_x: float = player.global_position.x
+	# 第一个在玩家正下方地面
+	used_positions.append(Vector2(base_x, ground_y))
+	# 其余随机生成，保证不重叠（≥ 60px 间距）
 	for i in range(boss.p3_summon_circle_count - 1):
-		var random_x := player.global_position.x + randf_range(-300, 300)
-		positions.append(Vector2(random_x, player.global_position.y))
-	for pos in positions:
+		var spawn_x: float = base_x
+		var attempts: int = 0
+		var valid: bool = false
+		while attempts < 20:
+			spawn_x = base_x + randf_range(-300.0, 300.0)
+			valid = true
+			for existing in used_positions:
+				if absf(spawn_x - existing.x) < 60.0:
+					valid = false
+					break
+			if valid:
+				break
+			attempts += 1
+		used_positions.append(Vector2(spawn_x, ground_y))
+
+	# 逐个生成，每个延迟 0.3s（通过 setup delay 参数实现时间差）
+	for idx in range(used_positions.size()):
+		var pos: Vector2 = used_positions[idx]
 		var summon: Node2D = boss._ghost_summon_scene.instantiate()
 		summon.add_to_group("ghost_summon")
 		if summon.has_method("setup"):
-			summon.call("setup", 0.3)
+			summon.call("setup", idx * 0.3)
 		summon.global_position = pos
 		boss.get_parent().add_child(summon)
 

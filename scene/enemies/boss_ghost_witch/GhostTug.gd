@@ -4,9 +4,9 @@
 extends MonsterBase
 class_name GhostTug
 
-@export var knockback_distance_px: float = 60.0
-@export var knockback_duration: float = 0.25
-@export var knockback_vertical_impulse: float = -200.0  # 向上弹起（负值=向上）
+@export var knockback_distance_px: float = 240.0
+@export var knockback_duration: float = 0.35
+@export var knockback_vertical_impulse: float = -800.0  # 向上弹起（负值=向上）
 var _player: Node2D = null
 var _boss: Node2D = null
 var _dying: bool = false
