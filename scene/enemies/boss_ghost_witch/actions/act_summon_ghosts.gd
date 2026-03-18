@@ -26,8 +26,9 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	match _step:
 		Step.CAST:
 			if not _cast_done:
-				boss.anim_play(&"phase3/summon", false)
-				_wave_interval = 5.0 / float(boss.p3_summon_wave_count)
+				if _wave_timer == 0.0:
+					boss.anim_play(&"phase3/summon", false)
+					_wave_interval = 5.0 / float(boss.p3_summon_wave_count)
 
 			_wave_timer += dt
 			var expected_waves := int(_wave_timer / _wave_interval)
