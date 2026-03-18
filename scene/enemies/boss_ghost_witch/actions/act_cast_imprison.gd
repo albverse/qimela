@@ -84,10 +84,12 @@ func _set_cooldown(actor: Node, bb: Blackboard, key: String, cd: float) -> void:
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	print("[ACT_IMPRISON_DEBUG] interrupt: step=%d" % _step)
-	# 如果被中断时 HellHand 还在，清理它
 	var boss := actor as BossGhostWitch
-	if boss != null and boss._hell_hand_instance != null and is_instance_valid(boss._hell_hand_instance):
-		print("[ACT_IMPRISON_DEBUG] interrupt: cleaning up hell_hand_instance")
+	# 玩家已被禁锢时不销毁 HellHand — 由 ImprisonReact (run_slash) 接管处理
+	if boss != null and boss._player_imprisoned:
+		print("[ACT_IMPRISON_DEBUG] interrupt: player imprisoned, keeping hell_hand for ImprisonReact")
+	elif boss != null and boss._hell_hand_instance != null and is_instance_valid(boss._hell_hand_instance):
+		print("[ACT_IMPRISON_DEBUG] interrupt: cleaning up hell_hand_instance (player not imprisoned)")
 		boss._hell_hand_instance.queue_free()
 		boss._hell_hand_instance = null
 	_step = Step.CAST_ANIM

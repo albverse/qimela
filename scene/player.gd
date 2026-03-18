@@ -584,15 +584,18 @@ func get_tug_knockback_vx() -> float:
 
 
 func apply_damage(amount: int, source_global_pos: Vector2) -> void:
-	# 测试无敌模式：跳过所有伤害
-	if debug_invincible:
-		return
 	# 石化中被伤害 → 即死处决
 	if _petrified:
 		execute_petrified_death()
 		return
 	if health != null:
-		health.apply_damage(amount, source_global_pos)
+		if debug_invincible:
+			# 无敌模式：受击效果（击退/僵直/动画）正常触发，但 HP 不减
+			health.hp = health.max_hp
+			health.apply_damage(amount, source_global_pos)
+			health.hp = health.max_hp
+		else:
+			health.apply_damage(amount, source_global_pos)
 
 func heal(amount: int) -> void:
 	if health != null:
