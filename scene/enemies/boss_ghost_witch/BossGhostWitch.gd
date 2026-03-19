@@ -73,6 +73,9 @@ var _hell_hand_instance: Node2D = null
 var _player_imprisoned: bool = false
 var skip_gravity_and_move: bool = false  # tombstone 空中阶段跳过重力+碰撞
 
+# 攻击 hitbox 每次启用只造成一次伤害的跟踪字典
+var _hitbox_has_hit: Dictionary = {}
+
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
 var _current_anim_loop: bool = false
@@ -347,9 +350,14 @@ func _update_damage_hitboxes() -> void:
 	for hb: Area2D in [_kick_hitbox, _attack1_area, _attack2_area, _attack3_area, _run_slash_hitbox, _ground_hitbox, _baby_attack_area, _baby_explosion_area]:
 		if hb == null or not hb.monitoring:
 			continue
+		# 每次启用只造成一次伤害
+		if _hitbox_has_hit.get(hb, false):
+			continue
 		for body in hb.get_overlapping_bodies():
 			if body != null and body.is_in_group("player") and body.has_method("apply_damage"):
 				body.call("apply_damage", 1, hb.global_position)
+				_hitbox_has_hit[hb] = true
+				break
 
 
 func _update_bone_follow() -> void:
@@ -477,6 +485,8 @@ func _set_hitbox_enabled(area: Area2D, enabled: bool) -> void:
 		return
 	area.set_deferred("monitoring", enabled)
 	area.set_deferred("monitorable", enabled)
+	if enabled:
+		_hitbox_has_hit.erase(area)  # 重新启用时清除"已命中"标记
 
 
 # ═══ 动画系统（与修女蛇同款接口）═══
@@ -622,6 +632,7 @@ func _on_baby_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 	match e:
 		&"dash_go": _baby_dash_go_triggered = true
 		&"dash_hitbox_on": _set_hitbox_enabled(_baby_attack_area, true)
+		&"dash_hitbox_off": _set_hitbox_enabled(_baby_attack_area, false)
 		&"explode_hitbox_on": _set_hitbox_enabled(_baby_explosion_area, true)
 		&"explode_hitbox_off": _set_hitbox_enabled(_baby_explosion_area, false)
 		&"realhurtbox_on": _set_hitbox_enabled(_baby_real_hurtbox, true)

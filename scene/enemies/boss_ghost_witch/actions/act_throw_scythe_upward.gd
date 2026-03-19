@@ -15,6 +15,11 @@ func tick(actor: Node, _bb: Blackboard) -> int:
 
 	match _step:
 		Step.RUN_TO_X:
+			# 玩家已被释放（HellHand 超时/被击碎）→ 放弃跑位，让行为树重新选择
+			if not boss._player_imprisoned:
+				print("[ACT_THROW_SCYTHE] RUN_TO_X: player no longer imprisoned → FAILURE")
+				actor.velocity.x = 0.0
+				return FAILURE
 			var player := boss.get_priority_attack_target()
 			if player == null:
 				return FAILURE
