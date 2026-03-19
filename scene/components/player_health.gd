@@ -9,7 +9,7 @@ signal damage_applied(amount: int, source_pos: Vector2)
 signal hp_changed(new_hp: int, old_hp: int)
 
 @export var max_hp: int = 5
-@export var invincible_time: float = 0.1
+@export var invincible_time: float = 0.5
 @export var post_hit_stun_time: float = 0.2
 @export var knockback_air_time: float = 0.25
 @export var knockback_distance: float = 110.0

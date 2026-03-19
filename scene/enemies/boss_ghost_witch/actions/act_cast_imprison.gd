@@ -73,7 +73,8 @@ func _spawn_hell_hand(boss: BossGhostWitch) -> void:
 	hand.add_to_group("hell_hand")
 	if hand.has_method("setup"):
 		hand.call("setup", player, boss, boss.p3_imprison_stun_time)
-	hand.global_position = player.global_position
+	# HellHand 必须生成在地面（boss 的 Y 坐标），X 取玩家位置
+	hand.global_position = Vector2(player.global_position.x, boss.global_position.y)
 	var parent := boss.get_parent()
 	parent.add_child(hand)
 	boss._hell_hand_instance = hand
