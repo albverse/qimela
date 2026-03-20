@@ -1,0 +1,74 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="1_boss"]
+
+[sub_resource type="RectangleShape2D" id="ground_shape"]
+size = Vector2(2000, 40)
+
+[sub_resource type="RectangleShape2D" id="wall_shape"]
+size = Vector2(40, 600)
+
+[sub_resource type="RectangleShape2D" id="platform_shape"]
+size = Vector2(200, 16)
+
+[sub_resource type="RectangleShape2D" id="platform_shape2"]
+size = Vector2(200, 16)
+
+[node name="BossTestArena" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(0, 300)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("ground_shape")
+
+[node name="LeftWall" type="StaticBody2D" parent="."]
+position = Vector2(-1000, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
+shape = SubResource("wall_shape")
+
+[node name="RightWall" type="StaticBody2D" parent="."]
+position = Vector2(1000, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
+shape = SubResource("wall_shape")
+
+[node name="Platform1" type="StaticBody2D" parent="."]
+position = Vector2(-300, 100)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform1"]
+shape = SubResource("platform_shape")
+
+[node name="Platform2" type="StaticBody2D" parent="."]
+position = Vector2(300, 50)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform2"]
+shape = SubResource("platform_shape2")
+
+[node name="Platform3" type="StaticBody2D" parent="."]
+position = Vector2(0, -50)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform3"]
+shape = SubResource("platform_shape2")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(-400, 280)
+
+[node name="BossSpawn" type="Marker2D" parent="."]
+position = Vector2(200, 280)
+
+[node name="BossGhostWitch" parent="." instance=ExtResource("1_boss")]
+position = Vector2(200, 280)

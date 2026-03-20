@@ -1,0 +1,43 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/boss_ghost_witch/ghost_bomb.gd" id="1_script"]
+
+[sub_resource type="CircleShape2D" id="hurt_shape"]
+radius = 20.0
+
+[sub_resource type="CircleShape2D" id="explosion_shape"]
+radius = 80.0
+
+[sub_resource type="CircleShape2D" id="light_shape"]
+radius = 120.0
+
+[node name="GhostBomb" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_script")
+
+[node name="SpineSprite" type="Sprite2D" parent="."]
+
+[node name="HurtArea" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtArea"]
+shape = SubResource("hurt_shape")
+
+[node name="ExplosionArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExplosionArea"]
+shape = SubResource("explosion_shape")
+disabled = true
+
+[node name="LightArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightArea"]
+shape = SubResource("light_shape")
+disabled = true
