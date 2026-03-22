@@ -141,7 +141,7 @@ func _switch_to_visible() -> void:
 			hurtbox_shape.disabled = false
 	var attack_area: Area2D = get_node_or_null("AttackArea") as Area2D
 	if attack_area:
-		attack_area.set_deferred("monitoring", true)
+		attack_area.monitoring = true
 	if _point_light:
 		_point_light.enabled = true
 
@@ -162,7 +162,7 @@ func _switch_to_invisible() -> void:
 			hurtbox_shape.disabled = true
 	var attack_area: Area2D = get_node_or_null("AttackArea") as Area2D
 	if attack_area:
-		attack_area.set_deferred("monitoring", false)
+		attack_area.monitoring = false
 	# 立即关闭 AttackHitbox（攻击过程中切入隐身）
 	set_attack_hitbox_active(false)
 	if _point_light:
@@ -374,7 +374,7 @@ func face_toward(target: Node2D) -> void:
 
 func is_player_in_detect_area() -> bool:
 	var detect: Area2D = get_node_or_null("DetectArea") as Area2D
-	if detect == null or not detect.monitoring:
+	if detect == null:
 		return false
 	for body in detect.get_overlapping_bodies():
 		if body.is_in_group("player"):
@@ -384,7 +384,7 @@ func is_player_in_detect_area() -> bool:
 
 func is_player_in_attack_area() -> bool:
 	var attack: Area2D = get_node_or_null("AttackArea") as Area2D
-	if attack == null or not attack.monitoring:
+	if attack == null:
 		return false
 	for body in attack.get_overlapping_bodies():
 		if body.is_in_group("player"):
