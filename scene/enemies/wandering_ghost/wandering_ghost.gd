@@ -374,7 +374,7 @@ func face_toward(target: Node2D) -> void:
 
 func is_player_in_detect_area() -> bool:
 	var detect: Area2D = get_node_or_null("DetectArea") as Area2D
-	if detect == null:
+	if detect == null or not detect.monitoring:
 		return false
 	for body in detect.get_overlapping_bodies():
 		if body.is_in_group("player"):
@@ -384,7 +384,7 @@ func is_player_in_detect_area() -> bool:
 
 func is_player_in_attack_area() -> bool:
 	var attack: Area2D = get_node_or_null("AttackArea") as Area2D
-	if attack == null:
+	if attack == null or not attack.monitoring:
 		return false
 	for body in attack.get_overlapping_bodies():
 		if body.is_in_group("player"):
