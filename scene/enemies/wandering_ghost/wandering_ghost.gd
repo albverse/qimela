@@ -228,7 +228,13 @@ func set_attack_hitbox_active(active: bool) -> void:
 	if shape:
 		shape.disabled = not active
 
-
+func _on_attack_hitbox_body_entered(body: Node2D) -> void:
+	if _dying or _being_hunted:
+		return
+	if not _is_visible:
+		return
+	if body.has_method("apply_damage"):
+		body.call("apply_damage", 1, global_position)
 # =============================================================================
 # Spine 动画
 # =============================================================================
@@ -322,10 +328,10 @@ func _extract_completed_anim_name(a1 = null, a2 = null, a3 = null) -> StringName
 	return StringName(name_str)
 
 
-func _on_spine_event(a1 = null, a2 = null, a3 = null) -> void:
+func _on_spine_event(a1 = null, a2 = null, a3 = null, a4 = null) -> void:
 	## Spine 动画事件回调：处理 atk_hit_on / atk_hit_off
 	var event_obj: Object = null
-	for a in [a1, a2, a3]:
+	for a in [a1, a2, a3, a4]:
 		if a == null:
 			continue
 		if a is Object and (a.has_method("get_data") or a.has_method("getData")):
