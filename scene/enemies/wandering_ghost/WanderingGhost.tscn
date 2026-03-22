@@ -1,0 +1,82 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/wandering_ghost.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="3_light_recv"]
+[ext_resource type="PackedScene" path="res://scene/enemies/wandering_ghost/bt_wandering_ghost.tscn" id="4_bt"]
+
+[sub_resource type="CircleShape2D" id="body_shape"]
+radius = 12.0
+
+[sub_resource type="CircleShape2D" id="hurtbox_shape"]
+radius = 14.0
+
+[sub_resource type="CircleShape2D" id="detect_shape"]
+radius = 150.0
+
+[sub_resource type="CircleShape2D" id="attack_area_shape"]
+radius = 35.0
+
+[sub_resource type="CircleShape2D" id="attack_hitbox_shape"]
+radius = 25.0
+
+[sub_resource type="CircleShape2D" id="light_receiver_shape"]
+radius = 20.0
+
+[node name="WanderingGhost" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_script")
+light_receiver_path = NodePath("LightReceiver")
+
+[node name="SpineSprite" type="Sprite2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("hurtbox_shape")
+
+[node name="DetectArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea"]
+shape = SubResource("detect_shape")
+
+[node name="AttackArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea"]
+shape = SubResource("attack_area_shape")
+
+[node name="AttackHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox"]
+shape = SubResource("attack_hitbox_shape")
+disabled = true
+
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+script = ExtResource("3_light_recv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("light_receiver_shape")
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+enabled = false
+energy = 1.0
+
+[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
+blackboard = NodePath("")
+actor = NodePath("..")

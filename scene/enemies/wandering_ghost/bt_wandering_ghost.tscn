@@ -1,0 +1,50 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" uid="uid://bb0t2ovl7wifo" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" uid="uid://cw22yurt5l74k" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" uid="uid://cg016dbe7gs1x" path="res://addons/beehave/nodes/composites/sequence.gd" id="sequence"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/conditions/cond_wg_dying_or_hunted.gd" id="cond_dying"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/conditions/cond_wg_can_attack.gd" id="cond_attack"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/conditions/cond_wg_player_in_detect.gd" id="cond_detect"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/actions/act_wg_wait_death.gd" id="act_death"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/actions/act_wg_attack.gd" id="act_attack"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/actions/act_wg_chase.gd" id="act_chase"]
+[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/actions/act_wg_idle.gd" id="act_idle"]
+
+[node name="BeehaveTree" type="Node" node_paths=PackedStringArray("blackboard", "actor")]
+script = ExtResource("bt_tree")
+blackboard = NodePath("")
+actor = NodePath("..")
+
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+[node name="Seq_DeathHunted" type="Node" parent="RootSelector"]
+script = ExtResource("sequence")
+
+[node name="Cond_DyingOrHunted" type="Node" parent="RootSelector/Seq_DeathHunted"]
+script = ExtResource("cond_dying")
+
+[node name="Act_WaitDeath" type="Node" parent="RootSelector/Seq_DeathHunted"]
+script = ExtResource("act_death")
+
+[node name="Seq_Attack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence")
+
+[node name="Cond_CanAttack" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("cond_attack")
+
+[node name="Act_Attack" type="Node" parent="RootSelector/Seq_Attack"]
+script = ExtResource("act_attack")
+
+[node name="Seq_Chase" type="Node" parent="RootSelector"]
+script = ExtResource("sequence")
+
+[node name="Cond_PlayerInDetect" type="Node" parent="RootSelector/Seq_Chase"]
+script = ExtResource("cond_detect")
+
+[node name="Act_Chase" type="Node" parent="RootSelector/Seq_Chase"]
+script = ExtResource("act_chase")
+
+[node name="Act_Idle" type="Node" parent="RootSelector"]
+script = ExtResource("act_idle")

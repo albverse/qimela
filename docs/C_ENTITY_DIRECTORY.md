@@ -22,6 +22,7 @@
 | `boss_ghost_witch` | enemies/boss_ghost_witch/BossGhostWitch.tscn | enemies/boss_ghost_witch/BossGhostWitch.gd | NORMAL | LARGE | ❌未设置 | 幽灵女巫Boss（3阶段：宝宝投掷/亡灵召唤/镰刀战斗；Beehave BT驱动；HP=30） |
 | `soul_devourer` | enemies/soul_devourer/SoulDevourer.tscn | enemies/soul_devourer/soul_devourer.gd | DARK | SMALL | ❌未设置 | 噬魂犬（猎杀幽灵；漂浮隐身态可合体为双头犬） |
 | `two_headed_soul_devourer` | enemies/soul_devourer/TwoHeadedSoulDevourer.tscn | enemies/soul_devourer/two_headed_soul_devourer.gd | — | — | ❌未设置 | 双头噬魂犬（临时合体实体；无敌；双向光炮后分离还原） |
+| `wandering_ghost` | enemies/wandering_ghost/WanderingGhost.tscn | enemies/wandering_ghost/wandering_ghost.gd | LIGHT | SMALL | ❌未设置 | 游荡幽灵（无HP一击死；ghost组chain穿透；只受ghost_fist/chimera_ghost_hand_l；可被噬魂犬捕食） |
 
 ---
 
