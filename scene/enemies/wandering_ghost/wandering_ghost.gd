@@ -191,6 +191,18 @@ func on_chain_hit(_p: Node, _s: int) -> int:
 # =============================================================================
 # 被吞食（噬魂狗猎杀）
 # =============================================================================
+func is_being_hunted() -> bool:
+	return _being_hunted
+
+
+func is_dying() -> bool:
+	return _dying
+
+
+func is_ghost_visible() -> bool:
+	return _is_visible
+
+
 func start_being_hunted() -> void:
 	_being_hunted = true
 	velocity = Vector2.ZERO
@@ -368,7 +380,7 @@ func _do_move(_dt: float) -> void:
 # =============================================================================
 # 朝向与辅助查询
 # =============================================================================
-const FACE_DEAD_ZONE: float = 10.0
+const FACE_DEAD_ZONE: float = 30.0
 
 func face_toward(target: Node2D) -> void:
 	if target == null:

@@ -74,17 +74,17 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 func _start_dash(sd: SoulDevourer) -> void:
 	_timer = 0.0
 	sd.anim_play(&"has_knife/knife_attack_run", false)
-	# 面向玩家
+	# 面向玩家（统一使用 _spine_sprite 翻转，不翻转 CharacterBody2D）
 	var player: Node2D = sd.get_priority_attack_target()
 	if player != null:
-		var dir: float = sign(player.global_position.x - sd.global_position.x)
-		if dir != 0.0:
-			sd.scale.x = abs(sd.scale.x) * dir
+		sd.face_toward_position(player.global_position.x)
 
 
 func _tick_dash(sd: SoulDevourer, dt: float, blackboard: Blackboard) -> int:
-	# 冲刺移动
-	var dir: float = sign(sd.scale.x)
+	# 冲刺移动（方向基于 SpineSprite 朝向）
+	var dir: float = 1.0
+	if sd._spine_sprite != null and sd._spine_sprite.scale.x != 0.0:
+		dir = sign(sd._spine_sprite.scale.x)
 	sd.velocity.x = dir * sd.ground_run_speed * 2.5
 	sd.velocity.y += 1200.0 * dt
 	if sd.is_on_floor():

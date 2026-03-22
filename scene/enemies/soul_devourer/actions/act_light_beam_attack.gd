@@ -16,12 +16,10 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	if sd == null:
 		return
 	sd.velocity.x = 0.0
-	# 面向玩家
+	# 面向玩家（统一使用 _spine_sprite 翻转，不翻转 CharacterBody2D）
 	var player: Node2D = sd.get_priority_attack_target()
 	if player != null:
-		var dir: float = sign(player.global_position.x - sd.global_position.x)
-		if dir != 0.0:
-			sd.scale.x = abs(sd.scale.x) * dir
+		sd.face_toward_position(player.global_position.x)
 	sd.anim_play(&"normal/light_beam", false)
 
 

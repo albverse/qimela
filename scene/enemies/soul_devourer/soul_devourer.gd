@@ -70,7 +70,7 @@ var _recent_damage_timer: float = 0.0
 const RECENT_DAMAGE_WINDOW: float = 1.0
 
 # ===== 面向死区 =====
-const FACE_DEAD_ZONE: float = 10.0
+const FACE_DEAD_ZONE: float = 30.0
 
 # ===== 动画系统 =====
 var _current_anim: StringName = &""
@@ -179,11 +179,14 @@ func _physics_process(dt: float) -> void:
 
 	# 重力（仅显现态落地时）
 	if not _is_floating_invisible and not _forced_invisible:
-		if not is_on_floor():
-			velocity.y += GRAVITY * dt
+		if _landing_locked:
+			pass  # 着陆期间由 act_landing_sequence 控制物理
 		else:
-			velocity.y = max(velocity.y, 0.0)
-		move_and_slide()
+			if not is_on_floor():
+				velocity.y += GRAVITY * dt
+			else:
+				velocity.y = max(velocity.y, 0.0)
+			move_and_slide()
 	else:
 		# 漂浮隐身态：无重力，清除 collision_mask World 层
 		velocity.y = 0.0
@@ -512,8 +515,12 @@ func _find_nearest_huntable_ghost() -> Node2D:
 		var n: Node2D = g as Node2D
 		if n == null:
 			continue
-		# 过滤：可见 + 非 being_hunted
+		# 过滤：可见 + 非 dying + 非 being_hunted
 		if n.has_method("is_being_hunted") and bool(n.call("is_being_hunted")):
+			continue
+		if n.has_method("is_dying") and bool(n.call("is_dying")):
+			continue
+		if n.has_method("is_ghost_visible") and not bool(n.call("is_ghost_visible")):
 			continue
 		var d: float = global_position.distance_to(n.global_position)
 		if d < nearest_dist:
@@ -550,6 +557,10 @@ func _is_huntable_ghost_valid(target: Node) -> bool:
 	if not is_instance_valid(target):
 		return false
 	if target.has_method("is_being_hunted") and bool(target.call("is_being_hunted")):
+		return false
+	if target.has_method("is_dying") and bool(target.call("is_dying")):
+		return false
+	if target.has_method("is_ghost_visible") and not bool(target.call("is_ghost_visible")):
 		return false
 	return true
 
@@ -648,8 +659,10 @@ func _on_spine_event_throw_cleaver() -> void:
 		spawn_pos = _mark2d.global_position
 	cleaver.global_position = spawn_pos
 	cleaver.owner_instance_id = get_instance_id()
-	# 赋予抛出初速度（朝面向方向）
-	var facing: float = 1.0 if scale.x >= 0.0 else -1.0
+	# 赋予抛出初速度（基于 SpineSprite 朝向，不读 CharacterBody2D scale）
+	var facing: float = 1.0
+	if _spine_sprite != null and _spine_sprite.scale.x != 0.0:
+		facing = sign(_spine_sprite.scale.x)
 	cleaver.velocity = Vector2(facing * 200.0, -80.0)
 	get_parent().add_child(cleaver)
 	# 关闭持刀视觉，_has_knife 在事件帧置 false

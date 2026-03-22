@@ -11,6 +11,7 @@ class_name ActSoulDevourerHuntGhost
 ## =============================================================================
 
 const HUNT_REACH_DIST: float = 24.0
+const HUNT_TRANSITION_DIST: float = 60.0  # 进入 huntting 动画的距离阈值
 
 var _timer: float = 0.0
 var _hunting_anim_active: bool = false
@@ -67,11 +68,19 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		sd.velocity = dir * sd.float_move_speed
 		sd.anim_play(&"normal/float_move", true)
 	else:
-		# 地面态：只水平移动
-		var h_dir: float = sign(ghost.global_position.x - sd.global_position.x)
-		sd.velocity.x = h_dir * sd.ground_run_speed
+		# 地面态：只水平移动（含面向死区防抖）
+		var h_dx: float = ghost.global_position.x - sd.global_position.x
+		if absf(h_dx) <= sd.FACE_DEAD_ZONE:
+			sd.velocity.x = 0.0
+		else:
+			var h_dir: float = sign(h_dx)
+			sd.velocity.x = h_dir * sd.ground_run_speed
 		sd.face_toward_position(ghost.global_position.x)
-		sd.anim_play(&"normal/huntting", true)
+		# 远距离用 run，近距离切 huntting
+		if dist > HUNT_TRANSITION_DIST:
+			sd.anim_play(&"normal/run", true)
+		else:
+			sd.anim_play(&"normal/huntting", true)
 
 	sd.move_and_slide()
 	return RUNNING
