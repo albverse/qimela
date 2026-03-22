@@ -368,12 +368,16 @@ func _do_move(_dt: float) -> void:
 # =============================================================================
 # 朝向与辅助查询
 # =============================================================================
+const FACE_DEAD_ZONE: float = 10.0
+
 func face_toward(target: Node2D) -> void:
 	if target == null:
 		return
 	var dir: float = target.global_position.x - global_position.x
+	if absf(dir) <= FACE_DEAD_ZONE:
+		return
 	if _spine != null:
-		_spine.scale.x = absf(_spine.scale.x) * (1.0 if dir >= 0.0 else -1.0)
+		_spine.scale.x = absf(_spine.scale.x) * (1.0 if dir > 0.0 else -1.0)
 	elif sprite != null:
 		sprite.flip_h = dir < 0.0
 
