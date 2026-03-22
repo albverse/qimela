@@ -1,0 +1,146 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/soul_devourer/spine_art/soul_devourer.tres" id="1_skeldata"]
+[ext_resource type="PackedScene" path="res://scene/enemies/soul_devourer/bt_soul_devourer.tscn" id="2_bt"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/soul_devourer.gd" id="3_script"]
+[ext_resource type="Script" path="res://scene/enemy_hurtbox.gd" id="4_hurtbox"]
+
+; --- 碰撞体形状 ---
+; CharacterBody2D 主碰撞：EnemyBody(3) → layer=4
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body"]
+radius = 18.0
+height = 48.0
+
+; FireHurtbox：弱点受击盒（被动，monitorable=true, monitoring=false）
+[sub_resource type="CircleShape2D" id="CircleShape2D_fire"]
+radius = 16.0
+
+; DetectArea：玩家/幽灵感知
+[sub_resource type="CircleShape2D" id="CircleShape2D_detect"]
+radius = 240.0
+
+; AttackHitbox：攻击判定
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_atk"]
+radius = 20.0
+height = 40.0
+
+; LightBeamHitbox：光炮判定
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_beam"]
+size = Vector2(300.0, 20.0)
+
+; LightReceiver：光照感知（与 FireHurtbox 分离）
+[sub_resource type="CircleShape2D" id="CircleShape2D_light"]
+radius = 60.0
+
+; MergeDetectArea：合体检测
+[sub_resource type="CircleShape2D" id="CircleShape2D_merge"]
+radius = 30.0
+
+; GroundRaycast 不需要 shape
+
+; =============================================================================
+; 场景节点树（§4.1）
+; EnemyBody(3) = layer 4 = 1<<2
+; EnemyHurtbox(4) = layer 8 = 1<<3
+; PlayerBody(2) = mask 2
+; World(1) = mask 1
+; ObjectSense(5) = layer/mask 16
+; hazards(6) = layer 32
+; =============================================================================
+
+[node name="SoulDevourer" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("3_script")
+species_id = &"soul_devourer"
+entity_type = 0
+attribute_type = 2
+size_tier = 1
+max_hp = 3
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+skeleton_data_res = ExtResource("1_skeldata")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -24)
+shape = SubResource("CapsuleShape2D_body")
+
+; FireHurtbox — 唯一 EnemyHurtbox 层节点，被动 Hurtbox
+; monitorable=true（被 ghost_fist Hitbox 检测到），monitoring=false（不主动检测）
+[node name="FireHurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+monitorable = true
+monitoring = false
+script = ExtResource("4_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="FireHurtbox"]
+shape = SubResource("CircleShape2D_fire")
+
+; DetectArea — 玩家/幽灵空间感知（不负责斩魂刀检测）
+[node name="DetectArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 6
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea"]
+shape = SubResource("CircleShape2D_detect")
+
+; AttackHitbox — 攻击判定（hazards(6), 监测 PlayerBody(2)）
+[node name="AttackHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox"]
+shape = SubResource("CapsuleShape2D_atk")
+disabled = true
+
+; LightBeamHitbox — 光炮判定
+[node name="LightBeamHitbox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightBeamHitbox"]
+shape = SubResource("RectangleShape2D_beam")
+disabled = true
+
+; LightReceiver — 光照感知（ObjectSense(5) = layer/mask 16）
+[node name="LightReceiver" type="Area2D" parent="."]
+collision_layer = 16
+collision_mask = 16
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+shape = SubResource("CircleShape2D_light")
+
+; MergeDetectArea — 合体检测（感知 EnemyBody(3)）
+[node name="MergeDetectArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MergeDetectArea"]
+shape = SubResource("CircleShape2D_merge")
+
+; Mark2D — has_knife weak 时生成斩魂刀 / throw_cleaver 生成点
+[node name="Mark2D" type="Marker2D" parent="."]
+position = Vector2(30, -20)
+
+; GroundRaycast — 地面检测（用于着陆序列）
+[node name="GroundRaycast" type="RayCast2D" parent="."]
+target_position = Vector2(0, 40)
+collision_mask = 1
+
+; BeehaveTree（行为树）— actor 自动取父节点 SoulDevourer
+[node name="BeehaveTree" parent="." instance=ExtResource("2_bt")]

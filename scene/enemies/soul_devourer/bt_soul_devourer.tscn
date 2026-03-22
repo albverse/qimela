@@ -1,0 +1,187 @@
+[gd_scene load_steps=28 format=3]
+
+; === Beehave 内置节点脚本 ===
+[ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector_reactive.gd" id="selector_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/sequence_reactive.gd" id="sequence_reactive"]
+[ext_resource type="Script" path="res://addons/beehave/nodes/composites/selector.gd" id="selector"]
+
+; === Condition 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_death_rebirth_active.gd" id="cond_death_rebirth"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_landing_locked.gd" id="cond_landing"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_force_separate.gd" id="cond_force_sep"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_merging.gd" id="cond_merging"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_floating_invisible.gd" id="cond_floating"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_merge_possible.gd" id="cond_merge_possible"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_player_too_close_and_idle.gd" id="cond_player_close"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_aggro_and_cleaver_available.gd" id="cond_aggro_cleaver"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_has_knife.gd" id="cond_has_knife"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_aggro_and_full.gd" id="cond_aggro_full"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_aggro_not_full_huntable_exists.gd" id="cond_aggro_hunt"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_not_aggro_and_ghost_visible.gd" id="cond_passive_hunt"]
+
+; === Action 脚本 ===
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_death_rebirth_flow.gd" id="act_death_rebirth"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_landing_sequence.gd" id="act_landing"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_separate_move.gd" id="act_separate"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_move_to_partner.gd" id="act_merge"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_float_maintain_distance.gd" id="act_float"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_start_merge.gd" id="act_start_merge"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_forced_invisible_sequence.gd" id="act_forced_invis"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_pickup_cleaver.gd" id="act_pickup"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_knife_attack_sequence.gd" id="act_knife_atk"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_light_beam_attack.gd" id="act_beam"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_hunt_ghost.gd" id="act_hunt"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_idle.gd" id="act_idle"]
+
+; =============================================================================
+; BeehaveTree — actor 自动取父节点 SoulDevourer
+; process_thread = PHYSICS（默认）
+; 优先级（P0 最高 → P11 最低）：
+;   P0  death-rebirth 锁定
+;   P1  着陆锁定
+;   P2  强制分离
+;   P3  合体移动
+;   P4  漂浮隐身（含合体检查）
+;   P5  强制隐身触发
+;   P6  斩魂刀拾取
+;   P7  has_knife 冲刺
+;   P8  光炮（full）
+;   P9  aggro + no_full → 猎杀
+;   P10 被动猎杀
+;   P11 idle（兜底）
+; =============================================================================
+
+[node name="BeehaveTree" type="Node"]
+script = ExtResource("bt_tree")
+
+[node name="RootSelector" type="Node" parent="."]
+script = ExtResource("selector_reactive")
+
+; --- P0: death-rebirth 锁定 ---
+[node name="Seq_DeathRebirth" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_DeathRebirthActive" type="Node" parent="RootSelector/Seq_DeathRebirth"]
+script = ExtResource("cond_death_rebirth")
+
+[node name="Act_DeathRebirthFlow" type="Node" parent="RootSelector/Seq_DeathRebirth"]
+script = ExtResource("act_death_rebirth")
+
+; --- P1: 着陆锁定 ---
+[node name="Seq_Landing" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_LandingLocked" type="Node" parent="RootSelector/Seq_Landing"]
+script = ExtResource("cond_landing")
+
+[node name="Act_LandingSequence" type="Node" parent="RootSelector/Seq_Landing"]
+script = ExtResource("act_landing")
+
+; --- P2: 强制分离 ---
+[node name="Seq_ForceSeparate" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_ForceSeparate" type="Node" parent="RootSelector/Seq_ForceSeparate"]
+script = ExtResource("cond_force_sep")
+
+[node name="Act_SeparateMove" type="Node" parent="RootSelector/Seq_ForceSeparate"]
+script = ExtResource("act_separate")
+
+; --- P3: 合体移动 ---
+[node name="Seq_Merging" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_Merging" type="Node" parent="RootSelector/Seq_Merging"]
+script = ExtResource("cond_merging")
+
+[node name="Act_MoveToPartner" type="Node" parent="RootSelector/Seq_Merging"]
+script = ExtResource("act_merge")
+
+; --- P4: 漂浮隐身（含合体检查子选择器）---
+[node name="Seq_FloatingInvisible" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_FloatingInvisible" type="Node" parent="RootSelector/Seq_FloatingInvisible"]
+script = ExtResource("cond_floating")
+
+[node name="Sel_FloatBehavior" type="Node" parent="RootSelector/Seq_FloatingInvisible"]
+script = ExtResource("selector")
+
+; 漂浮时优先检查合体条件
+[node name="Seq_MergeCheck" type="Node" parent="RootSelector/Seq_FloatingInvisible/Sel_FloatBehavior"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_MergePossible" type="Node" parent="RootSelector/Seq_FloatingInvisible/Sel_FloatBehavior/Seq_MergeCheck"]
+script = ExtResource("cond_merge_possible")
+
+[node name="Act_StartMerge" type="Node" parent="RootSelector/Seq_FloatingInvisible/Sel_FloatBehavior/Seq_MergeCheck"]
+script = ExtResource("act_start_merge")
+
+; 漂浮兜底：维持距离
+[node name="Act_FloatMaintainDistance" type="Node" parent="RootSelector/Seq_FloatingInvisible/Sel_FloatBehavior"]
+script = ExtResource("act_float")
+
+; --- P5: 强制隐身触发 ---
+[node name="Seq_ForcedInvisible" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_PlayerTooCloseAndIdle" type="Node" parent="RootSelector/Seq_ForcedInvisible"]
+script = ExtResource("cond_player_close")
+
+[node name="Act_ForcedInvisibleSequence" type="Node" parent="RootSelector/Seq_ForcedInvisible"]
+script = ExtResource("act_forced_invis")
+
+; --- P6: 斩魂刀拾取 ---
+[node name="Seq_PickupCleaver" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_AggroAndCleaverAvailable" type="Node" parent="RootSelector/Seq_PickupCleaver"]
+script = ExtResource("cond_aggro_cleaver")
+
+[node name="Act_PickupCleaver" type="Node" parent="RootSelector/Seq_PickupCleaver"]
+script = ExtResource("act_pickup")
+
+; --- P7: has_knife 冲刺 ---
+[node name="Seq_KnifeAttack" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_HasKnife" type="Node" parent="RootSelector/Seq_KnifeAttack"]
+script = ExtResource("cond_has_knife")
+
+[node name="Act_KnifeAttackSequence" type="Node" parent="RootSelector/Seq_KnifeAttack"]
+script = ExtResource("act_knife_atk")
+
+; --- P8: 光炮 ---
+[node name="Seq_LightBeam" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_AggroAndFull" type="Node" parent="RootSelector/Seq_LightBeam"]
+script = ExtResource("cond_aggro_full")
+
+[node name="Act_LightBeamAttack" type="Node" parent="RootSelector/Seq_LightBeam"]
+script = ExtResource("act_beam")
+
+; --- P9: aggro + no_full → 猎杀 ---
+[node name="Seq_AggroHunt" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_AggroNotFullHuntableExists" type="Node" parent="RootSelector/Seq_AggroHunt"]
+script = ExtResource("cond_aggro_hunt")
+
+[node name="Act_HuntGhost_Aggro" type="Node" parent="RootSelector/Seq_AggroHunt"]
+script = ExtResource("act_hunt")
+
+; --- P10: 被动猎杀 ---
+[node name="Seq_PassiveHunt" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_NotAggroAndGhostVisible" type="Node" parent="RootSelector/Seq_PassiveHunt"]
+script = ExtResource("cond_passive_hunt")
+
+[node name="Act_HuntGhost_Passive" type="Node" parent="RootSelector/Seq_PassiveHunt"]
+script = ExtResource("act_hunt")
+
+; --- P11: idle（兜底）---
+[node name="Act_Idle" type="Node" parent="RootSelector"]
+script = ExtResource("act_idle")

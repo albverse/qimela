@@ -1,0 +1,78 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/soul_devourer/two_headed_soul_devourer/spine_art/two_headed_soul_devourer.tres" id="1_skeldata"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/two_headed_soul_devourer/two_headed_soul_devourer.gd" id="2_script"]
+
+; --- 碰撞体形状 ---
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body"]
+radius = 28.0
+height = 60.0
+
+; DualBeamHitboxLeft：左向光炮判定（hazards(6) → PlayerBody(2)）
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_beam_l"]
+size = Vector2(300.0, 20.0)
+
+; DualBeamHitboxRight：右向光炮判定
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_beam_r"]
+size = Vector2(300.0, 20.0)
+
+; =============================================================================
+; 场景节点树（§4.2）
+; CharacterBody2D — 无敌，不继承 MonsterBase
+; EnemyBody(3) = layer 4
+; hazards(6) = layer 32
+; PlayerBody(2) = mask 2
+; World(1) = mask 1
+; =============================================================================
+
+[node name="TwoHeadedSoulDevourer" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("2_script")
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+skeleton_data_res = ExtResource("1_skeldata")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -30)
+shape = SubResource("CapsuleShape2D_body")
+
+; 左向光炮（初始禁用）
+[node name="DualBeamHitboxLeft" type="Area2D" parent="."]
+position = Vector2(-150, -30)
+collision_layer = 32
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DualBeamHitboxLeft"]
+shape = SubResource("RectangleShape2D_beam_l")
+disabled = true
+
+; 右向光炮（初始禁用）
+[node name="DualBeamHitboxRight" type="Area2D" parent="."]
+position = Vector2(150, -30)
+collision_layer = 32
+collision_mask = 2
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DualBeamHitboxRight"]
+shape = SubResource("RectangleShape2D_beam_r")
+disabled = true
+
+; 分离还原位置标记
+[node name="SplitMarkLeft" type="Marker2D" parent="."]
+position = Vector2(-80, 0)
+
+[node name="SplitMarkRight" type="Marker2D" parent="."]
+position = Vector2(80, 0)
+
+; GroundRaycast
+[node name="GroundRaycast" type="RayCast2D" parent="."]
+target_position = Vector2(0, 50)
+collision_mask = 1
