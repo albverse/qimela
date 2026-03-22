@@ -229,6 +229,15 @@ func set_attack_hitbox_active(active: bool) -> void:
 		shape.disabled = not active
 
 
+func _on_attack_hitbox_body_entered(body: Node2D) -> void:
+	if _dying or _being_hunted:
+		return
+	if not _is_visible:
+		return
+	if body.has_method("apply_damage"):
+		body.call("apply_damage", 1, global_position)
+
+
 # =============================================================================
 # Spine 动画
 # =============================================================================

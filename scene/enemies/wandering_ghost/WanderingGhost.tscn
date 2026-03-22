@@ -57,7 +57,7 @@ collision_mask = 2
 shape = SubResource("attack_area_shape")
 
 [node name="AttackHitbox" type="Area2D" parent="."]
-collision_layer = 32
+collision_layer = 0
 collision_mask = 2
 monitoring = false
 
@@ -80,3 +80,5 @@ energy = 1.0
 [node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
 blackboard = NodePath("")
 actor = NodePath("..")
+
+[connection signal="body_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_body_entered"]
