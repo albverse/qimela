@@ -20,6 +20,8 @@
 | `stone_eyebug_shell` | （同 StoneEyeBug.tscn，动态切换） | （同 stone_eyebug.gd） | DARK | SMALL | ❌未设置 | 石眼虫空壳（mollusc逃出后；可被锁链命中；与mollusc融合→幽灵手） |
 | `mollusc` | enemies/stone_eyebug/Mollusc.tscn | enemies/stone_eyebug/mollusc.gd | DARK | SMALL | ❌未设置 | 软体虫（石眼虫翻面后逃出；逃跑/攻击；可与空壳融合） |
 | `boss_ghost_witch` | enemies/boss_ghost_witch/BossGhostWitch.tscn | enemies/boss_ghost_witch/BossGhostWitch.gd | NORMAL | LARGE | ❌未设置 | 幽灵女巫Boss（3阶段：宝宝投掷/亡灵召唤/镰刀战斗；Beehave BT驱动；HP=30） |
+| `soul_devourer` | enemies/soul_devourer/SoulDevourer.tscn | enemies/soul_devourer/soul_devourer.gd | DARK | SMALL | ❌未设置 | 噬魂犬（猎杀幽灵；漂浮隐身态可合体为双头犬） |
+| `two_headed_soul_devourer` | enemies/soul_devourer/TwoHeadedSoulDevourer.tscn | enemies/soul_devourer/two_headed_soul_devourer.gd | — | — | ❌未设置 | 双头噬魂犬（临时合体实体；无敌；双向光炮后分离还原） |
 
 ---
 
