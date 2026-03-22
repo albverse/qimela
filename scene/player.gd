@@ -6,7 +6,7 @@ extends CharacterBody2D
 ## tick 顺序: Movement → move_and_slide → LocomotionFSM → ChainSystem → ActionFSM → Animator
 
 # ── 调试开关 ──
-@export var debug_log: bool = true
+@export var debug_log: bool = false
 @export var debug_invincible: bool = false  ## 测试用：开启后被攻击不减HP
 
 # ── 移动参数 ──

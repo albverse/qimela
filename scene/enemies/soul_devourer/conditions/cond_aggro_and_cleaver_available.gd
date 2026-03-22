@@ -14,6 +14,9 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		return FAILURE
 	if sd._has_knife:
 		return FAILURE
+	# 隐身/漂浮状态不拾取刀（仅显现状态才拾取）
+	if sd._is_floating_invisible or sd._forced_invisible:
+		return FAILURE
 
 	# 检查 CD
 	var actor_id: String = str(actor.get_instance_id())

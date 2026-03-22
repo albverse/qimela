@@ -10,7 +10,7 @@ class_name ActSoulDevourerPickupCleaver
 ## 超时 5.0s → FAILURE
 ## =============================================================================
 
-const PICKUP_REACH_DIST: float = 32.0
+const PICKUP_REACH_DIST: float = 10.0
 const COOLDOWN_KEY: StringName = &"sd_cleaver_pickup_cd_end"
 
 enum Phase {
@@ -76,9 +76,7 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 	# 移动朝向
 	var dir: float = sign(cleaver_pos.x - sd.global_position.x)
 	sd.velocity.x = dir * sd.ground_run_speed
-	# 翻转朝向
-	if dir != 0.0:
-		sd.scale.x = abs(sd.scale.x) * dir
+	sd.face_toward_position(cleaver_pos.x)
 	sd.move_and_slide()
 	return RUNNING
 

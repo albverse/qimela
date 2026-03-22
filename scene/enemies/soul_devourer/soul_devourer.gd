@@ -64,6 +64,14 @@ var _current_target_cleaver: Node = null
 var _spawn_point: Vector2
 var _knife_attack_count: int = 0
 
+# ===== 近期伤害追踪（用于强制隐身条件）=====
+var _recent_damage_amount: float = 0.0
+var _recent_damage_timer: float = 0.0
+const RECENT_DAMAGE_WINDOW: float = 1.0
+
+# ===== 面向死区 =====
+const FACE_DEAD_ZONE: float = 10.0
+
 # ===== 动画系统 =====
 var _current_anim: StringName = &""
 var _current_anim_finished: bool = false
@@ -150,6 +158,13 @@ func _physics_process(dt: float) -> void:
 		light_counter -= dt
 		light_counter = max(light_counter, 0.0)
 	_thunder_processed_this_frame = false
+
+	# 近期伤害追踪
+	if _recent_damage_timer > 0.0:
+		_recent_damage_timer -= dt
+		if _recent_damage_timer <= 0.0:
+			_recent_damage_timer = 0.0
+			_recent_damage_amount = 0.0
 
 	# Mock 驱动 tick
 	if _anim_mock:
@@ -282,6 +297,10 @@ func apply_hit(hit: HitData) -> bool:
 	_aggro_mode = true
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
+
+	# 近期伤害追踪（用于强制隐身条件）
+	_recent_damage_amount += float(hit.damage)
+	_recent_damage_timer = RECENT_DAMAGE_WINDOW
 
 	if hp <= weak_hp:
 		if _landing_locked:
@@ -458,11 +477,25 @@ func on_light_exposure(remaining_time: float, source: Node = null) -> void:
 			_exit_floating_invisible_to_landing(remaining_time)
 		# 非 LightningFlower 来源：忽略
 		return
-	# 非强制隐身时走基类逻辑
-	if has_method("super"):
-		pass
-	light_counter += remaining_time
+	# 能量获取是普通光照怪物的 2 倍
+	light_counter += remaining_time * 2.0
 	light_counter = min(light_counter, light_counter_max)
+
+
+## 朝向辅助（仅翻转 SpineSprite，含 10px 死区防抖）
+func face_toward_position(target_x: float) -> void:
+	var dx: float = target_x - global_position.x
+	if absf(dx) <= FACE_DEAD_ZONE:
+		return
+	var sign_x: float = 1.0 if dx > 0.0 else -1.0
+	if _spine_sprite != null:
+		_spine_sprite.scale.x = absf(_spine_sprite.scale.x) * sign_x
+
+
+func face_toward(target: Node2D) -> void:
+	if target == null:
+		return
+	face_toward_position(target.global_position.x)
 
 
 # =============================================================================
@@ -528,29 +561,29 @@ func _is_huntable_ghost_valid(target: Node) -> bool:
 func _set_attack_hitbox_enabled(enabled: bool) -> void:
 	if _attack_hitbox == null:
 		return
-	_attack_hitbox.monitoring = enabled
+	_attack_hitbox.set_deferred("monitoring", enabled)
 	var cs: CollisionShape2D = _attack_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
-		cs.disabled = not enabled
+		cs.set_deferred("disabled", not enabled)
 
 
 func _set_light_beam_hitbox_enabled(enabled: bool) -> void:
 	if _light_beam_hitbox == null:
 		return
-	_light_beam_hitbox.monitoring = enabled
+	_light_beam_hitbox.set_deferred("monitoring", enabled)
 	var cs: CollisionShape2D = _light_beam_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
-		cs.disabled = not enabled
+		cs.set_deferred("disabled", not enabled)
 
 
 func _set_fire_hurtbox_enabled(enabled: bool) -> void:
 	if _fire_hurtbox == null:
 		return
 	# FireHurtbox 是被动 Hurtbox：monitorable 控制能否被检测到
-	_fire_hurtbox.monitorable = enabled
+	_fire_hurtbox.set_deferred("monitorable", enabled)
 	var cs: CollisionShape2D = _fire_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
-		cs.disabled = not enabled
+		cs.set_deferred("disabled", not enabled)
 
 
 # =============================================================================

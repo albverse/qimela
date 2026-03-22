@@ -70,8 +70,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		# 地面态：只水平移动
 		var h_dir: float = sign(ghost.global_position.x - sd.global_position.x)
 		sd.velocity.x = h_dir * sd.ground_run_speed
-		if h_dir != 0.0:
-			sd.scale.x = abs(sd.scale.x) * h_dir
+		sd.face_toward_position(ghost.global_position.x)
 		sd.anim_play(&"normal/huntting", true)
 
 	sd.move_and_slide()
