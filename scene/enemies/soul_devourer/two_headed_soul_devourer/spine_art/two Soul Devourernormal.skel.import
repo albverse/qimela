@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://kt8ma1sm7kcg"
+path="res://.godot/imported/two Soul Devourernormal.skel-8f883479f08adc4627624d5ecea9fd9e.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/soul_devourer/two_headed_soul_devourer/spine_art/two Soul Devourernormal.skel"
+dest_files=["res://.godot/imported/two Soul Devourernormal.skel-8f883479f08adc4627624d5ecea9fd9e.spskel"]
+
+[params]
+

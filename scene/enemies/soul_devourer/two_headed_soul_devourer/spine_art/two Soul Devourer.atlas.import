@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://dpfspw12gfde"
+path="res://.godot/imported/two Soul Devourer.atlas-7356e660d86556dc86214b1eed5d4c08.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/soul_devourer/two_headed_soul_devourer/spine_art/two Soul Devourer.atlas"
+dest_files=["res://.godot/imported/two Soul Devourer.atlas-7356e660d86556dc86214b1eed5d4c08.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

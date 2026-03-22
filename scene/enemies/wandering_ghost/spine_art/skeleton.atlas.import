@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://b3op1x8fk8veo"
+path="res://.godot/imported/skeleton.atlas-d6e73abbba6f092a290ed778c61e9672.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/wandering_ghost/spine_art/skeleton.atlas"
+dest_files=["res://.godot/imported/skeleton.atlas-d6e73abbba6f092a290ed778c61e9672.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

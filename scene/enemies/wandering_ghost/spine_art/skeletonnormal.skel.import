@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://bkrfwry18qgob"
+path="res://.godot/imported/skeletonnormal.skel-59b1036ec89410acca1f1b441a3048a4.spskel"
+
+[deps]
+
+source_file="res://scene/enemies/wandering_ghost/spine_art/skeletonnormal.skel"
+dest_files=["res://.godot/imported/skeletonnormal.skel-59b1036ec89410acca1f1b441a3048a4.spskel"]
+
+[params]
+

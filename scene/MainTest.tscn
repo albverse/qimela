@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3 uid="uid://qyjtn0637hdi"]
+[gd_scene format=3 uid="uid://qyjtn0637hdi"]
 
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="1_71n5o"]
 [ext_resource type="Script" uid="uid://7iutq53nfpie" path="res://systems/weather_controller.gd" id="1_ngg7y"]
@@ -20,6 +20,7 @@
 [ext_resource type="PackedScene" uid="uid://de1pps8jdbyfa" path="res://scene/MonsterHand.tscn" id="13_g5v7j"]
 [ext_resource type="PackedScene" uid="uid://cndsohm8mmjw7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.tscn" id="16_gteh2"]
 [ext_resource type="PackedScene" path="res://scene/RestArea.tscn" id="17_rest_area"]
+[ext_resource type="PackedScene" uid="uid://cnsaw686n6d3g" path="res://scene/enemies/wandering_ghost/WanderingGhost.tscn" id="21_wq1er"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -75,12 +76,12 @@ size = Vector2(1736, 20)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7qdox"]
 size = Vector2(90.6875, 62.5)
 
-[node name="MainTest" type="Node2D"]
+[node name="MainTest" type="Node2D" unique_id=249769736]
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1326799904]
 layer = 0
 
-[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer"]
+[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer" unique_id=1078597709]
 visible = false
 material = SubResource("ShaderMaterial_hutgn")
 anchors_preset = 15
@@ -92,122 +93,123 @@ mouse_filter = 2
 script = ExtResource("2_hutgn")
 fall_time = 1.0
 
-[node name="WeatherController" type="Node" parent="."]
+[node name="WeatherController" type="Node" parent="." unique_id=1269091607]
 script = ExtResource("1_ngg7y")
 interval_min = 2.0
 thunder_fx_path = NodePath("../CanvasLayer/ThunderPostFX")
 
-[node name="ThunderTimer" type="Timer" parent="WeatherController"]
+[node name="ThunderTimer" type="Timer" parent="WeatherController" unique_id=2075050950]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController"]
-libraries = {
-&"": SubResource("AnimationLibrary_acqgf")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController" unique_id=1230160026]
+libraries/ = SubResource("AnimationLibrary_acqgf")
 
-[node name="Thunder" type="Sprite2D" parent="WeatherController"]
+[node name="Thunder" type="Sprite2D" parent="WeatherController" unique_id=732675177]
 visible = false
 z_index = -2
 position = Vector2(663, 328)
 scale = Vector2(0.39867842, 0.43098384)
 texture = ExtResource("2_55hp2")
 
-[node name="LightningFlower" parent="WeatherController" instance=ExtResource("3_acqgf")]
+[node name="LightningFlower" parent="WeatherController" unique_id=495592538 instance=ExtResource("3_acqgf")]
 position = Vector2(987, 596)
 
-[node name="LightningFlower2" parent="WeatherController" instance=ExtResource("3_acqgf")]
+[node name="LightningFlower2" parent="WeatherController" unique_id=509852045 instance=ExtResource("3_acqgf")]
 position = Vector2(726, 508)
 
-[node name="World" type="Node2D" parent="."]
+[node name="World" type="Node2D" parent="." unique_id=1563765017]
 
-[node name="Floor (StaticBody2D)" type="StaticBody2D" parent="World"]
+[node name="Floor (StaticBody2D)" type="StaticBody2D" parent="World" unique_id=1069330559]
 collision_mask = 6
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=257419025]
 position = Vector2(457, 608)
 shape = SubResource("RectangleShape2D_55hp2")
 one_way_collision = true
 
-[node name="Sprite2D" type="Sprite2D" parent="World/Floor (StaticBody2D)"]
+[node name="Sprite2D" type="Sprite2D" parent="World/Floor (StaticBody2D)" unique_id=671141978]
 z_index = -1
 position = Vector2(475.0001, 611)
 scale = Vector2(9.687166, 0.18983957)
 texture = ExtResource("1_71n5o")
 
-[node name="CollisionShape2D6" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D6" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=2009077478]
 position = Vector2(1283, 563)
 shape = SubResource("RectangleShape2D_7qdox")
 
-[node name="CollisionShape2D5" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D5" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=409265217]
 position = Vector2(-334, 557)
 shape = SubResource("RectangleShape2D_7qdox")
 
-[node name="CollisionShape2D4" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=200030343]
 position = Vector2(1304, 344)
 shape = SubResource("RectangleShape2D_7qdox")
 
-[node name="CollisionShape2D3" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=373763880]
 position = Vector2(-385, 419)
 shape = SubResource("RectangleShape2D_7qdox")
 
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="World/Floor (StaticBody2D)"]
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="World/Floor (StaticBody2D)" unique_id=1162270845]
 position = Vector2(1160, 346)
 shape = SubResource("RectangleShape2D_7qdox")
 
-[node name="HealingSprite" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
+[node name="HealingSprite" parent="World/Floor (StaticBody2D)" unique_id=1935810241 instance=ExtResource("5_00cx3")]
 position = Vector2(508, 522)
 
-[node name="HealingSprite2" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
+[node name="HealingSprite2" parent="World/Floor (StaticBody2D)" unique_id=1638787076 instance=ExtResource("5_00cx3")]
 position = Vector2(476, 277)
 
-[node name="HealingSprite3" parent="World/Floor (StaticBody2D)" instance=ExtResource("5_00cx3")]
+[node name="HealingSprite3" parent="World/Floor (StaticBody2D)" unique_id=1360323190 instance=ExtResource("5_00cx3")]
 position = Vector2(396, 362)
 
-[node name="ChimeraGhostHandL" parent="World/Floor (StaticBody2D)" instance=ExtResource("8_bgr6l")]
+[node name="ChimeraGhostHandL" parent="World/Floor (StaticBody2D)" unique_id=1417189880 instance=ExtResource("8_bgr6l")]
 position = Vector2(132, 476)
 
-[node name="StoneEyeBug" parent="World/Floor (StaticBody2D)" instance=ExtResource("9_4rqvp")]
+[node name="StoneEyeBug" parent="World/Floor (StaticBody2D)" unique_id=397636828 instance=ExtResource("9_4rqvp")]
 position = Vector2(1257, 500)
 
-[node name="ChimeraNunSnake" parent="World/Floor (StaticBody2D)" instance=ExtResource("10_4rqvp")]
+[node name="ChimeraNunSnake" parent="World/Floor (StaticBody2D)" unique_id=87218428 instance=ExtResource("10_4rqvp")]
 position = Vector2(785, 353)
 
-[node name="Player" parent="World" groups=["player"] instance=ExtResource("3_ngg7y")]
+[node name="Player" parent="World" unique_id=820198071 groups=["player"] instance=ExtResource("3_ngg7y")]
 position = Vector2(484, 432)
 
-[node name="Camera2D" type="Camera2D" parent="World/Player"]
+[node name="Camera2D" type="Camera2D" parent="World/Player" unique_id=132071226]
 position = Vector2(-7, -36)
 
-[node name="Fly1" parent="World" instance=ExtResource("4_ngg7y")]
+[node name="Fly1" parent="World" unique_id=1419921089 instance=ExtResource("4_ngg7y")]
 position = Vector2(1487, 303)
 
-[node name="Fly2" parent="World" instance=ExtResource("4_ngg7y")]
+[node name="Fly2" parent="World" unique_id=117756182 instance=ExtResource("4_ngg7y")]
 position = Vector2(-28, 333)
 
-[node name="Neutral1" parent="World" instance=ExtResource("7_neutral")]
+[node name="Neutral1" parent="World" unique_id=66673860 instance=ExtResource("7_neutral")]
 position = Vector2(-454, 512)
 
-[node name="WalkB1" parent="World" instance=ExtResource("8_walkb")]
+[node name="WalkB1" parent="World" unique_id=272734574 instance=ExtResource("8_walkb")]
 position = Vector2(1541, 447)
 
-[node name="FlyB1" parent="World" instance=ExtResource("9_flyb")]
+[node name="FlyB1" parent="World" unique_id=1094142946 instance=ExtResource("9_flyb")]
 position = Vector2(190, 296)
 
-[node name="Walk2" parent="World" instance=ExtResource("3_7qdox")]
+[node name="Walk2" parent="World" unique_id=497446664 instance=ExtResource("3_7qdox")]
 position = Vector2(10, 569)
 size_tier = 2
 
-[node name="MonsterHand" parent="World" instance=ExtResource("13_g5v7j")]
+[node name="MonsterHand" parent="World" unique_id=1606341653 instance=ExtResource("13_g5v7j")]
 position = Vector2(372, 467)
 
-[node name="rest_area" parent="World" instance=ExtResource("17_rest_area")]
+[node name="rest_area" parent="World" unique_id=253785499 instance=ExtResource("17_rest_area")]
 position = Vector2(-263, 372)
 
-[node name="StoneMaskBird" parent="World" instance=ExtResource("16_gteh2")]
+[node name="StoneMaskBird" parent="World" unique_id=900122410 instance=ExtResource("16_gteh2")]
 position = Vector2(-128, 510)
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1572403162]
 
-[node name="GameUI" parent="HUD" instance=ExtResource("6_ui")]
+[node name="GameUI" parent="HUD" unique_id=1576324325 instance=ExtResource("6_ui")]
 
-[node name="StoneEyeBug" parent="." instance=ExtResource("9_4rqvp")]
+[node name="StoneEyeBug" parent="." unique_id=2077847008 instance=ExtResource("9_4rqvp")]
 position = Vector2(-317, 430)
+
+[node name="WanderingGhost" parent="." unique_id=907651347 instance=ExtResource("21_wq1er")]
+position = Vector2(236, 468)

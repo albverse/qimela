@@ -1,6 +1,7 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene format=3 uid="uid://cnsaw686n6d3g"]
 
-[ext_resource type="Script" path="res://scene/enemies/wandering_ghost/wandering_ghost.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://313t12bcjdip" path="res://scene/enemies/wandering_ghost/wandering_ghost.gd" id="1_script"]
+[ext_resource type="SpineSkeletonDataResource" uid="uid://dsslkohov45gi" path="res://scene/enemies/wandering_ghost/spine_art/Wandering_Ghost.tres" id="2_ejfkg"]
 [ext_resource type="Script" uid="uid://duja2i3wmt8du" path="res://scene/enemy_hurtbox.gd" id="2_hurtbox"]
 [ext_resource type="Script" uid="uid://d1hope0nhon2l" path="res://scene/light_receiver.gd" id="3_light_recv"]
 [ext_resource type="PackedScene" path="res://scene/enemies/wandering_ghost/bt_wandering_ghost.tscn" id="4_bt"]
@@ -12,10 +13,10 @@ radius = 12.0
 radius = 14.0
 
 [sub_resource type="CircleShape2D" id="detect_shape"]
-radius = 150.0
+radius = 206.1965
 
 [sub_resource type="CircleShape2D" id="attack_area_shape"]
-radius = 35.0
+radius = 124.10077
 
 [sub_resource type="CircleShape2D" id="attack_hitbox_shape"]
 radius = 25.0
@@ -23,60 +24,64 @@ radius = 25.0
 [sub_resource type="CircleShape2D" id="light_receiver_shape"]
 radius = 20.0
 
-[node name="WanderingGhost" type="CharacterBody2D"]
+[node name="WanderingGhost" type="CharacterBody2D" unique_id=1206989153]
 collision_layer = 4
-collision_mask = 1
 script = ExtResource("1_script")
 light_receiver_path = NodePath("LightReceiver")
 
-[node name="SpineSprite" type="Sprite2D" parent="."]
+[node name="SpineSprite" type="SpineSprite" parent="." unique_id=995246263]
+position = Vector2(5.0000005, 47.000004)
+scale = Vector2(0.43179137, 0.43179137)
+skeleton_data_res = ExtResource("2_ejfkg")
+preview_skin = "Default"
+preview_animation = "-- Empty --"
+preview_frame = false
+preview_time = 0.0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=788074399]
 shape = SubResource("body_shape")
 
-[node name="Hurtbox" type="Area2D" parent="."]
+[node name="Hurtbox" type="Area2D" parent="." unique_id=226000660]
 collision_layer = 8
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=2141856848]
 shape = SubResource("hurtbox_shape")
 
-[node name="DetectArea" type="Area2D" parent="."]
+[node name="DetectArea" type="Area2D" parent="." unique_id=1588856]
 collision_layer = 0
 collision_mask = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectArea" unique_id=364329219]
 shape = SubResource("detect_shape")
 
-[node name="AttackArea" type="Area2D" parent="."]
+[node name="AttackArea" type="Area2D" parent="." unique_id=1138733994]
 collision_layer = 0
 collision_mask = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea" unique_id=688467056]
 shape = SubResource("attack_area_shape")
 
-[node name="AttackHitbox" type="Area2D" parent="."]
+[node name="AttackHitbox" type="Area2D" parent="." unique_id=902597834]
 collision_layer = 32
 collision_mask = 2
 monitoring = false
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=1012809683]
 shape = SubResource("attack_hitbox_shape")
 disabled = true
 
-[node name="LightReceiver" type="Area2D" parent="."]
+[node name="LightReceiver" type="Area2D" parent="." unique_id=1866256775]
 collision_layer = 16
 collision_mask = 16
 script = ExtResource("3_light_recv")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LightReceiver" unique_id=1579038292]
 shape = SubResource("light_receiver_shape")
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=2099414005]
 enabled = false
-energy = 1.0
 
-[node name="BeehaveTree" parent="." node_paths=PackedStringArray("blackboard", "actor") instance=ExtResource("4_bt")]
-blackboard = NodePath("")
-actor = NodePath("..")
+[node name="BeehaveTree" parent="." unique_id=1603457925 node_paths=PackedStringArray("blackboard") instance=ExtResource("4_bt")]
+blackboard = NodePath("@Node@26642")

@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://cw1wvi7raijdd"
+path="res://.godot/imported/Soul Devourer.atlas-22f5934577d28dbf464e3d57c410df58.spatlas"
+
+[deps]
+
+source_file="res://scene/enemies/soul_devourer/spine_art/Soul Devourer.atlas"
+dest_files=["res://.godot/imported/Soul Devourer.atlas-22f5934577d28dbf464e3d57c410df58.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

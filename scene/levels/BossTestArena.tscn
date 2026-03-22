@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://c4tsmdwk0jphy"]
+[gd_scene format=3 uid="uid://c4tsmdwk0jphy"]
 
 [ext_resource type="PackedScene" uid="uid://m7ts2uye3c05" path="res://scene/Player.tscn" id="1"]
 [ext_resource type="PackedScene" uid="uid://b21iw5k3duuqj" path="res://scene/enemies/boss_ghost_witch/BossGhostWitch.tscn" id="2"]
@@ -8,7 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://cv77g8cdt05v4" path="res://color.jpg" id="5_nn1jk"]
 [ext_resource type="Texture2D" uid="uid://c75cd5rw2fry7" path="res://Thunder.png" id="6_thunder"]
 [ext_resource type="Script" uid="uid://4xso4psn30uu" path="res://scene/levels/collapsing_platform.gd" id="7_platform"]
-[ext_resource type="Script" path="res://scene/levels/boss_test_arena.gd" id="8_arena"]
+[ext_resource type="Script" uid="uid://bsxkp0wpgqk7i" path="res://scene/levels/boss_test_arena.gd" id="8_arena"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_boss"]
 shader = ExtResource("4_shader")
@@ -64,13 +64,13 @@ size = Vector2(1600, 80)
 [sub_resource type="RectangleShape2D" id="2"]
 size = Vector2(260, 20)
 
-[node name="BossTestArena" type="Node2D"]
+[node name="BossTestArena" type="Node2D" unique_id=413754020]
 script = ExtResource("8_arena")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1809277846]
 layer = 0
 
-[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer"]
+[node name="ThunderPostFX" type="ColorRect" parent="CanvasLayer" unique_id=1070386472]
 visible = false
 material = SubResource("ShaderMaterial_boss")
 anchors_preset = 15
@@ -82,101 +82,99 @@ mouse_filter = 2
 script = ExtResource("5_fx")
 fall_time = 1.0
 
-[node name="WeatherController" type="Node" parent="."]
+[node name="WeatherController" type="Node" parent="." unique_id=1457259031]
 script = ExtResource("3_weather")
 interval_min = 0.3
 interval_max = 1.0
 start_delay = 0.5
 thunder_fx_path = NodePath("../CanvasLayer/ThunderPostFX")
 
-[node name="ThunderTimer" type="Timer" parent="WeatherController"]
+[node name="ThunderTimer" type="Timer" parent="WeatherController" unique_id=771802424]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController"]
-libraries = {
-&"": SubResource("AnimationLibrary_boss")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="WeatherController" unique_id=1724501920]
+libraries/ = SubResource("AnimationLibrary_boss")
 
-[node name="Thunder" type="Sprite2D" parent="WeatherController"]
+[node name="Thunder" type="Sprite2D" parent="WeatherController" unique_id=1379450263]
 visible = false
 z_index = -2
 position = Vector2(400, 200)
 scale = Vector2(0.4, 0.43)
 texture = ExtResource("6_thunder")
 
-[node name="Ground" type="StaticBody2D" parent="."]
+[node name="Ground" type="StaticBody2D" parent="." unique_id=1545102911]
 position = Vector2(0, 320)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground" unique_id=1282080872]
 shape = SubResource("1")
 
-[node name="Color" type="Sprite2D" parent="Ground"]
+[node name="Color" type="Sprite2D" parent="Ground" unique_id=219328727]
 position = Vector2(-3.9999733, -1.9999986)
 scale = Vector2(8.609627, 0.4064171)
 texture = ExtResource("5_nn1jk")
 
-[node name="PlatformA" type="StaticBody2D" parent="."]
+[node name="PlatformA" type="StaticBody2D" parent="." unique_id=1080244404]
 position = Vector2(-280, 120)
 collision_mask = 0
 script = ExtResource("7_platform")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA" unique_id=721095016]
 position = Vector2(-5, 109)
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
 
-[node name="Color2" type="Sprite2D" parent="PlatformA"]
+[node name="Color2" type="Sprite2D" parent="PlatformA" unique_id=1615770763]
 position = Vector2(-5.875, 110)
 scale = Vector2(1.4318185, 0.14171124)
 texture = ExtResource("5_nn1jk")
 
-[node name="PlatformB" type="StaticBody2D" parent="."]
-position = Vector2(80, 20)
+[node name="PlatformB" type="StaticBody2D" parent="." unique_id=1762669975]
+position = Vector2(-129, 177)
 collision_mask = 0
 script = ExtResource("7_platform")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB" unique_id=672720346]
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
 
-[node name="Color2" type="Sprite2D" parent="PlatformB/CollisionShape2D"]
+[node name="Color2" type="Sprite2D" parent="PlatformB/CollisionShape2D" unique_id=564469334]
 position = Vector2(7, -4)
 scale = Vector2(1.4318185, 0.14171124)
 texture = ExtResource("5_nn1jk")
 
-[node name="PlatformC" type="StaticBody2D" parent="."]
-position = Vector2(440, 140)
+[node name="PlatformC" type="StaticBody2D" parent="." unique_id=1568701007]
+position = Vector2(-11, 119)
 collision_mask = 0
 script = ExtResource("7_platform")
 
-[node name="Color2" type="Sprite2D" parent="PlatformC"]
+[node name="Color2" type="Sprite2D" parent="PlatformC" unique_id=1614387674]
 position = Vector2(-1, -2)
 scale = Vector2(1.4318185, 0.14171124)
 texture = ExtResource("5_nn1jk")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC" unique_id=1024190304]
 shape = SubResource("2")
 one_way_collision = true
 one_way_collision_margin = 8.0
 
-[node name="PlayerSpawn" parent="." instance=ExtResource("1")]
+[node name="PlayerSpawn" parent="." unique_id=748622506 instance=ExtResource("1")]
 position = Vector2(-500, 220)
 debug_log = false
 debug_invincible = true
 
-[node name="Camera2D" type="Camera2D" parent="PlayerSpawn"]
+[node name="Camera2D" type="Camera2D" parent="PlayerSpawn" unique_id=1869481150]
 position = Vector2(3, -182)
 ignore_rotation = false
 
-[node name="BossSpawn" parent="." instance=ExtResource("2")]
-position = Vector2(70, 230)
+[node name="BossSpawn" parent="." unique_id=1384307715 instance=ExtResource("2")]
+position = Vector2(485, 88)
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=2019151785]
 layer = 10
 
-[node name="BtnPhase3" type="Button" parent="UI"]
+[node name="BtnPhase3" type="Button" parent="UI" unique_id=1596841564]
 offset_left = 10.0
 offset_top = 10.0
 offset_right = 200.0
