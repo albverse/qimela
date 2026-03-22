@@ -108,6 +108,7 @@ func _validate_rules() -> void:
 | species_id | 状态 | 说明 |
 |------------|------|------|
 | `chimera_nun_snake` | 未实现 | 修女蛇奇美拉（LIGHT/MEDIUM）；融合组合与产物待定义 |
+| `wandering_ghost` | 不参与融合 | 游荡幽灵（不可chain，不可融合；ghost组成员） |
 
 ---
 
