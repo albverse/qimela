@@ -12,6 +12,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 	if sd._is_full:
 		return FAILURE
+	# huntting_succeed 播放中 → 保持 SUCCESS（防止 SequenceReactive 中断动画）
+	if sd._hunt_succeed_playing:
+		return SUCCESS
 	var ghost: Node2D = sd._find_nearest_huntable_ghost()
 	if ghost == null:
 		return FAILURE

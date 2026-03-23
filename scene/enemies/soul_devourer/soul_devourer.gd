@@ -41,6 +41,7 @@ class_name SoulDevourer
 # ===== 行为标志 =====
 var _aggro_mode: bool = false
 var _is_full: bool = false
+var _hunt_succeed_playing: bool = false  # huntting_succeed 动画播放中，条件保持 SUCCESS
 var _has_knife: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
@@ -371,6 +372,10 @@ func _enter_death_rebirth_flow() -> void:
 		return  # 防重入
 	_death_rebirth_started = true
 
+	# 强制解除 hurt 僵直（否则 anim_play 被锁定，死亡动画无法播放）
+	_hurt_active = false
+	_hurt_timer = 0.0
+
 	# 释放刀引用（无论 cleaver_pick 是否已触发都安全清空）
 	_current_target_cleaver = null
 
@@ -431,6 +436,7 @@ func _reset_runtime_state_after_respawn() -> void:
 	print("[SD] RESPAWN: hp=%d, aggro=%s (kept)" % [hp, _aggro_mode])
 	# _aggro_mode 不重置：蓝图规定一旦被玩家攻击进入 aggro，永久保持
 	_is_full = false
+	_hunt_succeed_playing = false
 	_has_knife = false
 	_is_floating_invisible = false
 	_forced_invisible = false

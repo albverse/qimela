@@ -56,9 +56,11 @@ species_id = &"soul_devourer"
 entity_type = 0
 attribute_type = 2
 size_tier = 1
-max_hp = 3
+max_hp = 5
 
 [node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(-12, 37)
+scale = Vector2(0.173, 0.173)
 skeleton_data_res = ExtResource("1_skeldata")
 preview_skin = "Default"
 preview_animation = "-- Empty --"

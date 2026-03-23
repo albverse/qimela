@@ -123,8 +123,11 @@ func _begin_hunt_success(sd: SoulDevourer) -> int:
 			sd._current_target_ghost.call("start_being_hunted")
 	sd._current_target_ghost = null
 
+	# 标记猎杀成功动画播放中（防止 SequenceReactive 条件重评中断动画）
+	sd._hunt_succeed_playing = true
+
 	sd.velocity = Vector2.ZERO
-	# 播放猎杀成功动画，等待其完成后才设 full 并返回 SUCCESS
+	# 播放猎杀成功动画，等待其完成后设 full 并返回 SUCCESS
 	sd.anim_play(&"normal/huntting_succeed", false)
 	_phase = Phase.WAIT_SUCCEED
 	_succeed_timer = 0.0
@@ -138,6 +141,7 @@ func _tick_wait_succeed(sd: SoulDevourer, dt: float) -> int:
 	# 等待 huntting_succeed 动画完成
 	if sd.anim_is_finished(&"normal/huntting_succeed") or _succeed_timer >= SUCCEED_ANIM_TIMEOUT:
 		sd._is_full = true
+		sd._hunt_succeed_playing = false
 		var reason: String = "anim_done" if sd.anim_is_finished(&"normal/huntting_succeed") else "timeout"
 		print("[SD:HUNT] SUCCESS: full=true (%s, t=%.2fs)" % [reason, _succeed_timer])
 		return SUCCESS
@@ -154,6 +158,7 @@ func _play_hunt_anim(sd: SoulDevourer) -> void:
 
 func _cleanup(sd: SoulDevourer) -> void:
 	sd._current_target_ghost = null
+	sd._hunt_succeed_playing = false
 	sd.velocity.x = 0.0
 	sd.anim_play(StringName(sd._get_anim_prefix() + "idle"), true)
 
