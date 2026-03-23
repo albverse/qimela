@@ -29,4 +29,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if cleaver == null:
 		return FAILURE
 
+	if Engine.get_physics_frames() % 60 == 0:
+		print("[SD:P6cond] SUCCESS: aggro=%s knife=%s cleaver=%s dist=%.1f" % [
+			sd._aggro_mode, sd._has_knife, cleaver.name,
+			sd.global_position.distance_to(cleaver.global_position)])
 	return SUCCESS

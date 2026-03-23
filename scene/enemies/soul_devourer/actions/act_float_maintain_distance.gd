@@ -105,7 +105,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 				sd.velocity = Vector2.ZERO
 				sd.anim_play(&"normal/float_idle", true)
 
-	sd.move_and_slide()
+	# move_and_slide 由 _physics_process 统一调用
 	return RUNNING
 
 

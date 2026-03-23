@@ -34,7 +34,10 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var ghost: Node2D = sd._find_nearest_huntable_ghost()
 	sd._current_target_ghost = ghost
 	if ghost == null:
+		print("[SD:HUNT] before_run: no huntable ghost found")
 		return
+	print("[SD:HUNT] before_run: target=%s at %s, sd at %s" % [
+		ghost.name, ghost.global_position, sd.global_position])
 	_play_hunt_anim(sd)
 
 
@@ -58,11 +61,13 @@ func _tick_chasing(sd: SoulDevourer, dt: float) -> int:
 
 	# 超时兜底
 	if _timer >= sd.hunt_timeout:
+		print("[SD:HUNT] TIMEOUT (%.1fs)" % _timer)
 		_cleanup(sd)
 		return FAILURE
 
 	# 目标有效性检查
 	if not sd._is_huntable_ghost_valid(sd._current_target_ghost):
+		print("[SD:HUNT] target INVALID (dying/hunted/invisible/freed)")
 		_cleanup(sd)
 		return FAILURE
 
@@ -78,6 +83,7 @@ func _tick_chasing(sd: SoulDevourer, dt: float) -> int:
 	if not sd._is_floating_invisible:
 		reach_dist = absf(sd.global_position.x - ghost.global_position.x)
 	if reach_dist <= HUNT_REACH_DIST:
+		print("[SD:HUNT] REACHED ghost: reach_dist=%.1f (eucl=%.1f)" % [reach_dist, dist])
 		return _begin_hunt_success(sd)
 
 	# 移动朝向目标
@@ -102,11 +108,15 @@ func _tick_chasing(sd: SoulDevourer, dt: float) -> int:
 		else:
 			sd.anim_play(&"normal/huntting", true)
 
-	sd.move_and_slide()
+	# move_and_slide 由 _physics_process 统一调用
+	if Engine.get_physics_frames() % 30 == 0:
+		print("[SD:HUNT] chase: reach=%.1f, eucl=%.1f, vel.x=%.1f, float=%s" % [
+			reach_dist, dist, sd.velocity.x, sd._is_floating_invisible])
 	return RUNNING
 
 
 func _begin_hunt_success(sd: SoulDevourer) -> int:
+	print("[SD:HUNT] → _begin_hunt_success: notifying ghost, playing huntting_succeed")
 	# 通知幽灵被猎杀
 	if sd._current_target_ghost != null and is_instance_valid(sd._current_target_ghost):
 		if sd._current_target_ghost.has_method("start_being_hunted"):
@@ -128,6 +138,8 @@ func _tick_wait_succeed(sd: SoulDevourer, dt: float) -> int:
 	# 等待 huntting_succeed 动画完成
 	if sd.anim_is_finished(&"normal/huntting_succeed") or _succeed_timer >= SUCCEED_ANIM_TIMEOUT:
 		sd._is_full = true
+		var reason: String = "anim_done" if sd.anim_is_finished(&"normal/huntting_succeed") else "timeout"
+		print("[SD:HUNT] SUCCESS: full=true (%s, t=%.2fs)" % [reason, _succeed_timer])
 		return SUCCESS
 
 	return RUNNING

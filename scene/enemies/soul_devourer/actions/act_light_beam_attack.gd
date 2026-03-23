@@ -15,6 +15,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd == null:
 		return
+	print("[SD:P8] before_run: LIGHT BEAM, full=%s" % sd._is_full)
 	sd.velocity.x = 0.0
 	# 面向玩家（统一使用 _spine_sprite 翻转，不翻转 CharacterBody2D）
 	var player: Node2D = sd.get_priority_attack_target()

@@ -106,8 +106,8 @@ func _ready() -> void:
 	entity_type = EntityType.MONSTER
 	attribute_type = AttributeType.DARK
 	size_tier = SizeTier.MEDIUM
-	max_hp = 3
-	hp = 3
+	max_hp = 5
+	hp = 5
 	weak_hp = 1
 	hit_stun_time = 0.0
 	stun_duration = 0.0
@@ -189,13 +189,19 @@ func _physics_process(dt: float) -> void:
 				velocity.y = max(velocity.y, 0.0)
 			move_and_slide()
 	else:
-		# 漂浮隐身态：无重力，清除 collision_mask World 层
-		velocity.y = 0.0
+		# 漂浮隐身态：无重力，action 直接设置 velocity
 		move_and_slide()
 
 	# 不调用 super._physics_process()：
 	# MonsterBase 的 weak/stun 系统由 death-rebirth 替代。
 	# BeehaveTree 的 tick 由其自身 _physics_process 驱动。
+
+	# === 采样状态日志（每 120 帧 ≈ 2 秒一次）===
+	if Engine.get_physics_frames() % 120 == 0:
+		print("[SD] state: hp=%d aggro=%s full=%s knife=%s float=%s forced=%s land=%s anim=%s vel=%s" % [
+			hp, _aggro_mode, _is_full, _has_knife,
+			_is_floating_invisible, _forced_invisible, _landing_locked,
+			_current_anim, velocity])
 
 
 # =============================================================================
@@ -293,14 +299,18 @@ func apply_hit(hit: HitData) -> bool:
 	if hit == null:
 		return false
 	if _death_rebirth_started:
+		print("[SD] apply_hit REJECTED: death_rebirth in progress")
 		return false
 	if hit.weapon_id != &"ghost_fist":
+		print("[SD] apply_hit REJECTED: weapon=%s (need ghost_fist)" % hit.weapon_id)
 		return false
 
 	# 有效命中（必然是 FireHurtbox，因为没有身体 Hurtbox）
+	var old_hp: int = hp
 	_aggro_mode = true
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
+	print("[SD] apply_hit OK: hp=%d→%d, aggro=%s, dmg=%d" % [old_hp, hp, _aggro_mode, hit.damage])
 
 	# 近期伤害追踪（用于强制隐身条件）
 	_recent_damage_amount += float(hit.damage)
@@ -309,7 +319,9 @@ func apply_hit(hit: HitData) -> bool:
 	if hp <= weak_hp:
 		if _landing_locked:
 			_pending_death_rebirth = true
+			print("[SD] death-rebirth PENDING (landing locked)")
 		else:
+			print("[SD] → entering death-rebirth flow")
 			_enter_death_rebirth_flow()
 	return true
 
@@ -386,6 +398,7 @@ func _respawn_from_spawn_point() -> void:
 
 func _reset_runtime_state_after_respawn() -> void:
 	hp = max_hp
+	print("[SD] RESPAWN: hp=%d, aggro=%s (kept)" % [hp, _aggro_mode])
 	# _aggro_mode 不重置：蓝图规定一旦被玩家攻击进入 aggro，永久保持
 	_is_full = false
 	_has_knife = false
