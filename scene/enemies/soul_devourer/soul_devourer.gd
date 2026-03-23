@@ -46,6 +46,8 @@ var _has_knife: bool = false
 var _pickup_anim_playing: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
+var _idle_elapsed: float = 0.0
+var _is_wandering: bool = false
 
 # ===== Death-Rebirth 标志 =====
 var _death_rebirth_started: bool = false   # 防重入 guard
@@ -448,6 +450,8 @@ func _reset_runtime_state_after_respawn() -> void:
 	_pickup_anim_playing = false
 	_is_floating_invisible = false
 	_forced_invisible = false
+	_idle_elapsed = 0.0
+	_is_wandering = false
 	_death_rebirth_started = false
 	_is_dead_hidden = false
 	_is_respawning = false

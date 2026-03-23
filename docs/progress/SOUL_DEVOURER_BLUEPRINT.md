@@ -546,7 +546,7 @@ func _find_nearest_cleaver() -> SoulCleaver:
 条件：`_aggro_mode == true && _is_full == false` 且 `huntable_ghost` 存在。
 非 aggro 情况不走这一支，而是走 §14 行为树里的 `Cond_NotAggroAndGhostVisible` 被动猎杀分支。
 
-### 10.5 强制隐身（idle 状态下玩家 < 100px）
+### 10.5 强制隐身（闲逛状态下玩家贴近）
 
 详见 §8.5。
 
@@ -765,8 +765,12 @@ BeehaveTree (process_thread: PHYSICS)
     │   ├── Cond: cond_not_aggro_and_ghost_visible
     │   └── Act: act_hunt_ghost
     │
-    └── Act: act_idle                                     # P11
-```
+    ├── Seq [闲逛]                                        # P11
+    │   ├── Cond: cond_wandering
+    │   └── Act: act_wander
+    │
+    └── Act: act_idle                                     # P12
+	```
 
 ### 14.1 关键 Action 说明
 
@@ -804,6 +808,11 @@ BeehaveTree (process_thread: PHYSICS)
 - 仅当玩家进入攻击范围时才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
 - 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
+
+#### `act_wander`
+- 仅在 idle 持续超过 1 秒后进入
+- 地面显现态下随机选择周围目标点并播放 `normal/run`
+- 若闲逛期间玩家贴近，则由更高优先级的 `cond_player_too_close_and_idle` 接管，进入强制隐身
 
 ---
 

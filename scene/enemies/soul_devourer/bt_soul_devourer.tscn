@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=30 format=3]
 
 ; === Beehave 内置节点脚本 ===
 [ext_resource type="Script" path="res://addons/beehave/nodes/beehave_tree.gd" id="bt_tree"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_floating_invisible.gd" id="cond_floating"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_merge_possible.gd" id="cond_merge_possible"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_player_too_close_and_idle.gd" id="cond_player_close"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_wandering.gd" id="cond_wandering"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_aggro_and_cleaver_available.gd" id="cond_aggro_cleaver"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_has_knife.gd" id="cond_has_knife"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/conditions/cond_aggro_and_full.gd" id="cond_aggro_full"]
@@ -32,6 +33,7 @@
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_knife_attack_sequence.gd" id="act_knife_atk"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_light_beam_attack.gd" id="act_beam"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_hunt_ghost.gd" id="act_hunt"]
+[ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_wander.gd" id="act_wander"]
 [ext_resource type="Script" path="res://scene/enemies/soul_devourer/actions/act_idle.gd" id="act_idle"]
 
 ; =============================================================================
@@ -49,7 +51,8 @@
 ;   P8  光炮（full）
 ;   P9  aggro + no_full → 猎杀
 ;   P10 被动猎杀
-;   P11 idle（兜底）
+;   P11 闲逛
+;   P12 idle（兜底）
 ; =============================================================================
 
 [node name="BeehaveTree" type="Node"]
@@ -182,6 +185,16 @@ script = ExtResource("cond_passive_hunt")
 [node name="Act_HuntGhost_Passive" type="Node" parent="RootSelector/Seq_PassiveHunt"]
 script = ExtResource("act_hunt")
 
-; --- P11: idle（兜底）---
+; --- P11: 闲逛 ---
+[node name="Seq_Wander" type="Node" parent="RootSelector"]
+script = ExtResource("sequence_reactive")
+
+[node name="Cond_Wandering" type="Node" parent="RootSelector/Seq_Wander"]
+script = ExtResource("cond_wandering")
+
+[node name="Act_Wander" type="Node" parent="RootSelector/Seq_Wander"]
+script = ExtResource("act_wander")
+
+; --- P12: idle（兜底）---
 [node name="Act_Idle" type="Node" parent="RootSelector"]
 script = ExtResource("act_idle")
