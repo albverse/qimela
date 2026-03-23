@@ -54,13 +54,13 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		return RUNNING
 
 	var dx_to_player: float = player.global_position.x - sd.global_position.x
+	var target_x: float = _get_reposition_target_x(player)
+	var dx_to_target: float = target_x - sd.global_position.x
 	var attack_ready: bool = _is_attack_ready(sd, blackboard)
-	if absf(dx_to_player) <= sd.knife_attack_trigger_dist and attack_ready:
+	if attack_ready and _is_player_in_attack_window(sd, player, dx_to_player, dx_to_target):
 		_start_attack(sd, player)
 		return RUNNING
 
-	var target_x: float = _get_reposition_target_x(player)
-	var dx_to_target: float = target_x - sd.global_position.x
 	if absf(dx_to_target) <= REPOSITION_EPSILON:
 		sd.velocity.x = 0.0
 		sd.face_toward_position(player.global_position.x)
@@ -120,6 +120,27 @@ func _is_attack_ready(sd: SoulDevourer, blackboard: Blackboard) -> bool:
 
 
 func _get_reposition_target_x(player: Node2D) -> float:
+	var player_facing: float = _get_player_facing(player)
+	return player.global_position.x - player_facing * REPOSITION_OFFSET_X
+
+
+func _is_player_in_attack_window(sd: SoulDevourer, player: Node2D, dx_to_player: float, dx_to_target: float) -> bool:
+	var player_facing: float = _get_player_facing(player)
+	var desired_rear_side: float = -player_facing
+	var current_side: float = sign(sd.global_position.x - player.global_position.x)
+	if is_zero_approx(current_side):
+		current_side = desired_rear_side
+	if current_side != desired_rear_side:
+		return false
+	var attack_window_dist: float = REPOSITION_OFFSET_X + sd.knife_attack_trigger_dist
+	if absf(dx_to_player) > attack_window_dist:
+		return false
+	if absf(dx_to_target) <= REPOSITION_EPSILON:
+		return true
+	return absf(dx_to_target) < REPOSITION_OFFSET_X * 0.5
+
+
+func _get_player_facing(player: Node2D) -> float:
 	var player_facing: float = 1.0
 	if player != null:
 		var facing_value = player.get("facing")
@@ -127,7 +148,7 @@ func _get_reposition_target_x(player: Node2D) -> float:
 			player_facing = float(facing_value)
 	if is_zero_approx(player_facing):
 		player_facing = 1.0
-	return player.global_position.x - player_facing * REPOSITION_OFFSET_X
+	return player_facing
 
 
 func _cleanup(sd: SoulDevourer) -> void:

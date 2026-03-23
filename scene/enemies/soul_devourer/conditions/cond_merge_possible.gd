@@ -8,6 +8,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd == null:
 		return FAILURE
+	if not sd._aggro_mode:
+		return FAILURE
 	if not sd._is_floating_invisible:
 		return FAILURE
 	if sd._can_initiate_merge():

@@ -491,6 +491,7 @@ func _reset_runtime_state_after_respawn() -> void:
 
 func _on_landing_complete() -> void:
 	_landing_locked = false
+	velocity = Vector2.ZERO
 	if _pending_death_rebirth:
 		_pending_death_rebirth = false
 		_enter_death_rebirth_flow()
@@ -510,10 +511,14 @@ func _enter_floating_invisible() -> void:
 
 func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 	_is_floating_invisible = false
+	_forced_invisible = false
+	_is_wandering = false
+	_idle_elapsed = 0.0
 	# 恢复 World 层碰撞
 	collision_mask = 1  # World(1)
 	# 触发着陆序列（fall_loop → GroundRaycast → fall_down）
 	_landing_locked = true
+	velocity = Vector2.ZERO
 	anim_play(&"normal/fall_loop", true)
 	# remaining_light_time 可用于 visible_time 计算（此处保留接口）
 	if remaining_light_time <= 0.0:
@@ -523,6 +528,8 @@ func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 func _enter_forced_invisible() -> void:
 	_forced_invisible = true
 	_is_floating_invisible = true
+	_is_wandering = false
+	_idle_elapsed = 0.0
 	collision_mask = 0
 	velocity = Vector2.ZERO
 	anim_play(&"normal/forced_invisible", false)
@@ -803,15 +810,19 @@ func _get_merge_partner() -> SoulDevourer:
 		var other: SoulDevourer = m as SoulDevourer
 		if other == null:
 			continue
-		if other._is_floating_invisible and not other._merging and not other._death_rebirth_started:
+		if other._is_floating_invisible and other._aggro_mode and not other._merging and not other._death_rebirth_started:
 			return other
 	return null
 
 
 func _can_initiate_merge() -> bool:
 	## 实例 ID 较小者发起合体
+	if not _aggro_mode:
+		return false
 	var partner: SoulDevourer = _get_merge_partner()
 	if partner == null:
+		return false
+	if not partner._aggro_mode:
 		return false
 	return get_instance_id() < partner.get_instance_id()
 

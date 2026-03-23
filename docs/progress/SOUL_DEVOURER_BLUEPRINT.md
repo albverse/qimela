@@ -528,7 +528,7 @@ func _find_nearest_cleaver() -> SoulCleaver:
 ```
 [播放 has_knife/run] → [跑位到玩家后方 120px 之外]
   │
-  ├─ 玩家进入攻击范围
+  ├─ 自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
   │   → 播放 has_knife/knife_attack_run
   │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
   │   → 动画结束后立刻回到 has_knife/run
@@ -781,6 +781,8 @@ BeehaveTree (process_thread: PHYSICS)
 
 #### `act_landing_sequence`
 - `FALL_LOOP → FALL_DOWN → DONE`
+- 进入时先清空残留速度，并强制刷新 `GroundRaycast`
+- 若进入着陆序列时其实已经贴地，则直接转入 `fall_down`
 - DONE 时调用 `_on_landing_complete()`（含 pending death-rebirth 检查）
 
 #### `act_hunt_ghost`
@@ -805,7 +807,7 @@ BeehaveTree (process_thread: PHYSICS)
 
 #### `act_knife_attack_sequence`
 - 持刀后先播放 `has_knife/run`，跑位到玩家后方约 120px 位置
-- 仅当玩家进入攻击范围时才切换到 `has_knife/knife_attack_run`
+- 只有当 SD 已站到玩家背后侧，并且玩家进入持刀突进起手窗口时，才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
 - 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
 
@@ -818,7 +820,7 @@ BeehaveTree (process_thread: PHYSICS)
 
 ## 15. 合体机制
 
-场上 2 只 SoulDevourer 且都 `_is_floating_invisible` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 中点生成 TwoHeadedSoulDevourer → 两只原始 SD 先隐藏并交由双头犬流程托管恢复，不在该时点直接 `queue_free()`。
+场上 2 只 SoulDevourer 且都 `_aggro_mode == true`、`_is_floating_invisible == true` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 中点生成 TwoHeadedSoulDevourer → 两只原始 SD 先隐藏并交由双头犬流程托管恢复，不在该时点直接 `queue_free()`；分离恢复后 aggro 不清零。
 
 双头犬：`ENTER → FALL → LAND → dual_beam → SPLIT → END`。落地后无敌。分离时还原两只犬 + HP + `_force_separate = true` → 远离 200px。
 
