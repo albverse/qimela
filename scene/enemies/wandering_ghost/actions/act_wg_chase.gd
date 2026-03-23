@@ -42,7 +42,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 				ghost.velocity = Vector2.ZERO
 				ghost._play_anim(&"idle", true)
 				return RUNNING
-			var dir: float = signf(player.global_position.x - ghost.global_position.x)
+			var dx: float = player.global_position.x - ghost.global_position.x
+			if absf(dx) <= ghost.FACE_DEAD_ZONE:
+				# 已到达玩家附近，停止水平移动，保持当前朝向
+				ghost.velocity = Vector2.ZERO
+				ghost._play_anim(&"idle", true)
+				return RUNNING
+			var dir: float = signf(dx)
 			ghost.velocity.x = dir * ghost.move_speed
 			ghost.face_toward(player)
 			ghost._play_anim(&"move", true)

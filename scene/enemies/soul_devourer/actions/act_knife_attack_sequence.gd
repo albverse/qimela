@@ -73,34 +73,34 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 
 func _start_dash(sd: SoulDevourer) -> void:
 	_timer = 0.0
+	print("[SD:P7] _start_dash #%d" % (_dash_count + 1))
 	sd.anim_play(&"has_knife/knife_attack_run", false)
-	# 面向玩家
+	# 面向玩家（统一使用 _spine_sprite 翻转，不翻转 CharacterBody2D）
 	var player: Node2D = sd.get_priority_attack_target()
 	if player != null:
-		var dir: float = sign(player.global_position.x - sd.global_position.x)
-		if dir != 0.0:
-			sd.scale.x = abs(sd.scale.x) * dir
+		sd.face_toward_position(player.global_position.x)
 
 
 func _tick_dash(sd: SoulDevourer, dt: float, blackboard: Blackboard) -> int:
-	# 冲刺移动
-	var dir: float = sign(sd.scale.x)
+	# 冲刺移动（方向基于 SpineSprite 朝向）
+	var dir: float = 1.0
+	if sd._spine_sprite != null and sd._spine_sprite.scale.x != 0.0:
+		dir = sign(sd._spine_sprite.scale.x)
 	sd.velocity.x = dir * sd.ground_run_speed * 2.5
-	sd.velocity.y += 1200.0 * dt
-	if sd.is_on_floor():
-		sd.velocity.y = 0.0
-	sd.move_and_slide()
+	# 重力由 _physics_process 统一处理，此处不再重复施加
 
 	if sd.anim_is_finished(&"has_knife/knife_attack_run") or _timer >= sd.knife_attack_timeout:
 		_dash_count += 1
 		sd.velocity.x = 0.0
 		if _dash_count >= 2:
 			# 两次冲刺完毕 → 甩刀
+			print("[SD:P7] 2 dashes done → THROW_KNIFE (change_to_normal)")
 			_phase = Phase.THROW_KNIFE
 			_timer = 0.0
 			sd.anim_play(&"has_knife/change_to_normal", false)
 		else:
 			# 第一次冲刺后短暂间隔再来一次
+			print("[SD:P7] dash #1 done → WAIT_CD (%.1fs)" % sd.attack_cooldown_has_knife)
 			var actor_id: String = str(sd.get_instance_id())
 			blackboard.set_value(ATK_CD_KEY, SoulDevourer.now_sec() + sd.attack_cooldown_has_knife, actor_id)
 			_phase = Phase.WAIT_CD

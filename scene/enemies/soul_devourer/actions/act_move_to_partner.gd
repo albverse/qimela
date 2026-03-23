@@ -44,7 +44,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return SUCCESS
 
 	sd.velocity = dir.normalized() * sd.merge_move_speed
-	sd.move_and_slide()
+	# move_and_slide 由 _physics_process 统一调用
 	return RUNNING
 
 

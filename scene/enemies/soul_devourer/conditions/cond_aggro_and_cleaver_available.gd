@@ -18,6 +18,10 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if sd._is_floating_invisible or sd._forced_invisible:
 		return FAILURE
 
+	# 已有正在拾取中的目标刀 → 跳过重新搜索（防止 SequenceReactive 重评导致无限中断）
+	if sd._current_target_cleaver != null and is_instance_valid(sd._current_target_cleaver):
+		return SUCCESS
+
 	# 检查 CD
 	var actor_id: String = str(actor.get_instance_id())
 	var cd_end: float = blackboard.get_value(COOLDOWN_KEY, 0.0, actor_id)
@@ -29,4 +33,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	if cleaver == null:
 		return FAILURE
 
+	if Engine.get_physics_frames() % 60 == 0:
+		print("[SD:P6cond] SUCCESS: aggro=%s knife=%s cleaver=%s dist=%.1f" % [
+			sd._aggro_mode, sd._has_knife, cleaver.name,
+			sd.global_position.distance_to(cleaver.global_position)])
 	return SUCCESS

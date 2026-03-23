@@ -24,6 +24,12 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		sd.anim_play(idle_anim, true)
 
 	sd.velocity.x = 0.0
+
+	# 每 120 帧打印兜底 idle 原因日志
+	if Engine.get_physics_frames() % 120 == 0:
+		print("[SD:P11] IDLE: aggro=%s full=%s knife=%s float=%s hp=%d" % [
+			sd._aggro_mode, sd._is_full, sd._has_knife,
+			sd._is_floating_invisible, sd.hp])
 	return RUNNING
 
 

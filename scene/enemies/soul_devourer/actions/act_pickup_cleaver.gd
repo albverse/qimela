@@ -33,6 +33,11 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	if cleaver != null:
 		cleaver.claimed = true
 		sd._current_target_cleaver = cleaver
+		print("[SD:P6] before_run: cleaver at %s, sd at %s, dist=%.1f" % [
+			cleaver.global_position, sd.global_position,
+			sd.global_position.distance_to(cleaver.global_position)])
+	else:
+		print("[SD:P6] before_run: NO cleaver found")
 	sd.anim_play(&"normal/run", true)
 
 
@@ -45,6 +50,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	_timer += dt
 
 	if _timer >= sd.move_to_cleaver_timeout:
+		print("[SD:P6] TIMEOUT (%.1fs)" % _timer)
 		_cleanup(sd)
 		return FAILURE
 
@@ -60,6 +66,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 	# 目标刀消失（被销毁或无效）
 	if sd._current_target_cleaver == null or not is_instance_valid(sd._current_target_cleaver):
+		print("[SD:P6] MOVE: cleaver LOST")
 		sd._current_target_cleaver = null
 		return FAILURE
 
@@ -68,6 +75,7 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 
 	if dist <= PICKUP_REACH_DIST:
 		# 到达，播放拾取动画
+		print("[SD:P6] MOVE→PICKUP: reached cleaver, dist=%.1f" % dist)
 		_phase = Phase.PLAY_PICKUP_ANIM
 		sd.velocity.x = 0.0
 		sd.anim_play(&"normal/change_to_has_knife", false)
@@ -77,7 +85,11 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 	var dir: float = sign(cleaver_pos.x - sd.global_position.x)
 	sd.velocity.x = dir * sd.ground_run_speed
 	sd.face_toward_position(cleaver_pos.x)
-	sd.move_and_slide()
+	# 每 30 帧打印一次距离日志
+	if Engine.get_physics_frames() % 30 == 0:
+		print("[SD:P6] MOVE: dist=%.1f, vel.x=%.1f, sd=%s, cleaver=%s" % [
+			dist, sd.velocity.x, sd.global_position, cleaver_pos])
+	# move_and_slide 由 _physics_process 统一调用
 	return RUNNING
 
 
@@ -86,6 +98,7 @@ func _tick_pickup_anim(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	if sd.anim_is_finished(&"normal/change_to_has_knife"):
 		# 动画完成 → 正式持刀
 		sd._has_knife = true
+		print("[SD:P6] PICKUP DONE: has_knife=true")
 		# 设置技能 CD
 		var actor_id: String = str(sd.get_instance_id())
 		blackboard.set_value(COOLDOWN_KEY, SoulDevourer.now_sec() + sd.skill_cooldown_has_knife, actor_id)
@@ -101,6 +114,7 @@ func _cleanup(sd: SoulDevourer) -> void:
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	print("[SD:P6] INTERRUPTED")
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd != null:
 		_cleanup(sd)

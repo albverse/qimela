@@ -41,6 +41,7 @@ class_name SoulDevourer
 # ===== 行为标志 =====
 var _aggro_mode: bool = false
 var _is_full: bool = false
+var _hunt_succeed_playing: bool = false  # huntting_succeed 动画播放中，条件保持 SUCCESS
 var _has_knife: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
@@ -69,8 +70,13 @@ var _recent_damage_amount: float = 0.0
 var _recent_damage_timer: float = 0.0
 const RECENT_DAMAGE_WINDOW: float = 1.0
 
+# ===== Hurt 受击僵直 =====
+var _hurt_active: bool = false
+var _hurt_timer: float = 0.0
+const HURT_STUN_DURATION: float = 0.2
+
 # ===== 面向死区 =====
-const FACE_DEAD_ZONE: float = 10.0
+const FACE_DEAD_ZONE: float = 30.0
 
 # ===== 动画系统 =====
 var _current_anim: StringName = &""
@@ -106,8 +112,8 @@ func _ready() -> void:
 	entity_type = EntityType.MONSTER
 	attribute_type = AttributeType.DARK
 	size_tier = SizeTier.MEDIUM
-	max_hp = 3
-	hp = 3
+	max_hp = 5
+	hp = 5
 	weak_hp = 1
 	hit_stun_time = 0.0
 	stun_duration = 0.0
@@ -117,6 +123,7 @@ func _ready() -> void:
 	light_receiver_path = NodePath("LightReceiver")
 
 	super._ready()
+	add_to_group("chain_passthrough")  # 链条穿过 SD（on_chain_hit 恒返回 0）
 
 	_spawn_point = global_position
 
@@ -177,21 +184,38 @@ func _physics_process(dt: float) -> void:
 	if _is_dead_hidden or _is_respawning:
 		return
 
+	# Hurt 僵直计时
+	if _hurt_active:
+		_hurt_timer -= dt
+		velocity.x = 0.0
+		if _hurt_timer <= 0.0:
+			_hurt_active = false
+			_hurt_timer = 0.0
+
 	# 重力（仅显现态落地时）
 	if not _is_floating_invisible and not _forced_invisible:
-		if not is_on_floor():
-			velocity.y += GRAVITY * dt
+		if _landing_locked:
+			pass  # 着陆期间由 act_landing_sequence 控制物理
 		else:
-			velocity.y = max(velocity.y, 0.0)
-		move_and_slide()
+			if not is_on_floor():
+				velocity.y += GRAVITY * dt
+			else:
+				velocity.y = max(velocity.y, 0.0)
+			move_and_slide()
 	else:
-		# 漂浮隐身态：无重力，清除 collision_mask World 层
-		velocity.y = 0.0
+		# 漂浮隐身态：无重力，action 直接设置 velocity
 		move_and_slide()
 
 	# 不调用 super._physics_process()：
 	# MonsterBase 的 weak/stun 系统由 death-rebirth 替代。
 	# BeehaveTree 的 tick 由其自身 _physics_process 驱动。
+
+	# === 采样状态日志（每 120 帧 ≈ 2 秒一次）===
+	if Engine.get_physics_frames() % 120 == 0:
+		print("[SD] state: hp=%d aggro=%s full=%s knife=%s float=%s forced=%s land=%s anim=%s vel=%s" % [
+			hp, _aggro_mode, _is_full, _has_knife,
+			_is_floating_invisible, _forced_invisible, _landing_locked,
+			_current_anim, velocity])
 
 
 # =============================================================================
@@ -199,6 +223,14 @@ func _physics_process(dt: float) -> void:
 # =============================================================================
 
 func anim_play(anim_name: StringName, loop: bool) -> void:
+	# Hurt 僵直期间不允许行为树覆写动画（仅内部 _force_anim_play 可绕过）
+	if _hurt_active:
+		return
+	_force_anim_play(anim_name, loop)
+
+
+## 内部用：绕过 hurt 锁定强制播放动画
+func _force_anim_play(anim_name: StringName, loop: bool) -> void:
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
 	_current_anim = anim_name
@@ -289,14 +321,27 @@ func apply_hit(hit: HitData) -> bool:
 	if hit == null:
 		return false
 	if _death_rebirth_started:
+		print("[SD] apply_hit REJECTED: death_rebirth in progress")
 		return false
 	if hit.weapon_id != &"ghost_fist":
+		print("[SD] apply_hit REJECTED: weapon=%s (need ghost_fist)" % hit.weapon_id)
 		return false
 
 	# 有效命中（必然是 FireHurtbox，因为没有身体 Hurtbox）
+	var old_hp: int = hp
 	_aggro_mode = true
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
+	print("[SD] apply_hit OK: hp=%d→%d, aggro=%s, dmg=%d, anim=%s" % [old_hp, hp, _aggro_mode, hit.damage, _current_anim])
+
+	# Hurt 受击僵直：仅 idle/run 状态可被打断
+	if _is_in_hurtable_anim() and not _hurt_active:
+		_hurt_active = true
+		_hurt_timer = HURT_STUN_DURATION
+		var hurt_anim: StringName = StringName(_get_anim_prefix() + "hurt")
+		_force_anim_play(hurt_anim, false)
+		velocity.x = 0.0
+		print("[SD] HURT triggered: anim=%s, stun=%.2fs" % [hurt_anim, HURT_STUN_DURATION])
 
 	# 近期伤害追踪（用于强制隐身条件）
 	_recent_damage_amount += float(hit.damage)
@@ -305,7 +350,9 @@ func apply_hit(hit: HitData) -> bool:
 	if hp <= weak_hp:
 		if _landing_locked:
 			_pending_death_rebirth = true
+			print("[SD] death-rebirth PENDING (landing locked)")
 		else:
+			print("[SD] → entering death-rebirth flow")
 			_enter_death_rebirth_flow()
 	return true
 
@@ -324,6 +371,10 @@ func _enter_death_rebirth_flow() -> void:
 	if _death_rebirth_started:
 		return  # 防重入
 	_death_rebirth_started = true
+
+	# 强制解除 hurt 僵直（否则 anim_play 被锁定，死亡动画无法播放）
+	_hurt_active = false
+	_hurt_timer = 0.0
 
 	# 释放刀引用（无论 cleaver_pick 是否已触发都安全清空）
 	_current_target_cleaver = null
@@ -382,8 +433,10 @@ func _respawn_from_spawn_point() -> void:
 
 func _reset_runtime_state_after_respawn() -> void:
 	hp = max_hp
-	_aggro_mode = false
+	print("[SD] RESPAWN: hp=%d, aggro=%s (kept)" % [hp, _aggro_mode])
+	# _aggro_mode 不重置：蓝图规定一旦被玩家攻击进入 aggro，永久保持
 	_is_full = false
+	_hunt_succeed_playing = false
 	_has_knife = false
 	_is_floating_invisible = false
 	_forced_invisible = false
@@ -397,6 +450,8 @@ func _reset_runtime_state_after_respawn() -> void:
 	_current_target_ghost = null
 	_current_target_cleaver = null
 	_knife_attack_count = 0
+	_hurt_active = false
+	_hurt_timer = 0.0
 	velocity = Vector2.ZERO
 
 	# 恢复碰撞
@@ -483,6 +538,12 @@ func on_light_exposure(remaining_time: float, source: Node = null) -> void:
 
 
 ## 朝向辅助（仅翻转 SpineSprite，含 10px 死区防抖）
+## 判断当前动画是否允许被 hurt 打断（仅 idle/run）
+func _is_in_hurtable_anim() -> bool:
+	var anim: String = String(_current_anim)
+	return anim.ends_with("/idle") or anim.ends_with("/run")
+
+
 func face_toward_position(target_x: float) -> void:
 	var dx: float = target_x - global_position.x
 	if absf(dx) <= FACE_DEAD_ZONE:
@@ -512,8 +573,12 @@ func _find_nearest_huntable_ghost() -> Node2D:
 		var n: Node2D = g as Node2D
 		if n == null:
 			continue
-		# 过滤：可见 + 非 being_hunted
+		# 过滤：可见 + 非 dying + 非 being_hunted
 		if n.has_method("is_being_hunted") and bool(n.call("is_being_hunted")):
+			continue
+		if n.has_method("is_dying") and bool(n.call("is_dying")):
+			continue
+		if n.has_method("is_ghost_visible") and not bool(n.call("is_ghost_visible")):
 			continue
 		var d: float = global_position.distance_to(n.global_position)
 		if d < nearest_dist:
@@ -550,6 +615,10 @@ func _is_huntable_ghost_valid(target: Node) -> bool:
 	if not is_instance_valid(target):
 		return false
 	if target.has_method("is_being_hunted") and bool(target.call("is_being_hunted")):
+		return false
+	if target.has_method("is_dying") and bool(target.call("is_dying")):
+		return false
+	if target.has_method("is_ghost_visible") and not bool(target.call("is_ghost_visible")):
 		return false
 	return true
 
@@ -648,8 +717,10 @@ func _on_spine_event_throw_cleaver() -> void:
 		spawn_pos = _mark2d.global_position
 	cleaver.global_position = spawn_pos
 	cleaver.owner_instance_id = get_instance_id()
-	# 赋予抛出初速度（朝面向方向）
-	var facing: float = 1.0 if scale.x >= 0.0 else -1.0
+	# 赋予抛出初速度（基于 SpineSprite 朝向，不读 CharacterBody2D scale）
+	var facing: float = 1.0
+	if _spine_sprite != null and _spine_sprite.scale.x != 0.0:
+		facing = sign(_spine_sprite.scale.x)
 	cleaver.velocity = Vector2(facing * 200.0, -80.0)
 	get_parent().add_child(cleaver)
 	# 关闭持刀视觉，_has_knife 在事件帧置 false
