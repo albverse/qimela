@@ -145,6 +145,11 @@ func _ready() -> void:
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
 
+	if _attack_hitbox != null and not _attack_hitbox.body_entered.is_connected(_on_attack_hitbox_body_entered):
+		_attack_hitbox.body_entered.connect(_on_attack_hitbox_body_entered)
+	if _light_beam_hitbox != null and not _light_beam_hitbox.body_entered.is_connected(_on_light_beam_hitbox_body_entered):
+		_light_beam_hitbox.body_entered.connect(_on_light_beam_hitbox_body_entered)
+
 	# 初始状态
 	_set_attack_hitbox_enabled(false)
 	_set_light_beam_hitbox_enabled(false)
@@ -634,6 +639,7 @@ func _set_attack_hitbox_enabled(enabled: bool) -> void:
 	if _attack_hitbox == null:
 		return
 	_attack_hitbox.set_deferred("monitoring", enabled)
+	_attack_hitbox.set_deferred("monitorable", enabled)
 	var cs: CollisionShape2D = _attack_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
@@ -643,6 +649,7 @@ func _set_light_beam_hitbox_enabled(enabled: bool) -> void:
 	if _light_beam_hitbox == null:
 		return
 	_light_beam_hitbox.set_deferred("monitoring", enabled)
+	_light_beam_hitbox.set_deferred("monitorable", enabled)
 	var cs: CollisionShape2D = _light_beam_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
@@ -656,6 +663,24 @@ func _set_fire_hurtbox_enabled(enabled: bool) -> void:
 	var cs: CollisionShape2D = _fire_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
+
+
+func _on_attack_hitbox_body_entered(body: Node2D) -> void:
+	_deal_damage_to_player(body, 1, "knife")
+
+
+func _on_light_beam_hitbox_body_entered(body: Node2D) -> void:
+	_deal_damage_to_player(body, 1, "light_beam")
+
+
+func _deal_damage_to_player(body: Node2D, amount: int, source: String) -> void:
+	if body == null or amount <= 0:
+		return
+	if not body.has_method("apply_damage"):
+		return
+	body.call("apply_damage", amount, global_position)
+	print("[SD] HIT PLAYER via %s: amount=%d player=%s source_pos=%s" % [
+		source, amount, body.name, global_position])
 
 
 # =============================================================================

@@ -524,18 +524,17 @@ func _find_nearest_cleaver() -> SoulCleaver:
 
 条件：`_has_knife == true`。
 
-**两次冲刺后甩刀流程**：
+**持刀跑位 → 近身突进流程**：
 ```
-[冲刺×2 完毕] → [播放 has_knife/change_to_normal]
+[播放 has_knife/run] → [跑位到玩家后方 120px 之外]
   │
-  ├─ Spine 事件 throw_cleaver 触发
-  │   → 在生成点实例化新 SoulCleaver（可赋予抛出方向/初速度）
-  │   → 关闭持刀视觉
-  │   → _has_knife = false（从此帧开始不再持刀）
+  ├─ 玩家进入攻击范围
+  │   → 播放 has_knife/knife_attack_run
+  │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
+  │   → 动画结束后立刻回到 has_knife/run
   │
-  └─ animation_completed
-      → 切换到 normal/ 文件夹
-      → 技能进入 CD 5s
+  └─ 若玩家未进入攻击范围
+      → 持续维持 has_knife/run 跑位
 ```
 
 ### 10.3 优先级 3：光炮（full 状态）
@@ -577,7 +576,7 @@ func _play_prefixed_anim(anim_base: StringName, loop: bool) -> void:
 |---|---|---|---|---|---|
 | hunt ghost | 不切 | 取消→idle | **death-rebirth**（或排队） | 正常 | 4.0s 退出 |
 | move to cleaver | 不切 | cleaver消失→idle | **death-rebirth**（或排队） | 正常 | 5.0s 退出 |
-| knife_attack_run | 不切 | — | **death-rebirth** | 不切 | 位移耗尽/2.2s |
+| knife_attack_run | 不切 | — | **death-rebirth** | 不切 | 动画结束后回 `has_knife/run` |
 | light beam | 不切 | — | **death-rebirth** | 不切 | 动画结束 |
 | landing | 不切 | 不切 | **排队** `_pending_death_rebirth` | 不切 | 动画结束 |
 | forced invisible | 保持150px | — | — | 雷花唤醒 | 5.0s后恢复 |
@@ -611,8 +610,8 @@ func _play_prefixed_anim(anim_base: StringName, loop: bool) -> void:
 |--------|------|------|------|
 | `has_knife/idle` | 是 | 0 | 持刀待机 |
 | `has_knife/run` | 是 | 0 | 持刀奔跑 |
-| `has_knife/knife_attack_run` | 否 | 0 | 冲刺甩刀；含 `atk_hit_on`/`atk_hit_off` |
-| `has_knife/change_to_normal` | 否 | 0 | 甩出斩魂刀；含 `throw_cleaver` 事件（生成新刀） |
+| `has_knife/knife_attack_run` | 否 | 0 | 近身攻击突进；含 `atk_hit_on`/`atk_hit_off` |
+| `has_knife/change_to_normal` | 否 | 0 | 当前版本不作为 P7 常规收尾；保留给其它流程/事件 |
 | `has_knife/weak` | 否 | 0 | 持刀虚弱→结尾 `spawn_cleaver` |
 
 ### 13.3 双头噬魂犬
@@ -799,7 +798,12 @@ BeehaveTree (process_thread: PHYSICS)
   - 播放期间 `velocity.x = 0`，直到转换动画完整结束前都不继续移动
   - Spine 事件 `cleaver_pick` → 立即销毁刀，持刀视觉成立
   - animation_completed → `_has_knife = true`
-- 超时 5.0s → FAILURE
+
+#### `act_knife_attack_sequence`
+- 持刀后先播放 `has_knife/run`，跑位到玩家后方约 120px 位置
+- 仅当玩家进入攻击范围时才切换到 `has_knife/knife_attack_run`
+- `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
+- 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
 
 ---
 
