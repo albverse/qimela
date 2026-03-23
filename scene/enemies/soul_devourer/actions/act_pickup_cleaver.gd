@@ -89,10 +89,11 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 				sd._current_anim, sd._hurt_timer])
 		return RUNNING
 
-	# 移动朝向
+	# 移动朝向（每帧刷新 run 动画，防止受击/其他 action 的 cleanup 将动画重置为 idle）
 	var dir: float = sign(cleaver_pos.x - sd.global_position.x)
 	sd.velocity.x = dir * sd.ground_run_speed
 	sd.face_toward_position(cleaver_pos.x)
+	sd.anim_play(&"normal/run", true)
 	# 每 30 帧打印一次距离日志
 	if Engine.get_physics_frames() % 30 == 0:
 		print("[SD:P6] MOVE: reach=%.1f/%.1f, eucl=%.1f, vel.x=%.1f, sd=%s, cleaver=%s" % [
