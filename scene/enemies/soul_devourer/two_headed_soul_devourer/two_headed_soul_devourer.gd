@@ -154,13 +154,10 @@ func _restore_soul_devourer(ref: WeakRef, pos: Vector2, hp: int, separate_dir: f
 	sd._death_rebirth_started = false
 	sd._is_floating_invisible = false
 	sd._forced_invisible = false
+	sd._forced_invisible_anim_playing = false
 	sd._merging = false
+	sd.exit_merged_hidden_state()
 	sd.collision_mask = 1  # World(1)
-	var body_col: CollisionShape2D = sd.get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if body_col:
-		body_col.disabled = false
-	sd._set_fire_hurtbox_enabled(true)
-	sd.visible = true
 	# 给分离初速度
 	sd.velocity = Vector2(separate_dir * 100.0, -50.0)
 	# 重启行为树

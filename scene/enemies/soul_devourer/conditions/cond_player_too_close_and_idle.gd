@@ -8,14 +8,13 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd == null:
 		return FAILURE
-	if sd._is_floating_invisible or sd._forced_invisible or sd._landing_locked or sd._has_knife:
-		return FAILURE
-	if sd._is_full:
-		return FAILURE
-	# 允许 idle 和 wander（normal/run）状态触发；
-	# has_knife/* 动画已被上方 _has_knife 检查排除
-	var anim_str: String = String(sd._current_anim)
-	if not (anim_str.ends_with("/idle") or anim_str == &"normal/run"):
+	# 根因修复：一旦已经进入 forced_invisible 起手动画，
+	# Reactive Sequence 必须持续看到 SUCCESS，直到动作叶自己完成。
+	# 否则条件会因 _forced_invisible=true 在下一帧自我失效，
+	# Action 被中断后就会留下 forced=true / float=false 的半状态卡死。
+	if sd.is_forced_invisible_anim_playing():
+		return SUCCESS
+	if not sd.can_trigger_forced_invisible():
 		return FAILURE
 	var player: Node2D = sd.get_priority_attack_target()
 	if player == null:
