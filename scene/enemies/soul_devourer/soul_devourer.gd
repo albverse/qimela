@@ -43,8 +43,11 @@ var _aggro_mode: bool = false
 var _is_full: bool = false
 var _hunt_succeed_playing: bool = false  # huntting_succeed 动画播放中，条件保持 SUCCESS
 var _has_knife: bool = false
+var _pickup_anim_playing: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
+var _idle_elapsed: float = 0.0
+var _is_wandering: bool = false
 
 # ===== Death-Rebirth 标志 =====
 var _death_rebirth_started: bool = false   # 防重入 guard
@@ -91,6 +94,7 @@ var _anim_mock: AnimDriverMock = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea") as Area2D
 @onready var _attack_hitbox: Area2D = get_node_or_null("AttackHitbox") as Area2D
 @onready var _light_beam_hitbox: Area2D = get_node_or_null("LightBeamHitbox") as Area2D
+@onready var _knife_attack_trigger_area: Area2D = get_node_or_null("KnifeAttackTriggerArea") as Area2D
 @onready var _merge_detect_area: Area2D = get_node_or_null("MergeDetectArea") as Area2D
 @onready var _mark2d: Marker2D = get_node_or_null("Mark2D") as Marker2D
 @onready var _ground_raycast: RayCast2D = get_node_or_null("GroundRaycast") as RayCast2D
@@ -143,6 +147,11 @@ func _ready() -> void:
 		_anim_mock = AnimDriverMock.new()
 		add_child(_anim_mock)
 		_anim_mock.anim_completed.connect(_on_anim_completed)
+
+	if _attack_hitbox != null and not _attack_hitbox.body_entered.is_connected(_on_attack_hitbox_body_entered):
+		_attack_hitbox.body_entered.connect(_on_attack_hitbox_body_entered)
+	if _light_beam_hitbox != null and not _light_beam_hitbox.body_entered.is_connected(_on_light_beam_hitbox_body_entered):
+		_light_beam_hitbox.body_entered.connect(_on_light_beam_hitbox_body_entered)
 
 	# 初始状态
 	_set_attack_hitbox_enabled(false)
@@ -222,11 +231,12 @@ func _physics_process(dt: float) -> void:
 # 动画播放接口
 # =============================================================================
 
-func anim_play(anim_name: StringName, loop: bool) -> void:
+func anim_play(anim_name: StringName, loop: bool) -> bool:
 	# Hurt 僵直期间不允许行为树覆写动画（仅内部 _force_anim_play 可绕过）
 	if _hurt_active:
-		return
+		return false
 	_force_anim_play(anim_name, loop)
+	return true
 
 
 ## 内部用：绕过 hurt 锁定强制播放动画
@@ -438,8 +448,11 @@ func _reset_runtime_state_after_respawn() -> void:
 	_is_full = false
 	_hunt_succeed_playing = false
 	_has_knife = false
+	_pickup_anim_playing = false
 	_is_floating_invisible = false
 	_forced_invisible = false
+	_idle_elapsed = 0.0
+	_is_wandering = false
 	_death_rebirth_started = false
 	_is_dead_hidden = false
 	_is_respawning = false
@@ -479,6 +492,7 @@ func _reset_runtime_state_after_respawn() -> void:
 
 func _on_landing_complete() -> void:
 	_landing_locked = false
+	velocity = Vector2.ZERO
 	if _pending_death_rebirth:
 		_pending_death_rebirth = false
 		_enter_death_rebirth_flow()
@@ -498,10 +512,14 @@ func _enter_floating_invisible() -> void:
 
 func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 	_is_floating_invisible = false
+	_forced_invisible = false
+	_is_wandering = false
+	_idle_elapsed = 0.0
 	# 恢复 World 层碰撞
 	collision_mask = 1  # World(1)
 	# 触发着陆序列（fall_loop → GroundRaycast → fall_down）
 	_landing_locked = true
+	velocity = Vector2.ZERO
 	anim_play(&"normal/fall_loop", true)
 	# remaining_light_time 可用于 visible_time 计算（此处保留接口）
 	if remaining_light_time <= 0.0:
@@ -511,6 +529,8 @@ func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 func _enter_forced_invisible() -> void:
 	_forced_invisible = true
 	_is_floating_invisible = true
+	_is_wandering = false
+	_idle_elapsed = 0.0
 	collision_mask = 0
 	velocity = Vector2.ZERO
 	anim_play(&"normal/forced_invisible", false)
@@ -557,6 +577,17 @@ func face_toward(target: Node2D) -> void:
 	if target == null:
 		return
 	face_toward_position(target.global_position.x)
+
+
+func is_player_in_knife_attack_trigger(player: Node2D) -> bool:
+	if player == null:
+		return false
+	if _knife_attack_trigger_area == null:
+		return false
+	for body in _knife_attack_trigger_area.get_overlapping_bodies():
+		if body == player:
+			return true
+	return false
 
 
 # =============================================================================
@@ -631,6 +662,7 @@ func _set_attack_hitbox_enabled(enabled: bool) -> void:
 	if _attack_hitbox == null:
 		return
 	_attack_hitbox.set_deferred("monitoring", enabled)
+	_attack_hitbox.set_deferred("monitorable", enabled)
 	var cs: CollisionShape2D = _attack_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
@@ -640,6 +672,7 @@ func _set_light_beam_hitbox_enabled(enabled: bool) -> void:
 	if _light_beam_hitbox == null:
 		return
 	_light_beam_hitbox.set_deferred("monitoring", enabled)
+	_light_beam_hitbox.set_deferred("monitorable", enabled)
 	var cs: CollisionShape2D = _light_beam_hitbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
@@ -653,6 +686,24 @@ func _set_fire_hurtbox_enabled(enabled: bool) -> void:
 	var cs: CollisionShape2D = _fire_hurtbox.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if cs:
 		cs.set_deferred("disabled", not enabled)
+
+
+func _on_attack_hitbox_body_entered(body: Node2D) -> void:
+	_deal_damage_to_player(body, 1, "knife")
+
+
+func _on_light_beam_hitbox_body_entered(body: Node2D) -> void:
+	_deal_damage_to_player(body, 1, "light_beam")
+
+
+func _deal_damage_to_player(body: Node2D, amount: int, source: String) -> void:
+	if body == null or amount <= 0:
+		return
+	if not body.has_method("apply_damage"):
+		return
+	body.call("apply_damage", amount, global_position)
+	print("[SD] HIT PLAYER via %s: amount=%d player=%s source_pos=%s" % [
+		source, amount, body.name, global_position])
 
 
 # =============================================================================
@@ -771,15 +822,19 @@ func _get_merge_partner() -> SoulDevourer:
 		var other: SoulDevourer = m as SoulDevourer
 		if other == null:
 			continue
-		if other._is_floating_invisible and not other._merging and not other._death_rebirth_started:
+		if other._is_floating_invisible and other._aggro_mode and not other._merging and not other._death_rebirth_started:
 			return other
 	return null
 
 
 func _can_initiate_merge() -> bool:
 	## 实例 ID 较小者发起合体
+	if not _aggro_mode:
+		return false
 	var partner: SoulDevourer = _get_merge_partner()
 	if partner == null:
+		return false
+	if not partner._aggro_mode:
 		return false
 	return get_instance_id() < partner.get_instance_id()
 

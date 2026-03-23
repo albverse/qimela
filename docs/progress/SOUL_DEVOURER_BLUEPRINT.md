@@ -233,7 +233,6 @@ class_name SoulCleaver
 
 var owner_instance_id: int = 0
 var claimed: bool = false
-var life_time: float = 12.0
 
 func _ready() -> void:
     add_to_group("soul_cleaver")   # ★ 噬魂犬通过组查询找刀
@@ -243,7 +242,7 @@ func _ready() -> void:
 1. 同一时刻只能被一只犬锁定（`claimed = true`）
 2. 掉刀时记录 `owner_instance_id`
 3. 原 owner 存在且未持刀 → 优先拾取自己掉的刀
-4. 12 秒无人拾取 → `queue_free()`
+4. 只要未被拾取，斩魂刀会永久留在场上
 5. `change_to_has_knife` 播完后才销毁刀
 6. 中途进入 death-rebirth → 不销毁刀
 
@@ -375,7 +374,8 @@ func _update_weak_state() -> void:
 → born 完成
 → _reset_runtime_state_after_respawn()
   ├─ hp = max_hp
-  ├─ 所有状态标志归零（aggro/full/knife/invisible/landing/death_rebirth）
+  ├─ 保留 `_aggro_mode`
+  ├─ 清空 full/knife/invisible/landing/death_rebirth 等临时状态
   ├─ 恢复显示 / 碰撞 / AI
   └─ → normal/idle
 ```
@@ -501,7 +501,8 @@ func _find_nearest_cleaver() -> SoulCleaver:
 
 ### 10.1 优先级 1：斩魂刀拾取
 
-条件：`_find_nearest_cleaver()` 有结果，且技能 CD ready（5s）。
+条件：`_aggro_mode == true && _is_full == false && _find_nearest_cleaver()` 有结果，且技能 CD ready（5s）。
+若当前已 `full` 且刚被玩家打进 aggro，则应先走光炮分支；只有光炮结束、`_is_full = false` 后，才重新检测斩魂刀。
 
 **事件驱动流程**：
 ```
@@ -523,29 +524,45 @@ func _find_nearest_cleaver() -> SoulCleaver:
 
 条件：`_has_knife == true`。
 
-**两次冲刺后甩刀流程**：
+**持刀跑位 → 近身突进流程**：
 ```
-[冲刺×2 完毕] → [播放 has_knife/change_to_normal]
+[播放 has_knife/run] → [跑位到玩家后方 120px 之外]
   │
-  ├─ Spine 事件 throw_cleaver 触发
-  │   → 在生成点实例化新 SoulCleaver（可赋予抛出方向/初速度）
-  │   → 关闭持刀视觉
-  │   → _has_knife = false（从此帧开始不再持刀）
+  ├─ 整段以 `has_knife/run` **直线**冲向“玩家后方 120px 以外”目标点（速度=通常地面速度 2 倍，朝向使用固定 lookahead，不会视觉倒着跑）
   │
-  └─ animation_completed
-      → 切换到 normal/ 文件夹
-      → 技能进入 CD 5s
+  ├─ 运动途中若自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
+  │   → 播放 has_knife/knife_attack_run
+  │   → 每次攻击结束后都先保持原方向继续前冲 200px
+  │   → 前两次攻击跑完这段 200px 后，原地播放 has_knife/attack_over，等动画播完再折回下一轮 run
+  │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
+  │   → 第三次攻击结束后跑完这段 200px，再播放 has_knife/change_to_normal，并进入 10 秒冷却
+  │
+  ├─ 若折返或追击时前方被墙挡住
+  │   → 若此时玩家提前进入可起手范围，则直接提前触发 knife_attack_run
+  │   → 否则立刻掉头，改为朝另一侧继续直线跑位，而不是卡死
+  │
+  └─ 若玩家未进入攻击范围
+      → 持续维持 has_knife/run 跑位
 ```
 
 ### 10.3 优先级 3：光炮（full 状态）
 
-条件：`_is_full == true`。
+条件：`_aggro_mode == true && _is_full == true`。
+
+**光炮前置跑位**：
+```
+[若与玩家距离 < 100px（或设计配置更大值）]
+  → 先播放 normal/run 拉开距离
+  → 距离满足后停下、转向玩家
+  → 播放 normal/light_beam
+```
 
 ### 10.4 优先级 4：no_full 补充猎杀
 
-条件：`_is_full == false` 且 `huntable_ghost` 存在。
+条件：`_aggro_mode == true && _is_full == false` 且 `huntable_ghost` 存在。
+非 aggro 情况不走这一支，而是走 §14 行为树里的 `Cond_NotAggroAndGhostVisible` 被动猎杀分支。
 
-### 10.5 强制隐身（idle 状态下玩家 < 100px）
+### 10.5 强制隐身（闲逛状态下玩家贴近）
 
 详见 §8.5。
 
@@ -575,7 +592,7 @@ func _play_prefixed_anim(anim_base: StringName, loop: bool) -> void:
 |---|---|---|---|---|---|
 | hunt ghost | 不切 | 取消→idle | **death-rebirth**（或排队） | 正常 | 4.0s 退出 |
 | move to cleaver | 不切 | cleaver消失→idle | **death-rebirth**（或排队） | 正常 | 5.0s 退出 |
-| knife_attack_run | 不切 | — | **death-rebirth** | 不切 | 位移耗尽/2.2s |
+| knife_attack_run | 不切 | — | **death-rebirth** | 不切 | 动画结束后回 `has_knife/run` |
 | light beam | 不切 | — | **death-rebirth** | 不切 | 动画结束 |
 | landing | 不切 | 不切 | **排队** `_pending_death_rebirth` | 不切 | 动画结束 |
 | forced invisible | 保持150px | — | — | 雷花唤醒 | 5.0s后恢复 |
@@ -609,8 +626,8 @@ func _play_prefixed_anim(anim_base: StringName, loop: bool) -> void:
 |--------|------|------|------|
 | `has_knife/idle` | 是 | 0 | 持刀待机 |
 | `has_knife/run` | 是 | 0 | 持刀奔跑 |
-| `has_knife/knife_attack_run` | 否 | 0 | 冲刺甩刀；含 `atk_hit_on`/`atk_hit_off` |
-| `has_knife/change_to_normal` | 否 | 0 | 甩出斩魂刀；含 `throw_cleaver` 事件（生成新刀） |
+| `has_knife/knife_attack_run` | 否 | 0 | 近身攻击突进；含 `atk_hit_on`/`atk_hit_off` |
+| `has_knife/change_to_normal` | 否 | 0 | 当前版本不作为 P7 常规收尾；保留给其它流程/事件 |
 | `has_knife/weak` | 否 | 0 | 持刀虚弱→结尾 `spawn_cleaver` |
 
 ### 13.3 双头噬魂犬
@@ -764,8 +781,12 @@ BeehaveTree (process_thread: PHYSICS)
     │   ├── Cond: cond_not_aggro_and_ghost_visible
     │   └── Act: act_hunt_ghost
     │
-    └── Act: act_idle                                     # P11
-```
+    ├── Seq [闲逛]                                        # P11
+    │   ├── Cond: cond_wandering
+    │   └── Act: act_wander
+    │
+    └── Act: act_idle                                     # P12
+	```
 
 ### 14.1 关键 Action 说明
 
@@ -776,12 +797,14 @@ BeehaveTree (process_thread: PHYSICS)
 
 #### `act_landing_sequence`
 - `FALL_LOOP → FALL_DOWN → DONE`
+- 进入时先清空残留速度，并强制刷新 `GroundRaycast`
+- 若进入着陆序列时其实已经贴地，则直接转入 `fall_down`
 - DONE 时调用 `_on_landing_complete()`（含 pending death-rebirth 检查）
 
 #### `act_hunt_ghost`
 - 用 `_find_nearest_huntable_ghost()` 查找，锁定为 `_current_target_ghost`
 - 朝目标移动：
-  - **地面显现态**：播放 **`normal/huntting`**（循环）— 不复用 `normal/run`
+  - **地面显现态**：远距离播放 `normal/run`，接近后切到 `normal/huntting`
   - **隐身悬浮态**：播放 `normal/float_move`（循环）— 不使用 `huntting`
 - 每帧检查目标有效性（`_is_huntable_ghost_valid(target)`）
 - 目标隐身 / 无效 / 被销毁 → 停止 `huntting` → 返回 FAILURE（回落 idle）
@@ -791,17 +814,44 @@ BeehaveTree (process_thread: PHYSICS)
 
 #### `act_pickup_cleaver`
 - 用 `_find_nearest_cleaver()` 查找（组查询）
+- 地面态拾取判定使用**水平距离**，并结合 SoulCleaver 自身 `Area2D` 拾取半径 + 额外宽松补偿，而不是仅靠很小的中心点距离
 - 目标消失 → FAILURE
 - 到达 → 播放 `normal/change_to_has_knife`
+  - 播放期间 `velocity.x = 0`，直到转换动画完整结束前都不继续移动
   - Spine 事件 `cleaver_pick` → 立即销毁刀，持刀视觉成立
   - animation_completed → `_has_knife = true`
-- 超时 5.0s → FAILURE
+
+#### `act_knife_attack_sequence`
+- 持刀后先播放 `has_knife/run`，以**直线**跑向玩家后方约 120px 之外的位置
+- `has_knife/run` 阶段速度为普通地面移动速度的 2 倍
+- 跑位朝向使用固定 lookahead，避免因朝向死区导致视觉上“倒着跑”
+- 每次攻击结束后，都先沿当前直线方向继续前冲 200px，再进入后续衔接
+- 前两次攻击结束后，跑完这 200px 再原地播放 `has_knife/attack_over`，动画播完才进入下一次持刀跑位
+- 第三次攻击结束后，跑完这 200px 再播放 `has_knife/change_to_normal`，随后进入 10 秒冷却
+- 若折返或追击时前方被墙挡住，则不再卡死：若玩家进入起手范围可直接攻击，否则立刻掉头改跑另一侧
+- 使用专用 `KnifeAttackTriggerArea` 每帧检测玩家是否进入起手范围；只有当 SD 已站到玩家背后侧，并且玩家进入该触发区时，才切换到 `has_knife/knife_attack_run`
+- `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
+- 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
+
+#### `act_light_beam_attack`
+- 满能量后不会原地立刻开炮
+- 若与玩家距离不足 100px（或配置的更大最小距离），先播放 `normal/run` 拉开
+- 只有距离满足后，才转向玩家播放 `normal/light_beam`
+
+#### `cond_player_too_close_and_idle`
+- 仅 **非 aggro**、**当前播放 idle**、且没有进入 full / has_knife / landing / invisible 等战斗链时，玩家贴近才允许进入强制隐身
+- 一旦进入 aggro，后续不会再因为贴脸而切入这条隐身漂浮流
+
+#### `act_wander`
+- 仅在 idle 持续超过 1 秒后进入
+- 地面显现态下随机选择周围目标点并播放 `normal/run`
+- 若闲逛期间玩家贴近，则由更高优先级的 `cond_player_too_close_and_idle` 接管，进入强制隐身
 
 ---
 
 ## 15. 合体机制
 
-场上 2 只 SoulDevourer 且都 `_is_floating_invisible` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 双方 queue_free → 中点生成 TwoHeadedSoulDevourer。
+场上 2 只 SoulDevourer 且都 `_aggro_mode == true`、`_is_floating_invisible == true` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 中点生成 TwoHeadedSoulDevourer → 两只原始 SD 先隐藏并交由双头犬流程托管恢复，不在该时点直接 `queue_free()`；分离恢复后 aggro 不清零。
 
 双头犬：`ENTER → FALL → LAND → dual_beam → SPLIT → END`。落地后无敌。分离时还原两只犬 + HP + `_force_separate = true` → 远离 200px。
 

@@ -11,6 +11,7 @@ class_name ActSoulDevourerPickupCleaver
 ## =============================================================================
 
 const PICKUP_REACH_DIST: float = 10.0
+const PICKUP_REACH_GRACE: float = 18.0
 const COOLDOWN_KEY: StringName = &"sd_cleaver_pickup_cd_end"
 
 enum Phase {
@@ -72,13 +73,19 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 
 	var cleaver_pos: Vector2 = sd._current_target_cleaver.global_position
 	var dist: float = sd.global_position.distance_to(cleaver_pos)
+	var reach_dist: float = absf(sd.global_position.x - cleaver_pos.x)
+	var pickup_reach: float = _get_pickup_reach(sd._current_target_cleaver)
 
-	if dist <= PICKUP_REACH_DIST:
+	if reach_dist <= pickup_reach:
 		# 到达，播放拾取动画
-		print("[SD:P6] MOVE→PICKUP: reached cleaver, dist=%.1f" % dist)
+		print("[SD:P6] MOVE→PICKUP: reach=%.1f/%.1f, eucl=%.1f, sd=%s, cleaver=%s" % [
+			reach_dist, pickup_reach, dist, sd.global_position, cleaver_pos])
 		_phase = Phase.PLAY_PICKUP_ANIM
 		sd.velocity.x = 0.0
-		sd.anim_play(&"normal/change_to_has_knife", false)
+		sd._pickup_anim_playing = true
+		if not sd.anim_play(&"normal/change_to_has_knife", false):
+			print("[SD:P6] PICKUP ANIM BLOCKED by hurt: anim=%s, hurt_timer=%.2f" % [
+				sd._current_anim, sd._hurt_timer])
 		return RUNNING
 
 	# 移动朝向
@@ -87,17 +94,24 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 	sd.face_toward_position(cleaver_pos.x)
 	# 每 30 帧打印一次距离日志
 	if Engine.get_physics_frames() % 30 == 0:
-		print("[SD:P6] MOVE: dist=%.1f, vel.x=%.1f, sd=%s, cleaver=%s" % [
-			dist, sd.velocity.x, sd.global_position, cleaver_pos])
+		print("[SD:P6] MOVE: reach=%.1f/%.1f, eucl=%.1f, vel.x=%.1f, sd=%s, cleaver=%s" % [
+			reach_dist, pickup_reach, dist, sd.velocity.x, sd.global_position, cleaver_pos])
 	# move_and_slide 由 _physics_process 统一调用
 	return RUNNING
 
 
 func _tick_pickup_anim(sd: SoulDevourer, blackboard: Blackboard) -> int:
+	sd.velocity.x = 0.0
 	# cleaver_pick 事件已在 SoulDevourer._on_spine_event_cleaver_pick 处理
+	if not sd.anim_is_playing(&"normal/change_to_has_knife") and not sd.anim_is_finished(&"normal/change_to_has_knife"):
+		if not sd.anim_play(&"normal/change_to_has_knife", false):
+			if Engine.get_physics_frames() % 15 == 0:
+				print("[SD:P6] WAIT PICKUP ANIM: blocked by hurt, current=%s, hurt_timer=%.2f" % [
+					sd._current_anim, sd._hurt_timer])
 	if sd.anim_is_finished(&"normal/change_to_has_knife"):
 		# 动画完成 → 正式持刀
 		sd._has_knife = true
+		sd._pickup_anim_playing = false
 		print("[SD:P6] PICKUP DONE: has_knife=true")
 		# 设置技能 CD
 		var actor_id: String = str(sd.get_instance_id())
@@ -110,7 +124,15 @@ func _cleanup(sd: SoulDevourer) -> void:
 	if sd._current_target_cleaver != null and is_instance_valid(sd._current_target_cleaver):
 		sd._current_target_cleaver.claimed = false
 	sd._current_target_cleaver = null
+	sd._pickup_anim_playing = false
 	sd.velocity.x = 0.0
+
+
+func _get_pickup_reach(cleaver: Node) -> float:
+	var pickup_reach: float = PICKUP_REACH_DIST
+	if cleaver != null and cleaver.has_method("get_pickup_radius"):
+		pickup_reach = maxf(pickup_reach, float(cleaver.call("get_pickup_radius")))
+	return pickup_reach + PICKUP_REACH_GRACE
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:

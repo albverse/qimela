@@ -19,6 +19,7 @@ var _source_a: WeakRef = null  # instance_id 较小者（发起方）
 var _source_b: WeakRef = null  # instance_id 较大者
 
 var _combined_hp: int = 0
+var _merged_aggro: bool = false
 
 # 动画驱动
 var _current_anim: StringName = &""
@@ -81,6 +82,7 @@ func init_from_merge(combined_hp: int, a: SoulDevourer, b: SoulDevourer) -> void
 	_combined_hp = combined_hp
 	_source_a = weakref(a)
 	_source_b = weakref(b)
+	_merged_aggro = a._aggro_mode or b._aggro_mode
 
 
 func _physics_process(dt: float) -> void:
@@ -147,6 +149,7 @@ func _restore_soul_devourer(ref: WeakRef, pos: Vector2, hp: int, separate_dir: f
 		return
 	sd.global_position = pos
 	sd.hp = hp
+	sd._aggro_mode = sd._aggro_mode or _merged_aggro
 	sd._force_separate = true
 	sd._death_rebirth_started = false
 	sd._is_floating_invisible = false

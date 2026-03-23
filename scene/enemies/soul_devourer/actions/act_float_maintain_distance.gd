@@ -2,13 +2,13 @@ extends ActionLeaf
 class_name ActSoulDevourerFloatMaintainDistance
 
 ## =============================================================================
-## act_float_maintain_distance — 漂浮隐身态：维持与玩家距离 + Y 轴 100px 上方 + 随机飘荡（P4 兜底）
+## act_float_maintain_distance — 漂浮隐身态：维持与玩家距离 + 优先飞到玩家上方 200px + 随机飘荡（P4 兜底）
 ## =============================================================================
 ## 强制隐身时维持 forced_invisible_maintain_dist，超时 5s 后显现（着陆序列）。
 ## 优先远离玩家；到达目标位置后，进入随机飘荡模式（30-50px 范围）。
 ## =============================================================================
 
-const FLOAT_Y_OFFSET: float = -100.0      # Y 轴相对玩家偏移（负=向上）
+const FLOAT_Y_OFFSET: float = -200.0      # Y 轴相对玩家偏移（负=向上）
 const WANDER_MIN: float = 30.0            # 随机飘荡最小半径
 const WANDER_MAX: float = 50.0            # 随机飘荡最大半径
 const ARRIVE_THRESHOLD: float = 20.0      # 到达目标点判定距离
@@ -54,21 +54,25 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if player != null:
 		var maintain_dist: float = sd.forced_invisible_maintain_dist if sd._forced_invisible else 150.0
 		var dist: float = sd.global_position.distance_to(player.global_position)
+		var ideal_pos: Vector2 = Vector2(player.global_position.x, player.global_position.y + FLOAT_Y_OFFSET)
 
 		if dist < maintain_dist:
-			# 优先：远离玩家（仅水平方向远离，Y 轴保持 FLOAT_Y_OFFSET）
-			var away_x: float = sd.global_position.x - player.global_position.x
-			var target_y: float = player.global_position.y + FLOAT_Y_OFFSET
-			var away_dir: Vector2 = Vector2(away_x, sd.global_position.y - target_y).normalized()
-			if away_dir == Vector2.ZERO:
-				away_dir = Vector2(1.0, -1.0).normalized()
-			sd.velocity = away_dir * sd.float_move_speed
+			# 优先：远离玩家，同时先飞到玩家上方，避免下压穿地
+			var away_dir_x: float = sign(sd.global_position.x - player.global_position.x)
+			if is_zero_approx(away_dir_x):
+				away_dir_x = 1.0
+			var retreat_target: Vector2 = Vector2(
+				player.global_position.x + away_dir_x * maintain_dist,
+				ideal_pos.y
+			)
+			var to_retreat: Vector2 = retreat_target - sd.global_position
+			if to_retreat == Vector2.ZERO:
+				to_retreat = Vector2(away_dir_x, -1.0)
+			sd.velocity = to_retreat.normalized() * sd.float_move_speed
 			sd.anim_play(&"normal/float_move", true)
 			_wander_target = Vector2.ZERO  # 远离时重置飘荡目标
 		else:
 			# 已与玩家保持安全距离：驶向目标悬浮高度 + 随机飘荡
-			var ideal_pos: Vector2 = Vector2(player.global_position.x, player.global_position.y + FLOAT_Y_OFFSET)
-
 			# 飘荡目标刷新
 			_wander_timer -= dt
 			if _wander_target == Vector2.ZERO or _wander_timer <= 0.0:
