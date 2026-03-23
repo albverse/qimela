@@ -117,6 +117,7 @@ func _ready() -> void:
 	light_receiver_path = NodePath("LightReceiver")
 
 	super._ready()
+	add_to_group("chain_passthrough")  # 链条穿过 SD（on_chain_hit 恒返回 0）
 
 	_spawn_point = global_position
 

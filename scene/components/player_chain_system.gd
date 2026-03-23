@@ -56,6 +56,8 @@ func _is_chain_ignored_target(node: Node) -> bool:
 		return false
 	if node.is_in_group("ghost"):
 		return true
+	if node.is_in_group("chain_passthrough"):
+		return true
 	# 兼容历史配置：个别 ghost 场景尚未补 group 时仍拦截
 	for g in ["ghost_elite", "ghost_wraith", "ghost_summon", "ghost_bomb", "ghost_tug"]:
 		if node.is_in_group(g):

@@ -64,7 +64,7 @@ collision_mask = 2
 shape = SubResource("attack_area_shape")
 
 [node name="AttackHitbox" type="Area2D" parent="." unique_id=902597834]
-collision_layer = 0
+collision_layer = 32
 collision_mask = 2
 monitoring = false
 

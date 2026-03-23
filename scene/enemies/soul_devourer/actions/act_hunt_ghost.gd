@@ -10,7 +10,7 @@ class_name ActSoulDevourerHuntGhost
 ## 超时 hunt_timeout → FAILURE
 ## =============================================================================
 
-const HUNT_REACH_DIST: float = 24.0
+const HUNT_REACH_DIST: float = 32.0
 const HUNT_TRANSITION_DIST: float = 60.0  # 进入 huntting 动画的距离阈值
 
 var _timer: float = 0.0
@@ -56,8 +56,11 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	var dist: float = sd.global_position.distance_to(ghost.global_position)
 
-	# 到达吞食距离
-	if dist <= HUNT_REACH_DIST:
+	# 到达吞食距离：地面态只考虑水平距离（SD 只能水平移动，WG 飘在空中）
+	var reach_dist: float = dist
+	if not sd._is_floating_invisible:
+		reach_dist = absf(sd.global_position.x - ghost.global_position.x)
+	if reach_dist <= HUNT_REACH_DIST:
 		return _do_hunt_success(sd)
 
 	# 移动朝向目标
@@ -76,8 +79,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			var h_dir: float = sign(h_dx)
 			sd.velocity.x = h_dir * sd.ground_run_speed
 		sd.face_toward_position(ghost.global_position.x)
-		# 远距离用 run，近距离切 huntting
-		if dist > HUNT_TRANSITION_DIST:
+		# 远距离用 run，近距离切 huntting（地面态用水平距离）
+		if reach_dist > HUNT_TRANSITION_DIST:
 			sd.anim_play(&"normal/run", true)
 		else:
 			sd.anim_play(&"normal/huntting", true)
