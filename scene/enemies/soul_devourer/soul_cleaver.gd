@@ -21,6 +21,8 @@ var velocity: Vector2 = Vector2.ZERO
 ## 抛出衰减（每秒减速）
 @export var friction: float = 400.0
 
+@onready var _pickup_collision_shape: CollisionShape2D = get_node_or_null("CollisionShape2D") as CollisionShape2D
+
 var _moving: bool = false
 
 
@@ -47,3 +49,12 @@ func _physics_process(dt: float) -> void:
 		else:
 			velocity = velocity.normalized() * speed
 		global_position += velocity * dt
+
+
+func get_pickup_radius() -> float:
+	if _pickup_collision_shape == null:
+		return 20.0
+	var circle: CircleShape2D = _pickup_collision_shape.shape as CircleShape2D
+	if circle != null:
+		return circle.radius
+	return 20.0

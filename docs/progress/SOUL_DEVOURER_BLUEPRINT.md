@@ -501,7 +501,8 @@ func _find_nearest_cleaver() -> SoulCleaver:
 
 ### 10.1 优先级 1：斩魂刀拾取
 
-条件：`_find_nearest_cleaver()` 有结果，且技能 CD ready（5s）。
+条件：`_aggro_mode == true && _is_full == false && _find_nearest_cleaver()` 有结果，且技能 CD ready（5s）。
+若当前已 `full` 且刚被玩家打进 aggro，则应先走光炮分支；只有光炮结束、`_is_full = false` 后，才重新检测斩魂刀。
 
 **事件驱动流程**：
 ```
@@ -792,8 +793,10 @@ BeehaveTree (process_thread: PHYSICS)
 
 #### `act_pickup_cleaver`
 - 用 `_find_nearest_cleaver()` 查找（组查询）
+- 地面态拾取判定使用**水平距离**，并结合 SoulCleaver 自身 `Area2D` 拾取半径 + 额外宽松补偿，而不是仅靠很小的中心点距离
 - 目标消失 → FAILURE
 - 到达 → 播放 `normal/change_to_has_knife`
+  - 播放期间 `velocity.x = 0`，直到转换动画完整结束前都不继续移动
   - Spine 事件 `cleaver_pick` → 立即销毁刀，持刀视觉成立
   - animation_completed → `_has_knife = true`
 - 超时 5.0s → FAILURE
