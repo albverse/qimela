@@ -40,6 +40,8 @@ var _blocked_time: float = 0.0
 var _post_attack_finish_combo: bool = false
 ## 攻击方向锁定：攻击开始时锁定，直到 EXIT_RUNOUT 结束不变
 var _attack_locked_dir: float = 1.0
+## EXIT_TO_NORMAL 阶段是否已提前设置了拾刀 CD（防止 throw_cleaver 事件导致 P6 抢占）
+var _exit_cd_applied: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -52,12 +54,11 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_blocked_time = 0.0
 	_post_attack_finish_combo = false
 	_attack_locked_dir = 1.0
+	_exit_cd_applied = false
 
 	# 安全检查：若 combo 已满（不应发生，但防止卡死），直接进入 EXIT_TO_NORMAL
 	if sd._knife_attack_count >= KNIFE_COMBO_LIMIT:
-		_phase = Phase.EXIT_TO_NORMAL
-		sd.velocity.x = 0.0
-		sd.anim_play(&"has_knife/change_to_normal", false)
+		_enter_exit_to_normal(sd, _blackboard)
 		print("[SD:P7] before_run: combo=%d >= limit, skip to EXIT_TO_NORMAL" % sd._knife_attack_count)
 		return
 
@@ -78,7 +79,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		Phase.ATTACK_OVER:
 			return _tick_attack_over(sd)
 		Phase.EXIT_RUNOUT:
-			return _tick_exit_runout(sd)
+			return _tick_exit_runout(sd, blackboard)
 		Phase.EXIT_TO_NORMAL:
 			return _tick_exit_to_normal(sd, blackboard)
 
@@ -96,9 +97,7 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 
 	# 安全检查：combo 已满时直接进入退出流程
 	if sd._knife_attack_count >= KNIFE_COMBO_LIMIT:
-		_phase = Phase.EXIT_TO_NORMAL
-		sd.velocity.x = 0.0
-		sd.anim_play(&"has_knife/change_to_normal", false)
+		_enter_exit_to_normal(sd, blackboard)
 		print("[SD:P7] REPOSITION→EXIT_TO_NORMAL: combo=%d >= limit" % sd._knife_attack_count)
 		return RUNNING
 
@@ -203,15 +202,14 @@ func _tick_attack_over(sd: SoulDevourer) -> int:
 	return RUNNING
 
 
-func _tick_exit_runout(sd: SoulDevourer) -> int:
+func _tick_exit_runout(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	var dx_to_target: float = _run_target_x - sd.global_position.x
 	var dt: float = get_physics_process_delta_time()
 
 	if absf(dx_to_target) <= REPOSITION_EPSILON:
 		sd.velocity.x = 0.0
 		if _post_attack_finish_combo:
-			_phase = Phase.EXIT_TO_NORMAL
-			sd.anim_play(&"has_knife/change_to_normal", false)
+			_enter_exit_to_normal(sd, blackboard)
 		else:
 			_phase = Phase.ATTACK_OVER
 			sd.anim_play(&"has_knife/attack_over", false)
@@ -228,8 +226,7 @@ func _tick_exit_runout(sd: SoulDevourer) -> int:
 	if _blocked_time >= BLOCKED_TIME_THRESHOLD:
 		sd.velocity.x = 0.0
 		if _post_attack_finish_combo:
-			_phase = Phase.EXIT_TO_NORMAL
-			sd.anim_play(&"has_knife/change_to_normal", false)
+			_enter_exit_to_normal(sd, blackboard)
 		else:
 			_phase = Phase.ATTACK_OVER
 			sd.anim_play(&"has_knife/attack_over", false)
@@ -243,19 +240,36 @@ func _tick_exit_runout(sd: SoulDevourer) -> int:
 	return RUNNING
 
 
+## 进入 EXIT_TO_NORMAL 阶段：立即设置拾刀 CD + 重置 combo
+## 必须在 change_to_normal 动画播放前调用，防止 throw_cleaver 事件期间 P6 抢占
+func _enter_exit_to_normal(sd: SoulDevourer, blackboard: Blackboard) -> void:
+	_phase = Phase.EXIT_TO_NORMAL
+	sd.velocity.x = 0.0
+	# 立即设置拾刀冷却（关键：必须在 throw_cleaver 事件触发前锁定 CD）
+	if not _exit_cd_applied:
+		_exit_cd_applied = true
+		sd._knife_attack_count = 0
+		var actor_id: String = str(sd.get_instance_id())
+		blackboard.set_value(PICKUP_CD_KEY, SoulDevourer.now_sec() + KNIFE_COMBO_COOLDOWN, actor_id)
+		print("[SD:P7] EXIT_TO_NORMAL: CD set EARLY (%.1fs), combo reset" % KNIFE_COMBO_COOLDOWN)
+	sd.anim_play(&"has_knife/change_to_normal", false)
+
+
 func _tick_exit_to_normal(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	sd.velocity.x = 0.0
+	# 每帧补充 CD（防止 interrupt 后重入时未设置的情况）
+	if not _exit_cd_applied:
+		_exit_cd_applied = true
+		sd._knife_attack_count = 0
+		var actor_id: String = str(sd.get_instance_id())
+		blackboard.set_value(PICKUP_CD_KEY, SoulDevourer.now_sec() + KNIFE_COMBO_COOLDOWN, actor_id)
+		print("[SD:P7] EXIT_TO_NORMAL tick: CD set (%.1fs), combo reset" % KNIFE_COMBO_COOLDOWN)
 	if not sd.anim_is_playing(&"has_knife/change_to_normal") and not sd.anim_is_finished(&"has_knife/change_to_normal"):
 		sd.anim_play(&"has_knife/change_to_normal", false)
 	if sd.anim_is_finished(&"has_knife/change_to_normal"):
-		# 切回 normal 模式：重置持刀状态
 		sd._has_knife = false
-		sd._knife_attack_count = 0
 		_post_attack_finish_combo = false
-		# 设置冷却（阻止拾刀）
-		var actor_id: String = str(sd.get_instance_id())
-		blackboard.set_value(PICKUP_CD_KEY, SoulDevourer.now_sec() + KNIFE_COMBO_COOLDOWN, actor_id)
-		print("[SD:P7] EXIT_TO_NORMAL done: has_knife=false, CD=%.1fs" % KNIFE_COMBO_COOLDOWN)
+		print("[SD:P7] EXIT_TO_NORMAL done: has_knife=false")
 		return SUCCESS
 	return RUNNING
 
@@ -332,5 +346,12 @@ func _cleanup(sd: SoulDevourer) -> void:
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd != null:
+		# 若在 EXIT_TO_NORMAL 阶段被中断，确保 CD 已设置（防止 P6 立即抢占拾刀）
+		if _phase == Phase.EXIT_TO_NORMAL and not _exit_cd_applied:
+			_exit_cd_applied = true
+			sd._knife_attack_count = 0
+			var actor_id: String = str(sd.get_instance_id())
+			blackboard.set_value(PICKUP_CD_KEY, SoulDevourer.now_sec() + KNIFE_COMBO_COOLDOWN, actor_id)
+			print("[SD:P7] INTERRUPTED in EXIT_TO_NORMAL: CD set (%.1fs)" % KNIFE_COMBO_COOLDOWN)
 		_cleanup(sd)
 	super(actor, blackboard)
