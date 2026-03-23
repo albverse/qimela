@@ -22,7 +22,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 	# 等待 forced_invisible 动画播完
 	if sd.anim_is_finished(&"normal/forced_invisible"):
-		# 动画结束后切换到漂浮 idle
+		sd._complete_forced_invisible_animation()
+		# 动画结束后才正式进入漂浮隐身态
 		sd.anim_play(&"normal/float_idle", true)
 		return SUCCESS
 
@@ -30,4 +31,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
+	var sd: SoulDevourer = actor as SoulDevourer
+	if sd != null and sd.is_forced_invisible_anim_playing():
+		# 强制隐身起手动画不可被更高优先级的漂浮分支抢断。
+		return
 	super(actor, blackboard)

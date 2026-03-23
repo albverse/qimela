@@ -66,11 +66,10 @@ func _do_merge(sd: SoulDevourer, partner: SoulDevourer) -> void:
 				two_headed.call("init_from_merge", combined_hp, sd, partner)
 			scene_parent.add_child(two_headed)
 
-	# 双方隐藏（让双头犬控制分离后恢复）
-	sd.visible = false
-	partner.visible = false
-	sd._death_rebirth_started = true  # 防止接受新命中
-	partner._death_rebirth_started = true
+	# 双方进入合体托管隐藏态，彻底停掉原始 SD 的行为树/碰撞/物理，
+	# 避免误走 death-rebirth 或继续输出 run 日志干扰合体流程。
+	sd.enter_merged_hidden_state()
+	partner.enter_merged_hidden_state()
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:

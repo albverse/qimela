@@ -11,7 +11,7 @@ class_name ActSoulDevourerFloatMaintainDistance
 const FLOAT_Y_OFFSET: float = -200.0      # Y 轴相对玩家偏移（负=向上）
 const MIN_X_DISTANCE: float = 250.0      # X 轴与玩家最小距离（每帧检测）
 const WANDER_MIN: float = 30.0            # 随机飘荡最小半径
-const WANDER_MAX: float = 50.0            # 随机飘荡最大半径
+const WANDER_MAX: float = 60.0            # 随机飘荡最大半径
 const ARRIVE_THRESHOLD: float = 20.0      # 到达目标点判定距离
 
 var _timer: float = 0.0
@@ -53,19 +53,20 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var player: Node2D = sd.get_priority_attack_target()
 
 	if player != null:
-		var dx_to_player: float = absf(sd.global_position.x - player.global_position.x)
-		var ideal_pos: Vector2 = Vector2(player.global_position.x, player.global_position.y + FLOAT_Y_OFFSET)
+		var signed_dx: float = sd.global_position.x - player.global_position.x
+		var dx_to_player: float = absf(signed_dx)
+		var away_dir_x: float = sign(signed_dx)
+		if is_zero_approx(away_dir_x):
+			away_dir_x = 1.0
+		var anchor_pos: Vector2 = Vector2(
+			player.global_position.x + away_dir_x * MIN_X_DISTANCE,
+			player.global_position.y + FLOAT_Y_OFFSET
+		)
 
 		# 每帧检测：X 轴距离必须 >= MIN_X_DISTANCE（250px）
 		if dx_to_player < MIN_X_DISTANCE:
 			# 优先：在 X 轴上远离玩家至 250px，同时飞到玩家上方
-			var away_dir_x: float = sign(sd.global_position.x - player.global_position.x)
-			if is_zero_approx(away_dir_x):
-				away_dir_x = 1.0
-			var retreat_target: Vector2 = Vector2(
-				player.global_position.x + away_dir_x * MIN_X_DISTANCE,
-				ideal_pos.y
-			)
+			var retreat_target: Vector2 = anchor_pos
 			var to_retreat: Vector2 = retreat_target - sd.global_position
 			if to_retreat == Vector2.ZERO:
 				to_retreat = Vector2(away_dir_x, -1.0)
@@ -79,7 +80,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 			if _wander_target == Vector2.ZERO or _wander_timer <= 0.0:
 				var angle: float = randf() * TAU
 				var radius: float = randf_range(WANDER_MIN, WANDER_MAX)
-				_wander_target = ideal_pos + Vector2(cos(angle), sin(angle)) * radius
+				_wander_target = anchor_pos + Vector2(cos(angle), sin(angle)) * radius
 				_wander_timer = WANDER_INTERVAL
 
 			var to_wander: Vector2 = _wander_target - sd.global_position

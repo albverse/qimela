@@ -46,6 +46,7 @@ var _has_knife: bool = false
 var _pickup_anim_playing: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
+var _forced_invisible_anim_playing: bool = false
 var _idle_elapsed: float = 0.0
 var _is_wandering: bool = false
 
@@ -58,6 +59,7 @@ var _is_respawning: bool = false           # born 动画播放中
 var _landing_locked: bool = false
 var _pending_death_rebirth: bool = false   # 着陆期间命中排队
 var _merging: bool = false
+var _merged_hidden: bool = false
 var _force_separate: bool = false
 
 # ===== 目标 =====
@@ -189,8 +191,8 @@ func _physics_process(dt: float) -> void:
 	# 同步 FireHurtbox 骨骼位置
 	_sync_fire_hurtbox()
 
-	# death-rebirth 隐藏期：不做任何物理处理
-	if _is_dead_hidden or _is_respawning:
+	# death-rebirth / 合体托管隐藏期：不做任何物理处理
+	if _is_dead_hidden or _is_respawning or _merged_hidden:
 		return
 
 	# Hurt 僵直计时
@@ -451,6 +453,7 @@ func _reset_runtime_state_after_respawn() -> void:
 	_pickup_anim_playing = false
 	_is_floating_invisible = false
 	_forced_invisible = false
+	_forced_invisible_anim_playing = false
 	_idle_elapsed = 0.0
 	_is_wandering = false
 	_death_rebirth_started = false
@@ -459,6 +462,7 @@ func _reset_runtime_state_after_respawn() -> void:
 	_landing_locked = false
 	_pending_death_rebirth = false
 	_merging = false
+	_merged_hidden = false
 	_force_separate = false
 	_current_target_ghost = null
 	_current_target_cleaver = null
@@ -503,6 +507,7 @@ func _on_landing_complete() -> void:
 # =============================================================================
 
 func _enter_floating_invisible() -> void:
+	_forced_invisible_anim_playing = false
 	_is_floating_invisible = true
 	# 隐身时清除 World 层（悬浮）
 	collision_mask = 0  # 不与地面碰撞
@@ -513,6 +518,7 @@ func _enter_floating_invisible() -> void:
 func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 	_is_floating_invisible = false
 	_forced_invisible = false
+	_forced_invisible_anim_playing = false
 	_is_wandering = false
 	_idle_elapsed = 0.0
 	# 恢复 World 层碰撞
@@ -528,12 +534,19 @@ func _exit_floating_invisible_to_landing(remaining_light_time: float) -> void:
 
 func _enter_forced_invisible() -> void:
 	_forced_invisible = true
-	_is_floating_invisible = true
+	_forced_invisible_anim_playing = true
+	_is_floating_invisible = false
 	_is_wandering = false
 	_idle_elapsed = 0.0
-	collision_mask = 0
 	velocity = Vector2.ZERO
 	anim_play(&"normal/forced_invisible", false)
+
+
+func _complete_forced_invisible_animation() -> void:
+	if not _forced_invisible:
+		return
+	_forced_invisible_anim_playing = false
+	_enter_floating_invisible()
 
 
 ## 强制隐身覆写基类光照接口（FIX-V5-02）
@@ -548,6 +561,7 @@ func on_light_exposure(remaining_time: float, source: Node = null) -> void:
 		# 强制隐身期间仅 LightningFlower 来源可解除
 		if source != null and source.get_class() == "LightningFlower":
 			_forced_invisible = false
+			_forced_invisible_anim_playing = false
 			_is_floating_invisible = false
 			_exit_floating_invisible_to_landing(remaining_time)
 		# 非 LightningFlower 来源：忽略
@@ -593,6 +607,62 @@ func is_player_in_knife_attack_trigger(player: Node2D) -> bool:
 # =============================================================================
 # 目标查找
 # =============================================================================
+
+
+
+func is_forced_invisible_anim_playing() -> bool:
+	return _forced_invisible and _forced_invisible_anim_playing
+
+
+func can_trigger_forced_invisible() -> bool:
+	if _is_floating_invisible or _forced_invisible or _landing_locked or _has_knife:
+		return false
+	if not (_is_wandering or String(_current_anim).ends_with("/idle")):
+		return false
+	return true
+
+
+func get_run_speed_scale_for_behavior(behavior: StringName) -> float:
+	match behavior:
+		&"pickup_cleaver", &"hunt_ghost":
+			return 2.0
+		_:
+			return 1.0
+
+
+func is_light_beam_ready(blackboard: Blackboard) -> bool:
+	if not _aggro_mode or not _is_full or blackboard == null:
+		return false
+	var actor_id: String = str(get_instance_id())
+	var cd_end: float = blackboard.get_value(&"sd_light_beam_cd_end", 0.0, actor_id)
+	return SoulDevourer.now_sec() >= cd_end
+
+
+func enter_merged_hidden_state() -> void:
+	_merged_hidden = true
+	_merging = false
+	velocity = Vector2.ZERO
+	visible = false
+	if _body_collision:
+		_body_collision.disabled = true
+	_set_fire_hurtbox_enabled(false)
+	_set_attack_hitbox_enabled(false)
+	_set_light_beam_hitbox_enabled(false)
+	var bt: Node = get_node_or_null("BeehaveTree")
+	if bt != null:
+		if bt.has_method("interrupt"):
+			bt.call("interrupt")
+		if bt.has_method("disable"):
+			bt.call("disable")
+
+
+func exit_merged_hidden_state() -> void:
+	_merged_hidden = false
+	visible = true
+	if _body_collision:
+		_body_collision.disabled = false
+	_set_fire_hurtbox_enabled(true)
+
 
 func _find_nearest_huntable_ghost() -> Node2D:
 	var ghosts := get_tree().get_nodes_in_group("huntable_ghost")

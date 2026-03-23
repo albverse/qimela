@@ -91,7 +91,7 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 
 	# 移动朝向（每帧刷新 run 动画，防止受击/其他 action 的 cleanup 将动画重置为 idle）
 	var dir: float = sign(cleaver_pos.x - sd.global_position.x)
-	sd.velocity.x = dir * sd.ground_run_speed
+	sd.velocity.x = dir * sd.ground_run_speed * sd.get_run_speed_scale_for_behavior(&"pickup_cleaver")
 	sd.face_toward_position(cleaver_pos.x)
 	sd.anim_play(&"normal/run", true)
 	# 每 30 帧打印一次距离日志
