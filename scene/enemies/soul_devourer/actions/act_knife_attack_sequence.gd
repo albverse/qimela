@@ -6,8 +6,9 @@ class_name ActSoulDevourerKnifeAttackSequence
 ## =============================================================================
 ## 持刀后先用 has_knife/run 跑位到玩家后方安全距离；
 ## 通过专用 KnifeAttackTriggerArea 实时检测玩家是否进入起手范围；
-## 前两次攻击后先播 has_knife/attack_over，再回到下一轮跑位；
-## 第三次攻击结束后跑出更长距离，随后播 has_knife/change_to_normal 并进入 10s 冷却。
+## 每次攻击后都先继续向前直线跑出 200px，再做后续衔接；
+## 前两次攻击跑出后播 has_knife/attack_over，再折回下一轮跑位；
+## 第三次攻击跑出后播 has_knife/change_to_normal 并进入 10s 冷却。
 ## =============================================================================
 
 const PICKUP_CD_KEY: StringName = &"sd_cleaver_pickup_cd_end"
@@ -18,7 +19,7 @@ const RUN_SPEED_MULTIPLIER: float = 2.0
 const FACE_LOOKAHEAD: float = 100.0
 const BLOCKED_PROGRESS_EPSILON: float = 1.0
 const BLOCKED_TIME_THRESHOLD: float = 0.2
-const POST_ATTACK_RUNOUT_MULTIPLIER: float = 2.0
+const POST_ATTACK_RUNOUT_DIST: float = 200.0
 const KNIFE_COMBO_LIMIT: int = 3
 const KNIFE_COMBO_COOLDOWN: float = 10.0
 
@@ -36,6 +37,7 @@ var _run_dir: float = 1.0
 var _run_target_locked: bool = false
 var _last_reposition_x: float = 0.0
 var _blocked_time: float = 0.0
+var _post_attack_finish_combo: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -47,6 +49,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_run_target_locked = false
 	_last_reposition_x = sd.global_position.x
 	_blocked_time = 0.0
+	_post_attack_finish_combo = false
 	_enter_reposition(sd)
 
 
@@ -109,12 +112,10 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 				player.global_position.x, sd.global_position.x, dx_to_player, _blocked_time])
 			_start_attack(sd, player)
 			return RUNNING
-		sd.velocity.x = 0.0
-		sd.face_toward_position(player.global_position.x)
-		sd.anim_play(&"has_knife/idle", true)
+		_flip_reposition_target(sd, player)
 		if Engine.get_physics_frames() % 30 == 0:
-			print("[SD:P7] BLOCKED HOLD: target_x=%.1f player_x=%.1f sd_x=%.1f dx_player=%.1f blocked_t=%.2f" % [
-				target_x, player.global_position.x, sd.global_position.x, dx_to_player, _blocked_time])
+			print("[SD:P7] BLOCKED FLIP: new_target_x=%.1f player_x=%.1f sd_x=%.1f blocked_t=%.2f" % [
+				_run_target_x, player.global_position.x, sd.global_position.x, _blocked_time])
 		return RUNNING
 
 	if Engine.get_physics_frames() % 30 == 0:
@@ -145,12 +146,7 @@ func _tick_attack(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	if sd.anim_is_finished(&"has_knife/knife_attack_run"):
 		sd._knife_attack_count += 1
 		print("[SD:P7] ATTACK DONE: combo=%d/%d" % [sd._knife_attack_count, KNIFE_COMBO_LIMIT])
-		if sd._knife_attack_count >= KNIFE_COMBO_LIMIT:
-			_start_exit_runout(sd)
-		else:
-			_phase = Phase.ATTACK_OVER
-			sd.velocity.x = 0.0
-			sd.anim_play(&"has_knife/attack_over", false)
+		_start_post_attack_runout(sd, sd._knife_attack_count >= KNIFE_COMBO_LIMIT)
 	return RUNNING
 
 
@@ -162,10 +158,11 @@ func _enter_reposition(sd: SoulDevourer) -> void:
 	sd.anim_play(&"has_knife/run", true)
 
 
-func _start_exit_runout(sd: SoulDevourer) -> void:
+func _start_post_attack_runout(sd: SoulDevourer, finish_combo: bool) -> void:
 	_phase = Phase.EXIT_RUNOUT
+	_post_attack_finish_combo = finish_combo
 	_run_target_locked = true
-	_run_target_x = sd.global_position.x + _run_dir * REPOSITION_OFFSET_X * POST_ATTACK_RUNOUT_MULTIPLIER
+	_run_target_x = sd.global_position.x + _run_dir * POST_ATTACK_RUNOUT_DIST
 	_last_reposition_x = sd.global_position.x
 	_blocked_time = 0.0
 	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
@@ -178,6 +175,7 @@ func _tick_attack_over(sd: SoulDevourer) -> int:
 	if not sd.anim_is_playing(&"has_knife/attack_over") and not sd.anim_is_finished(&"has_knife/attack_over"):
 		sd.anim_play(&"has_knife/attack_over", false)
 	if sd.anim_is_finished(&"has_knife/attack_over"):
+		_post_attack_finish_combo = false
 		_enter_reposition(sd)
 	return RUNNING
 
@@ -185,9 +183,12 @@ func _tick_attack_over(sd: SoulDevourer) -> int:
 func _tick_exit_runout(sd: SoulDevourer) -> int:
 	var dx_to_target: float = _run_target_x - sd.global_position.x
 	if absf(dx_to_target) <= REPOSITION_EPSILON:
-		_phase = Phase.EXIT_TO_NORMAL
+		_phase = Phase.EXIT_TO_NORMAL if _post_attack_finish_combo else Phase.ATTACK_OVER
 		sd.velocity.x = 0.0
-		sd.anim_play(&"has_knife/change_to_normal", false)
+		if _post_attack_finish_combo:
+			sd.anim_play(&"has_knife/change_to_normal", false)
+		else:
+			sd.anim_play(&"has_knife/attack_over", false)
 		return RUNNING
 	_run_dir = sign(dx_to_target) if not is_zero_approx(dx_to_target) else _run_dir
 	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
@@ -204,6 +205,7 @@ func _tick_exit_to_normal(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		var actor_id: String = str(sd.get_instance_id())
 		blackboard.set_value(PICKUP_CD_KEY, SoulDevourer.now_sec() + KNIFE_COMBO_COOLDOWN, actor_id)
 		sd._knife_attack_count = 0
+		_post_attack_finish_combo = false
 		return SUCCESS
 	return RUNNING
 
@@ -239,6 +241,17 @@ func _lock_run_target(sd: SoulDevourer, player: Node2D) -> void:
 	_blocked_time = 0.0
 
 
+func _flip_reposition_target(sd: SoulDevourer, player: Node2D) -> void:
+	_run_dir = -_run_dir if not is_zero_approx(_run_dir) else 1.0
+	_run_target_x = player.global_position.x + _run_dir * REPOSITION_OFFSET_X
+	_run_target_locked = true
+	_last_reposition_x = sd.global_position.x
+	_blocked_time = 0.0
+	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
+	sd.face_toward_position(sd.global_position.x + _run_dir * FACE_LOOKAHEAD)
+	sd.anim_play(&"has_knife/run", true)
+
+
 func _can_attack_while_blocked(sd: SoulDevourer, player: Node2D, dx_to_player: float) -> bool:
 	if not sd.is_player_in_knife_attack_trigger(player):
 		return false
@@ -267,6 +280,7 @@ func _cleanup(sd: SoulDevourer) -> void:
 	sd.velocity.x = 0.0
 	_run_target_locked = false
 	_blocked_time = 0.0
+	_post_attack_finish_combo = false
 	if sd._has_knife:
 		sd.anim_play(&"has_knife/idle", true)
 	else:

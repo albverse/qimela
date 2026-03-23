@@ -532,14 +532,14 @@ func _find_nearest_cleaver() -> SoulCleaver:
   │
   ├─ 运动途中若自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
   │   → 播放 has_knife/knife_attack_run
-  │   → 前两次攻击结束后原地播放 has_knife/attack_over，等动画播完再回到下一轮 run
+  │   → 每次攻击结束后都先保持原方向继续前冲 200px
+  │   → 前两次攻击跑完这段 200px 后，原地播放 has_knife/attack_over，等动画播完再折回下一轮 run
   │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
-  │   → 第三次攻击结束后继续向前跑出更长延伸距离（当前为原先的 2 倍）
-  │   → 到位后播放 has_knife/change_to_normal，并进入 10 秒冷却
+  │   → 第三次攻击结束后跑完这段 200px，再播放 has_knife/change_to_normal，并进入 10 秒冷却
   │
-  ├─ 若被墙面卡住、无法继续跑向指定后方点
-  │   → 不再无限保持 run 假动作
+  ├─ 若折返或追击时前方被墙挡住
   │   → 若此时玩家提前进入可起手范围，则直接提前触发 knife_attack_run
+  │   → 否则立刻掉头，改为朝另一侧继续直线跑位，而不是卡死
   │
   └─ 若玩家未进入攻击范围
       → 持续维持 has_knife/run 跑位
@@ -825,11 +825,10 @@ BeehaveTree (process_thread: PHYSICS)
 - 持刀后先播放 `has_knife/run`，以**直线**跑向玩家后方约 120px 之外的位置
 - `has_knife/run` 阶段速度为普通地面移动速度的 2 倍
 - 跑位朝向使用固定 lookahead，避免因朝向死区导致视觉上“倒着跑”
-- 攻击后回到 `has_knife/run` 时，继续沿当前直线方向完成这次跑位，不立刻折返
-- 攻击后跑出的延伸距离提高到此前的 2 倍
-- 前两次攻击结束后，先原地播放 `has_knife/attack_over`，动画播完才进入下一次持刀跑位
-- 第三次攻击结束后，跑到收尾点再播放 `has_knife/change_to_normal`，随后进入 10 秒冷却
-- 若跑位期间检测到几乎没有位移进展（例如前方被墙挡住），则不再无限维持 run；若玩家此时进入起手范围，可直接提前触发攻击
+- 每次攻击结束后，都先沿当前直线方向继续前冲 200px，再进入后续衔接
+- 前两次攻击结束后，跑完这 200px 再原地播放 `has_knife/attack_over`，动画播完才进入下一次持刀跑位
+- 第三次攻击结束后，跑完这 200px 再播放 `has_knife/change_to_normal`，随后进入 10 秒冷却
+- 若折返或追击时前方被墙挡住，则不再卡死：若玩家进入起手范围可直接攻击，否则立刻掉头改跑另一侧
 - 使用专用 `KnifeAttackTriggerArea` 每帧检测玩家是否进入起手范围；只有当 SD 已站到玩家背后侧，并且玩家进入该触发区时，才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
 - 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
