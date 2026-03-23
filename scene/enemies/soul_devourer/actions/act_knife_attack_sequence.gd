@@ -49,6 +49,8 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	if player == null:
 		sd.velocity.x = 0.0
 		sd.anim_play(&"has_knife/idle", true)
+		if Engine.get_physics_frames() % 60 == 0:
+			print("[SD:P7] HOLD: no player target, staying has_knife/idle")
 		return RUNNING
 
 	var dx_to_player: float = player.global_position.x - sd.global_position.x
@@ -63,6 +65,9 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		sd.velocity.x = 0.0
 		sd.face_toward_position(player.global_position.x)
 		sd.anim_play(&"has_knife/run", true)
+		if Engine.get_physics_frames() % 45 == 0:
+			print("[SD:P7] HOLD REAR: target_x=%.1f player_x=%.1f sd_x=%.1f dx_player=%.1f atk_ready=%s" % [
+				target_x, player.global_position.x, sd.global_position.x, dx_to_player, attack_ready])
 		return RUNNING
 
 	var dir: float = sign(dx_to_target)
