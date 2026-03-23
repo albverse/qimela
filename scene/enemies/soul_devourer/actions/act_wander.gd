@@ -24,6 +24,9 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	sd._is_wandering = true
 	sd._idle_elapsed = 0.0
 	_pick_target(sd)
+	if sd._forced_invisible or sd._forced_invisible_anim_playing:
+		print("[SD:WANDER] before_run while forced: current=%s forced=%s forced_anim=%s float=%s full=%s" % [
+			sd._current_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 	sd.anim_play(&"normal/run", true)
 
 
@@ -40,11 +43,17 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	var dx: float = _target_x - sd.global_position.x
 	if absf(dx) <= ARRIVE_EPSILON:
 		sd.velocity.x = 0.0
+		if (sd._forced_invisible or sd._forced_invisible_anim_playing) and Engine.get_physics_frames() % 10 == 0:
+			print("[SD:WANDER] idle-at-target while forced: current=%s forced=%s forced_anim=%s float=%s full=%s" % [
+				sd._current_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 		sd.anim_play(&"normal/idle", true)
 	else:
 		var dir: float = sign(dx)
 		sd.velocity.x = dir * sd.ground_run_speed
 		sd.face_toward_position(_target_x)
+		if (sd._forced_invisible or sd._forced_invisible_anim_playing) and Engine.get_physics_frames() % 10 == 0:
+			print("[SD:WANDER] run while forced: current=%s forced=%s forced_anim=%s float=%s full=%s" % [
+				sd._current_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 		sd.anim_play(&"normal/run", true)
 
 	if Engine.get_physics_frames() % 45 == 0:

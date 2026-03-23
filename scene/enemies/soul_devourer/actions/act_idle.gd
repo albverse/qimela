@@ -14,6 +14,9 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	sd._idle_elapsed = 0.0
 	sd._is_wandering = false
 	sd.velocity.x = 0.0
+	if sd._forced_invisible or sd._forced_invisible_anim_playing:
+		print("[SD:IDLE] before_run while forced: current=%s forced=%s forced_anim=%s float=%s full=%s" % [
+			sd._current_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 	sd.anim_play(StringName(sd._get_anim_prefix() + "idle"), true)
 
 
@@ -25,6 +28,9 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	# 保持 idle 动画
 	var idle_anim: StringName = StringName(sd._get_anim_prefix() + "idle")
 	if not sd.anim_is_playing(idle_anim):
+		if (sd._forced_invisible or sd._forced_invisible_anim_playing) and Engine.get_physics_frames() % 10 == 0:
+			print("[SD:IDLE] replay idle while forced: current=%s target=%s forced=%s forced_anim=%s float=%s full=%s" % [
+				sd._current_anim, idle_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 		sd.anim_play(idle_anim, true)
 
 	sd.velocity.x = 0.0

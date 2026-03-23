@@ -160,6 +160,9 @@ func _cleanup(sd: SoulDevourer) -> void:
 	sd._current_target_ghost = null
 	sd._hunt_succeed_playing = false
 	sd.velocity.x = 0.0
+	if sd._forced_invisible or sd._forced_invisible_anim_playing:
+		print("[SD:HUNT] CLEANUP→IDLE while forced: current=%s forced=%s forced_anim=%s float=%s full=%s" % [
+			sd._current_anim, sd._forced_invisible, sd._forced_invisible_anim_playing, sd._is_floating_invisible, sd._is_full])
 	sd.anim_play(StringName(sd._get_anim_prefix() + "idle"), true)
 
 

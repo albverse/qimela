@@ -236,7 +236,13 @@ func _physics_process(dt: float) -> void:
 func anim_play(anim_name: StringName, loop: bool) -> bool:
 	# Hurt 僵直期间不允许行为树覆写动画（仅内部 _force_anim_play 可绕过）
 	if _hurt_active:
+		if (_forced_invisible or _forced_invisible_anim_playing) and Engine.get_physics_frames() % 15 == 0:
+			print("[SD:ANIM] BLOCKED by hurt: req=%s loop=%s current=%s forced=%s forced_anim=%s float=%s hurt=%.2f" % [
+				anim_name, loop, _current_anim, _forced_invisible, _forced_invisible_anim_playing, _is_floating_invisible, _hurt_timer])
 		return false
+	if (_forced_invisible or _forced_invisible_anim_playing) and anim_name != _current_anim and Engine.get_physics_frames() % 10 == 0:
+		print("[SD:ANIM] request while forced: req=%s loop=%s current=%s forced=%s forced_anim=%s float=%s land=%s" % [
+			anim_name, loop, _current_anim, _forced_invisible, _forced_invisible_anim_playing, _is_floating_invisible, _landing_locked])
 	_force_anim_play(anim_name, loop)
 	return true
 
@@ -539,12 +545,16 @@ func _enter_forced_invisible() -> void:
 	_is_wandering = false
 	_idle_elapsed = 0.0
 	velocity = Vector2.ZERO
+	print("[SD:P5] ENTER forced invisible: current=%s full=%s aggro=%s wander=%s pos=%s" % [
+		_current_anim, _is_full, _aggro_mode, _is_wandering, global_position])
 	anim_play(&"normal/forced_invisible", false)
 
 
 func _complete_forced_invisible_animation() -> void:
 	if not _forced_invisible:
 		return
+	print("[SD:P5] COMPLETE startup: current=%s full=%s aggro=%s pos=%s" % [
+		_current_anim, _is_full, _aggro_mode, global_position])
 	_forced_invisible_anim_playing = false
 	_enter_floating_invisible()
 
