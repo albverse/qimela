@@ -386,7 +386,7 @@ func _respawn_from_spawn_point() -> void:
 
 func _reset_runtime_state_after_respawn() -> void:
 	hp = max_hp
-	_aggro_mode = false
+	# _aggro_mode 不重置：蓝图规定一旦被玩家攻击进入 aggro，永久保持
 	_is_full = false
 	_has_knife = false
 	_is_floating_invisible = false

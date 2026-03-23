@@ -6,20 +6,27 @@ class_name ActSoulDevourerHuntGhost
 ## =============================================================================
 ## - 地面显现态：播放 normal/huntting（循环），不复用 normal/run
 ## - 漂浮隐身态：播放 normal/float_move（循环）
-## 到达吞食距离 → ghost.start_being_hunted() → huntting_succeed → _is_full=true
+## 到达吞食距离 → ghost.start_being_hunted() → 等待 huntting_succeed 播完 → _is_full=true
 ## 超时 hunt_timeout → FAILURE
 ## =============================================================================
 
 const HUNT_REACH_DIST: float = 32.0
 const HUNT_TRANSITION_DIST: float = 60.0  # 进入 huntting 动画的距离阈值
+const SUCCEED_ANIM_TIMEOUT: float = 3.0   # huntting_succeed 动画超时兜底
+
+enum Phase { CHASING, WAIT_SUCCEED }
 
 var _timer: float = 0.0
 var _hunting_anim_active: bool = false
+var _phase: int = Phase.CHASING
+var _succeed_timer: float = 0.0
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	_timer = 0.0
 	_hunting_anim_active = false
+	_phase = Phase.CHASING
+	_succeed_timer = 0.0
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd == null:
 		return
@@ -37,6 +44,16 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 		return FAILURE
 
 	var dt: float = get_physics_process_delta_time()
+
+	match _phase:
+		Phase.CHASING:
+			return _tick_chasing(sd, dt)
+		Phase.WAIT_SUCCEED:
+			return _tick_wait_succeed(sd, dt)
+	return FAILURE
+
+
+func _tick_chasing(sd: SoulDevourer, dt: float) -> int:
 	_timer += dt
 
 	# 超时兜底
@@ -61,7 +78,7 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	if not sd._is_floating_invisible:
 		reach_dist = absf(sd.global_position.x - ghost.global_position.x)
 	if reach_dist <= HUNT_REACH_DIST:
-		return _do_hunt_success(sd)
+		return _begin_hunt_success(sd)
 
 	# 移动朝向目标
 	var dir: Vector2 = (ghost.global_position - sd.global_position).normalized()
@@ -89,26 +106,38 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	return RUNNING
 
 
-func _play_hunt_anim(sd: SoulDevourer) -> void:
-	if sd._is_floating_invisible:
-		sd.anim_play(&"normal/float_move", true)
-	else:
-		sd.anim_play(&"normal/huntting", true)
-
-
-func _do_hunt_success(sd: SoulDevourer) -> int:
+func _begin_hunt_success(sd: SoulDevourer) -> int:
 	# 通知幽灵被猎杀
 	if sd._current_target_ghost != null and is_instance_valid(sd._current_target_ghost):
 		if sd._current_target_ghost.has_method("start_being_hunted"):
 			sd._current_target_ghost.call("start_being_hunted")
 	sd._current_target_ghost = null
 
-	sd.velocity.x = 0.0
-	# 播放猎杀成功动画
+	sd.velocity = Vector2.ZERO
+	# 播放猎杀成功动画，等待其完成后才设 full 并返回 SUCCESS
 	sd.anim_play(&"normal/huntting_succeed", false)
-	# 等待动画完成（同帧内立即结束也 OK）
-	sd._is_full = true
-	return SUCCESS
+	_phase = Phase.WAIT_SUCCEED
+	_succeed_timer = 0.0
+	return RUNNING
+
+
+func _tick_wait_succeed(sd: SoulDevourer, dt: float) -> int:
+	sd.velocity = Vector2.ZERO
+	_succeed_timer += dt
+
+	# 等待 huntting_succeed 动画完成
+	if sd.anim_is_finished(&"normal/huntting_succeed") or _succeed_timer >= SUCCEED_ANIM_TIMEOUT:
+		sd._is_full = true
+		return SUCCESS
+
+	return RUNNING
+
+
+func _play_hunt_anim(sd: SoulDevourer) -> void:
+	if sd._is_floating_invisible:
+		sd.anim_play(&"normal/float_move", true)
+	else:
+		sd.anim_play(&"normal/huntting", true)
 
 
 func _cleanup(sd: SoulDevourer) -> void:
@@ -121,4 +150,6 @@ func interrupt(actor: Node, blackboard: Blackboard) -> void:
 	var sd: SoulDevourer = actor as SoulDevourer
 	if sd != null:
 		_cleanup(sd)
+	_phase = Phase.CHASING
+	_succeed_timer = 0.0
 	super(actor, blackboard)
