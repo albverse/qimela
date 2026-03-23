@@ -528,7 +528,9 @@ func _find_nearest_cleaver() -> SoulCleaver:
 ```
 [播放 has_knife/run] → [跑位到玩家后方 120px 之外]
   │
-  ├─ 自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
+  ├─ 整段以 `has_knife/run` **直线**冲向“玩家后方 120px 以外”目标点（速度=通常地面速度 2 倍）
+  │
+  ├─ 运动途中若自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
   │   → 播放 has_knife/knife_attack_run
   │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
   │   → 动画结束后立刻回到 has_knife/run
@@ -540,6 +542,14 @@ func _find_nearest_cleaver() -> SoulCleaver:
 ### 10.3 优先级 3：光炮（full 状态）
 
 条件：`_aggro_mode == true && _is_full == true`。
+
+**光炮前置跑位**：
+```
+[若与玩家距离 < 100px（或设计配置更大值）]
+  → 先播放 normal/run 拉开距离
+  → 距离满足后停下、转向玩家
+  → 播放 normal/light_beam
+```
 
 ### 10.4 优先级 4：no_full 补充猎杀
 
@@ -806,10 +816,17 @@ BeehaveTree (process_thread: PHYSICS)
   - animation_completed → `_has_knife = true`
 
 #### `act_knife_attack_sequence`
-- 持刀后先播放 `has_knife/run`，跑位到玩家后方约 120px 位置
+- 持刀后先播放 `has_knife/run`，以**直线**跑向玩家后方约 120px 之外的位置
+- `has_knife/run` 阶段速度为普通地面移动速度的 2 倍
+- 攻击后回到 `has_knife/run` 时，继续沿当前直线方向完成这次跑位，不立刻折返
 - 只有当 SD 已站到玩家背后侧，并且玩家进入持刀突进起手窗口时，才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
 - 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
+
+#### `act_light_beam_attack`
+- 满能量后不会原地立刻开炮
+- 若与玩家距离不足 100px（或配置的更大最小距离），先播放 `normal/run` 拉开
+- 只有距离满足后，才转向玩家播放 `normal/light_beam`
 
 #### `act_wander`
 - 仅在 idle 持续超过 1 秒后进入

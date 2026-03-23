@@ -6,13 +6,14 @@ class_name ActSoulDevourerKnifeAttackSequence
 ## =============================================================================
 ## 持刀后先用 has_knife/run 跑位到玩家后方安全距离；
 ## 只有玩家进入攻击范围时才切换到 has_knife/knife_attack_run；
-## 攻击动画结束后立即回到 has_knife/run，继续下一轮跑位。
+## 攻击动画结束后立即回到 has_knife/run，并沿当前直线方向继续前冲，不立刻折返。
 ## =============================================================================
 
 const ATK_CD_KEY: StringName = &"sd_knife_atk_cd_end"
 const REPOSITION_OFFSET_X: float = 120.0
 const REPOSITION_EPSILON: float = 12.0
 const ATTACK_SPEED_MULTIPLIER: float = 2.5
+const RUN_SPEED_MULTIPLIER: float = 2.0
 
 enum Phase {
 	REPOSITION,
@@ -20,6 +21,9 @@ enum Phase {
 }
 
 var _phase: int = Phase.REPOSITION
+var _run_target_x: float = 0.0
+var _run_dir: float = 1.0
+var _run_target_locked: bool = false
 
 
 func before_run(actor: Node, _blackboard: Blackboard) -> void:
@@ -27,6 +31,7 @@ func before_run(actor: Node, _blackboard: Blackboard) -> void:
 	if sd == null:
 		return
 	_phase = Phase.REPOSITION
+	_run_target_locked = false
 	_enter_reposition(sd)
 
 
@@ -54,25 +59,23 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		return RUNNING
 
 	var dx_to_player: float = player.global_position.x - sd.global_position.x
-	var target_x: float = _get_reposition_target_x(player)
+	if not _run_target_locked:
+		_lock_run_target(sd, player)
+	var target_x: float = _run_target_x
 	var dx_to_target: float = target_x - sd.global_position.x
 	var attack_ready: bool = _is_attack_ready(sd, blackboard)
-	if attack_ready and _is_player_in_attack_window(sd, player, dx_to_player, dx_to_target):
+	if attack_ready and _is_player_in_attack_window(sd, player, dx_to_player):
 		_start_attack(sd, player)
 		return RUNNING
 
 	if absf(dx_to_target) <= REPOSITION_EPSILON:
-		sd.velocity.x = 0.0
-		sd.face_toward_position(player.global_position.x)
-		sd.anim_play(&"has_knife/run", true)
-		if Engine.get_physics_frames() % 45 == 0:
-			print("[SD:P7] HOLD REAR: target_x=%.1f player_x=%.1f sd_x=%.1f dx_player=%.1f atk_ready=%s" % [
-				target_x, player.global_position.x, sd.global_position.x, dx_to_player, attack_ready])
-		return RUNNING
+		_lock_run_target(sd, player)
+		target_x = _run_target_x
+		dx_to_target = target_x - sd.global_position.x
 
-	var dir: float = sign(dx_to_target)
-	sd.velocity.x = dir * sd.ground_run_speed
-	sd.face_toward_position(target_x)
+	_run_dir = sign(dx_to_target) if not is_zero_approx(dx_to_target) else _run_dir
+	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
+	sd.face_toward_position(sd.global_position.x + _run_dir)
 	sd.anim_play(&"has_knife/run", true)
 
 	if Engine.get_physics_frames() % 30 == 0:
@@ -103,7 +106,7 @@ func _tick_attack(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		var actor_id: String = str(sd.get_instance_id())
 		blackboard.set_value(ATK_CD_KEY, SoulDevourer.now_sec() + sd.attack_cooldown_has_knife, actor_id)
 		print("[SD:P7] ATTACK DONE → back to run")
-		_enter_reposition(sd)
+		_continue_straight_run(sd)
 	return RUNNING
 
 
@@ -119,12 +122,21 @@ func _is_attack_ready(sd: SoulDevourer, blackboard: Blackboard) -> bool:
 	return SoulDevourer.now_sec() >= cd_end
 
 
+func _continue_straight_run(sd: SoulDevourer) -> void:
+	_phase = Phase.REPOSITION
+	_run_target_locked = true
+	_run_target_x = sd.global_position.x + _run_dir * REPOSITION_OFFSET_X
+	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
+	sd.face_toward_position(sd.global_position.x + _run_dir)
+	sd.anim_play(&"has_knife/run", true)
+
+
 func _get_reposition_target_x(player: Node2D) -> float:
 	var player_facing: float = _get_player_facing(player)
 	return player.global_position.x - player_facing * REPOSITION_OFFSET_X
 
 
-func _is_player_in_attack_window(sd: SoulDevourer, player: Node2D, dx_to_player: float, dx_to_target: float) -> bool:
+func _is_player_in_attack_window(sd: SoulDevourer, player: Node2D, dx_to_player: float) -> bool:
 	var player_facing: float = _get_player_facing(player)
 	var desired_rear_side: float = -player_facing
 	var current_side: float = sign(sd.global_position.x - player.global_position.x)
@@ -135,9 +147,15 @@ func _is_player_in_attack_window(sd: SoulDevourer, player: Node2D, dx_to_player:
 	var attack_window_dist: float = REPOSITION_OFFSET_X + sd.knife_attack_trigger_dist
 	if absf(dx_to_player) > attack_window_dist:
 		return false
-	if absf(dx_to_target) <= REPOSITION_EPSILON:
-		return true
-	return absf(dx_to_target) < REPOSITION_OFFSET_X * 0.5
+	return sign(dx_to_player) == _run_dir or is_zero_approx(dx_to_player)
+
+
+func _lock_run_target(sd: SoulDevourer, player: Node2D) -> void:
+	_run_target_x = _get_reposition_target_x(player)
+	var dx_to_target: float = _run_target_x - sd.global_position.x
+	if not is_zero_approx(dx_to_target):
+		_run_dir = sign(dx_to_target)
+	_run_target_locked = true
 
 
 func _get_player_facing(player: Node2D) -> float:
@@ -153,6 +171,7 @@ func _get_player_facing(player: Node2D) -> float:
 
 func _cleanup(sd: SoulDevourer) -> void:
 	sd.velocity.x = 0.0
+	_run_target_locked = false
 	if sd._has_knife:
 		sd.anim_play(&"has_knife/idle", true)
 	else:

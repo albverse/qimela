@@ -11,8 +11,9 @@ class_name ActSoulDevourerLightBeamAttack
 ## =============================================================================
 
 const COOLDOWN_KEY: StringName = &"sd_light_beam_cd_end"
+const MIN_FIRE_DISTANCE: float = 100.0
 
-enum Phase { WAIT_CD, WAIT_HURT_CLEAR, FIRING }
+enum Phase { WAIT_CD, REPOSITION, WAIT_HURT_CLEAR, FIRING }
 
 var _phase: int = Phase.WAIT_CD
 
@@ -27,10 +28,7 @@ func before_run(actor: Node, blackboard: Blackboard) -> void:
 	var actor_id: String = str(sd.get_instance_id())
 	var cd_end: float = blackboard.get_value(COOLDOWN_KEY, 0.0, actor_id)
 	if SoulDevourer.now_sec() >= cd_end:
-		if _try_start_beam(sd):
-			_phase = Phase.FIRING
-		else:
-			_phase = Phase.WAIT_HURT_CLEAR
+		_phase = _get_ready_phase(sd)
 	else:
 		_phase = Phase.WAIT_CD
 		# CD 等待期间播放 idle 动画（面向玩家）
@@ -49,6 +47,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	match _phase:
 		Phase.WAIT_CD:
 			return _tick_wait_cd(sd, blackboard)
+		Phase.REPOSITION:
+			return _tick_reposition(sd)
 		Phase.WAIT_HURT_CLEAR:
 			return _tick_wait_hurt_clear(sd)
 		Phase.FIRING:
@@ -69,10 +69,32 @@ func _tick_wait_cd(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	var actor_id: String = str(sd.get_instance_id())
 	var cd_end: float = blackboard.get_value(COOLDOWN_KEY, 0.0, actor_id)
 	if SoulDevourer.now_sec() >= cd_end:
-		if _try_start_beam(sd):
-			_phase = Phase.FIRING
-		else:
-			_phase = Phase.WAIT_HURT_CLEAR
+		_phase = _get_ready_phase(sd)
+	return RUNNING
+
+
+func _tick_reposition(sd: SoulDevourer) -> int:
+	var player: Node2D = sd.get_priority_attack_target()
+	if player == null:
+		sd.velocity.x = 0.0
+		sd.anim_play(&"normal/idle", true)
+		return RUNNING
+	var dx: float = sd.global_position.x - player.global_position.x
+	var required_dist: float = _required_fire_distance(sd)
+	if absf(dx) >= required_dist:
+		sd.velocity.x = 0.0
+		sd.face_toward_position(player.global_position.x)
+		_phase = Phase.WAIT_HURT_CLEAR
+		return RUNNING
+	var away_dir: float = sign(dx)
+	if is_zero_approx(away_dir):
+		away_dir = -1.0 if player.global_position.x >= sd.global_position.x else 1.0
+	sd.velocity.x = away_dir * sd.ground_run_speed
+	sd.face_toward_position(sd.global_position.x + away_dir)
+	sd.anim_play(&"normal/run", true)
+	if Engine.get_physics_frames() % 30 == 0:
+		print("[SD:P8] REPOSITION: need=%.1f dist=%.1f sd_x=%.1f player_x=%.1f vel=%.1f" % [
+			required_dist, absf(dx), sd.global_position.x, player.global_position.x, sd.velocity.x])
 	return RUNNING
 
 
@@ -108,6 +130,25 @@ func _tick_firing(sd: SoulDevourer, blackboard: Blackboard) -> int:
 		print("[SD:P8] BEAM DONE → full=false, CD=%.1fs" % sd.skill_cooldown_light_beam)
 		return SUCCESS
 	return RUNNING
+
+
+func _get_ready_phase(sd: SoulDevourer) -> int:
+	if not _has_beam_spacing(sd):
+		return Phase.REPOSITION
+	if _try_start_beam(sd):
+		return Phase.FIRING
+	return Phase.WAIT_HURT_CLEAR
+
+
+func _has_beam_spacing(sd: SoulDevourer) -> bool:
+	var player: Node2D = sd.get_priority_attack_target()
+	if player == null:
+		return true
+	return absf(sd.global_position.x - player.global_position.x) >= _required_fire_distance(sd)
+
+
+func _required_fire_distance(sd: SoulDevourer) -> float:
+	return maxf(MIN_FIRE_DISTANCE, sd.light_beam_min_distance)
 
 
 func interrupt(actor: Node, blackboard: Blackboard) -> void:
