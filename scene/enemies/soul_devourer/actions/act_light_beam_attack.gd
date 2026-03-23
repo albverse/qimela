@@ -12,6 +12,7 @@ class_name ActSoulDevourerLightBeamAttack
 
 const COOLDOWN_KEY: StringName = &"sd_light_beam_cd_end"
 const MIN_FIRE_DISTANCE: float = 100.0
+const FACE_LOOKAHEAD: float = 100.0
 
 enum Phase { WAIT_CD, REPOSITION, WAIT_HURT_CLEAR, FIRING }
 
@@ -90,7 +91,7 @@ func _tick_reposition(sd: SoulDevourer) -> int:
 	if is_zero_approx(away_dir):
 		away_dir = -1.0 if player.global_position.x >= sd.global_position.x else 1.0
 	sd.velocity.x = away_dir * sd.ground_run_speed
-	sd.face_toward_position(sd.global_position.x + away_dir)
+	sd.face_toward_position(sd.global_position.x + away_dir * FACE_LOOKAHEAD)
 	sd.anim_play(&"normal/run", true)
 	if Engine.get_physics_frames() % 30 == 0:
 		print("[SD:P8] REPOSITION: need=%.1f dist=%.1f sd_x=%.1f player_x=%.1f vel=%.1f" % [

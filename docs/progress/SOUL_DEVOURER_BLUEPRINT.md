@@ -528,7 +528,7 @@ func _find_nearest_cleaver() -> SoulCleaver:
 ```
 [播放 has_knife/run] → [跑位到玩家后方 120px 之外]
   │
-  ├─ 整段以 `has_knife/run` **直线**冲向“玩家后方 120px 以外”目标点（速度=通常地面速度 2 倍）
+  ├─ 整段以 `has_knife/run` **直线**冲向“玩家后方 120px 以外”目标点（速度=通常地面速度 2 倍，朝向使用固定 lookahead，不会视觉倒着跑）
   │
   ├─ 运动途中若自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
   │   → 播放 has_knife/knife_attack_run
@@ -818,6 +818,7 @@ BeehaveTree (process_thread: PHYSICS)
 #### `act_knife_attack_sequence`
 - 持刀后先播放 `has_knife/run`，以**直线**跑向玩家后方约 120px 之外的位置
 - `has_knife/run` 阶段速度为普通地面移动速度的 2 倍
+- 跑位朝向使用固定 lookahead，避免因朝向死区导致视觉上“倒着跑”
 - 攻击后回到 `has_knife/run` 时，继续沿当前直线方向完成这次跑位，不立刻折返
 - 只有当 SD 已站到玩家背后侧，并且玩家进入持刀突进起手窗口时，才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
@@ -827,6 +828,10 @@ BeehaveTree (process_thread: PHYSICS)
 - 满能量后不会原地立刻开炮
 - 若与玩家距离不足 100px（或配置的更大最小距离），先播放 `normal/run` 拉开
 - 只有距离满足后，才转向玩家播放 `normal/light_beam`
+
+#### `cond_player_too_close_and_idle`
+- 仅 **非 aggro**、**当前播放 idle**、且没有进入 full / has_knife / landing / invisible 等战斗链时，玩家贴近才允许进入强制隐身
+- 一旦进入 aggro，后续不会再因为贴脸而切入这条隐身漂浮流
 
 #### `act_wander`
 - 仅在 idle 持续超过 1 秒后进入

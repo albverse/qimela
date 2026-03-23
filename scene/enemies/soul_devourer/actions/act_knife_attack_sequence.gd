@@ -14,6 +14,7 @@ const REPOSITION_OFFSET_X: float = 120.0
 const REPOSITION_EPSILON: float = 12.0
 const ATTACK_SPEED_MULTIPLIER: float = 2.5
 const RUN_SPEED_MULTIPLIER: float = 2.0
+const FACE_LOOKAHEAD: float = 100.0
 
 enum Phase {
 	REPOSITION,
@@ -75,7 +76,7 @@ func _tick_reposition(sd: SoulDevourer, blackboard: Blackboard) -> int:
 
 	_run_dir = sign(dx_to_target) if not is_zero_approx(dx_to_target) else _run_dir
 	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
-	sd.face_toward_position(sd.global_position.x + _run_dir)
+	sd.face_toward_position(sd.global_position.x + _run_dir * FACE_LOOKAHEAD)
 	sd.anim_play(&"has_knife/run", true)
 
 	if Engine.get_physics_frames() % 30 == 0:
@@ -127,7 +128,7 @@ func _continue_straight_run(sd: SoulDevourer) -> void:
 	_run_target_locked = true
 	_run_target_x = sd.global_position.x + _run_dir * REPOSITION_OFFSET_X
 	sd.velocity.x = _run_dir * sd.ground_run_speed * RUN_SPEED_MULTIPLIER
-	sd.face_toward_position(sd.global_position.x + _run_dir)
+	sd.face_toward_position(sd.global_position.x + _run_dir * FACE_LOOKAHEAD)
 	sd.anim_play(&"has_knife/run", true)
 
 
