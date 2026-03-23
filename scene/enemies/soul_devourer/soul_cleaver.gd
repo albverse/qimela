@@ -5,7 +5,7 @@ class_name SoulCleaver
 ## SoulCleaver — 斩魂刀（地面弹幕，可被噬魂犬捡起）
 ## =============================================================================
 ## 组：soul_cleaver（噬魂犬通过 get_nodes_in_group 查询，不走 DetectArea）
-## 生命周期：12 秒无人拾取后 queue_free
+## 生命周期：只要未被拾取就持续留在场上
 ## claimed = true 时被一只犬锁定，不可被其他犬拾取（原 owner 优先）
 ## =============================================================================
 
@@ -21,10 +21,6 @@ var velocity: Vector2 = Vector2.ZERO
 ## 抛出衰减（每秒减速）
 @export var friction: float = 400.0
 
-## 最大存活时间（秒）
-@export var life_time: float = 12.0
-
-var _age: float = 0.0
 var _moving: bool = false
 
 
@@ -41,11 +37,6 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
-	_age += dt
-	if _age >= life_time:
-		queue_free()
-		return
-
 	if _moving and velocity != Vector2.ZERO:
 		# 简单摩擦减速
 		var speed: float = velocity.length()

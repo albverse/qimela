@@ -233,7 +233,6 @@ class_name SoulCleaver
 
 var owner_instance_id: int = 0
 var claimed: bool = false
-var life_time: float = 12.0
 
 func _ready() -> void:
     add_to_group("soul_cleaver")   # ★ 噬魂犬通过组查询找刀
@@ -243,7 +242,7 @@ func _ready() -> void:
 1. 同一时刻只能被一只犬锁定（`claimed = true`）
 2. 掉刀时记录 `owner_instance_id`
 3. 原 owner 存在且未持刀 → 优先拾取自己掉的刀
-4. 12 秒无人拾取 → `queue_free()`
+4. 只要未被拾取，斩魂刀会永久留在场上
 5. `change_to_has_knife` 播完后才销毁刀
 6. 中途进入 death-rebirth → 不销毁刀
 
