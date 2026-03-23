@@ -21,8 +21,8 @@
 [ext_resource type="PackedScene" uid="uid://cndsohm8mmjw7" path="res://scene/enemies/stone_mask_bird/stone_mask_bird.tscn" id="16_gteh2"]
 [ext_resource type="PackedScene" path="res://scene/RestArea.tscn" id="17_rest_area"]
 [ext_resource type="PackedScene" uid="uid://cnsaw686n6d3g" path="res://scene/enemies/wandering_ghost/WanderingGhost.tscn" id="21_wq1er"]
-[ext_resource type="PackedScene" path="res://scene/enemies/soul_devourer/SoulCleaver.tscn" id="22_v0r6r"]
-[ext_resource type="PackedScene" path="res://scene/enemies/soul_devourer/SoulDevourer.tscn" id="23_3ynct"]
+[ext_resource type="PackedScene" uid="uid://bdddughi1ny4p" path="res://scene/enemies/soul_devourer/SoulCleaver.tscn" id="22_v0r6r"]
+[ext_resource type="PackedScene" uid="uid://dijaekgitnwhx" path="res://scene/enemies/soul_devourer/SoulDevourer.tscn" id="23_3ynct"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hutgn"]
 shader = ExtResource("1_rrjcl")
@@ -214,7 +214,7 @@ position = Vector2(-128, 510)
 position = Vector2(-317, 430)
 
 [node name="WanderingGhost" parent="." unique_id=907651347 instance=ExtResource("21_wq1er")]
-position = Vector2(236, 468)
+position = Vector2(192, 452)
 
 [node name="SoulCleaver" parent="." unique_id=48269459 instance=ExtResource("22_v0r6r")]
 position = Vector2(-51, 546)
@@ -224,3 +224,12 @@ position = Vector2(598, 557)
 
 [node name="SoulDevourer" parent="." unique_id=612925520 instance=ExtResource("23_3ynct")]
 position = Vector2(641, 551)
+
+[node name="SoulDevourer2" parent="." unique_id=793952882 instance=ExtResource("23_3ynct")]
+position = Vector2(388, 539)
+
+[node name="WanderingGhost2" parent="." unique_id=1977947446 instance=ExtResource("21_wq1er")]
+position = Vector2(-105, 492)
+
+[node name="WanderingGhost3" parent="." unique_id=1657504405 instance=ExtResource("21_wq1er")]
+position = Vector2(761, 478)

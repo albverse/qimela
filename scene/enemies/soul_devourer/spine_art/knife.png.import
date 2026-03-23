@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://5fojjbacatyw"
-path="res://.godot/imported/Soul Devourer.png-ac74aabf1b67c8ba2d55953da40b876b.ctex"
+uid="uid://bogmpysh87akr"
+path="res://.godot/imported/knife.png-1429be4bc0fa6298b34a56da7924d32b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://scene/enemies/soul_devourer/spine_art/Soul Devourer.png"
-dest_files=["res://.godot/imported/Soul Devourer.png-ac74aabf1b67c8ba2d55953da40b876b.ctex"]
+source_file="res://scene/enemies/soul_devourer/spine_art/knife.png"
+dest_files=["res://.godot/imported/knife.png-1429be4bc0fa6298b34a56da7924d32b.ctex"]
 
 [params]
 

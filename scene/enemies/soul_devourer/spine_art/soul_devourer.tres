@@ -1,4 +1,4 @@
-[gd_resource type="SpineSkeletonDataResource" load_steps=3 format=3]
+[gd_resource type="SpineSkeletonDataResource" format=3 uid="uid://6dj5fmta4hy0"]
 
 [ext_resource type="SpineAtlasResource" uid="uid://cw1wvi7raijdd" path="res://scene/enemies/soul_devourer/spine_art/Soul Devourer.atlas" id="1_atlas"]
 [ext_resource type="SpineSkeletonFileResource" uid="uid://dpowh8po8e7vj" path="res://scene/enemies/soul_devourer/spine_art/Soul Devourernormal.skel" id="2_skel"]

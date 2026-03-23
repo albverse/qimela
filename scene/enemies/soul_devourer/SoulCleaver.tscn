@@ -1,21 +1,23 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://bdddughi1ny4p"]
 
-[ext_resource type="Script" path="res://scene/enemies/soul_devourer/soul_cleaver.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://icon.svg" id="2_tex"]
+[ext_resource type="Script" uid="uid://3ru7m4o5ce3q" path="res://scene/enemies/soul_devourer/soul_cleaver.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://bogmpysh87akr" path="res://scene/enemies/soul_devourer/spine_art/knife.png" id="2_g2j1k"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
-radius = 20.0
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_l68p1"]
+size = Vector2(28.5, 92)
 
-[node name="SoulCleaver" type="Area2D"]
+[node name="SoulCleaver" type="Area2D" unique_id=705654448]
+position = Vector2(0, -93)
 collision_layer = 0
 collision_mask = 0
 monitoring = false
 monitorable = false
 script = ExtResource("1_script")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_pickup")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1651101065]
+position = Vector2(-0.25, 46)
+shape = SubResource("RectangleShape2D_l68p1")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_tex")
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1357648037]
 scale = Vector2(0.3, 0.3)
+texture = ExtResource("2_g2j1k")
