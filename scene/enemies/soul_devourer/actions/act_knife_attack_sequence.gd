@@ -87,10 +87,7 @@ func _tick_dash(sd: SoulDevourer, dt: float, blackboard: Blackboard) -> int:
 	if sd._spine_sprite != null and sd._spine_sprite.scale.x != 0.0:
 		dir = sign(sd._spine_sprite.scale.x)
 	sd.velocity.x = dir * sd.ground_run_speed * 2.5
-	sd.velocity.y += 1200.0 * dt
-	if sd.is_on_floor():
-		sd.velocity.y = 0.0
-	# move_and_slide 由 _physics_process 统一调用
+	# 重力由 _physics_process 统一处理，此处不再重复施加
 
 	if sd.anim_is_finished(&"has_knife/knife_attack_run") or _timer >= sd.knife_attack_timeout:
 		_dash_count += 1

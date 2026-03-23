@@ -69,6 +69,11 @@ var _recent_damage_amount: float = 0.0
 var _recent_damage_timer: float = 0.0
 const RECENT_DAMAGE_WINDOW: float = 1.0
 
+# ===== Hurt 受击僵直 =====
+var _hurt_active: bool = false
+var _hurt_timer: float = 0.0
+const HURT_STUN_DURATION: float = 0.2
+
 # ===== 面向死区 =====
 const FACE_DEAD_ZONE: float = 30.0
 
@@ -178,6 +183,14 @@ func _physics_process(dt: float) -> void:
 	if _is_dead_hidden or _is_respawning:
 		return
 
+	# Hurt 僵直计时
+	if _hurt_active:
+		_hurt_timer -= dt
+		velocity.x = 0.0
+		if _hurt_timer <= 0.0:
+			_hurt_active = false
+			_hurt_timer = 0.0
+
 	# 重力（仅显现态落地时）
 	if not _is_floating_invisible and not _forced_invisible:
 		if _landing_locked:
@@ -209,6 +222,14 @@ func _physics_process(dt: float) -> void:
 # =============================================================================
 
 func anim_play(anim_name: StringName, loop: bool) -> void:
+	# Hurt 僵直期间不允许行为树覆写动画（仅内部 _force_anim_play 可绕过）
+	if _hurt_active:
+		return
+	_force_anim_play(anim_name, loop)
+
+
+## 内部用：绕过 hurt 锁定强制播放动画
+func _force_anim_play(anim_name: StringName, loop: bool) -> void:
 	if _current_anim == anim_name and not _current_anim_finished and _current_anim_loop == loop:
 		return
 	_current_anim = anim_name
@@ -310,7 +331,16 @@ func apply_hit(hit: HitData) -> bool:
 	_aggro_mode = true
 	hp = max(hp - hit.damage, 0)
 	_flash_once()
-	print("[SD] apply_hit OK: hp=%d→%d, aggro=%s, dmg=%d" % [old_hp, hp, _aggro_mode, hit.damage])
+	print("[SD] apply_hit OK: hp=%d→%d, aggro=%s, dmg=%d, anim=%s" % [old_hp, hp, _aggro_mode, hit.damage, _current_anim])
+
+	# Hurt 受击僵直：仅 idle/run 状态可被打断
+	if _is_in_hurtable_anim() and not _hurt_active:
+		_hurt_active = true
+		_hurt_timer = HURT_STUN_DURATION
+		var hurt_anim: StringName = StringName(_get_anim_prefix() + "hurt")
+		_force_anim_play(hurt_anim, false)
+		velocity.x = 0.0
+		print("[SD] HURT triggered: anim=%s, stun=%.2fs" % [hurt_anim, HURT_STUN_DURATION])
 
 	# 近期伤害追踪（用于强制隐身条件）
 	_recent_damage_amount += float(hit.damage)
@@ -414,6 +444,8 @@ func _reset_runtime_state_after_respawn() -> void:
 	_current_target_ghost = null
 	_current_target_cleaver = null
 	_knife_attack_count = 0
+	_hurt_active = false
+	_hurt_timer = 0.0
 	velocity = Vector2.ZERO
 
 	# 恢复碰撞
@@ -500,6 +532,12 @@ func on_light_exposure(remaining_time: float, source: Node = null) -> void:
 
 
 ## 朝向辅助（仅翻转 SpineSprite，含 10px 死区防抖）
+## 判断当前动画是否允许被 hurt 打断（仅 idle/run）
+func _is_in_hurtable_anim() -> bool:
+	var anim: String = String(_current_anim)
+	return anim.ends_with("/idle") or anim.ends_with("/run")
+
+
 func face_toward_position(target_x: float) -> void:
 	var dx: float = target_x - global_position.x
 	if absf(dx) <= FACE_DEAD_ZONE:
