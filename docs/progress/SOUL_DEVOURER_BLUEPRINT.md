@@ -533,7 +533,11 @@ func _find_nearest_cleaver() -> SoulCleaver:
   ├─ 运动途中若自己已处在玩家背后侧，且玩家进入持刀突进起手窗口
   │   → 播放 has_knife/knife_attack_run
   │   → atk_hit_on / atk_hit_off 打开与关闭 AttackHitbox
-  │   → 动画结束后立刻回到 has_knife/run
+  │   → 动画结束后立刻回到 has_knife/run，并继续向前跑出更长延伸距离（当前为原先的 2 倍）
+  │
+  ├─ 若被墙面卡住、无法继续跑向指定后方点
+  │   → 不再无限保持 run 假动作
+  │   → 若此时玩家提前进入可起手范围，则直接提前触发 knife_attack_run
   │
   └─ 若玩家未进入攻击范围
       → 持续维持 has_knife/run 跑位
@@ -820,6 +824,8 @@ BeehaveTree (process_thread: PHYSICS)
 - `has_knife/run` 阶段速度为普通地面移动速度的 2 倍
 - 跑位朝向使用固定 lookahead，避免因朝向死区导致视觉上“倒着跑”
 - 攻击后回到 `has_knife/run` 时，继续沿当前直线方向完成这次跑位，不立刻折返
+- 攻击后跑出的延伸距离提高到此前的 2 倍
+- 若跑位期间检测到几乎没有位移进展（例如前方被墙挡住），则不再无限维持 run；若玩家此时进入起手范围，可直接提前触发攻击
 - 只有当 SD 已站到玩家背后侧，并且玩家进入持刀突进起手窗口时，才切换到 `has_knife/knife_attack_run`
 - `knife_attack_run` 播放期间由 `atk_hit_on` / `atk_hit_off` 控制 AttackHitbox
 - 攻击动画结束后立刻回到 `has_knife/run`，继续跑位
