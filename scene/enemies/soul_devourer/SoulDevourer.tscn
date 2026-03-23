@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="SpineSkeletonDataResource" path="res://scene/enemies/soul_devourer/spine_art/soul_devourer.tres" id="1_skeldata"]
 [ext_resource type="PackedScene" path="res://scene/enemies/soul_devourer/bt_soul_devourer.tscn" id="2_bt"]
@@ -35,6 +35,10 @@ radius = 60.0
 ; MergeDetectArea：合体检测
 [sub_resource type="CircleShape2D" id="CircleShape2D_merge"]
 radius = 30.0
+
+; KnifeAttackTriggerArea：持刀攻击起手触发区
+[sub_resource type="CircleShape2D" id="CircleShape2D_knife_trigger"]
+radius = 180.0
 
 ; GroundRaycast 不需要 shape
 
@@ -134,6 +138,16 @@ monitorable = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MergeDetectArea"]
 shape = SubResource("CircleShape2D_merge")
+
+; KnifeAttackTriggerArea — 持刀攻击起手检测（感知 PlayerBody(2)）
+[node name="KnifeAttackTriggerArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="KnifeAttackTriggerArea"]
+shape = SubResource("CircleShape2D_knife_trigger")
 
 ; Mark2D — has_knife weak 时生成斩魂刀 / throw_cleaver 生成点
 [node name="Mark2D" type="Marker2D" parent="."]

@@ -94,6 +94,7 @@ var _anim_mock: AnimDriverMock = null
 @onready var _detect_area: Area2D = get_node_or_null("DetectArea") as Area2D
 @onready var _attack_hitbox: Area2D = get_node_or_null("AttackHitbox") as Area2D
 @onready var _light_beam_hitbox: Area2D = get_node_or_null("LightBeamHitbox") as Area2D
+@onready var _knife_attack_trigger_area: Area2D = get_node_or_null("KnifeAttackTriggerArea") as Area2D
 @onready var _merge_detect_area: Area2D = get_node_or_null("MergeDetectArea") as Area2D
 @onready var _mark2d: Marker2D = get_node_or_null("Mark2D") as Marker2D
 @onready var _ground_raycast: RayCast2D = get_node_or_null("GroundRaycast") as RayCast2D
@@ -576,6 +577,17 @@ func face_toward(target: Node2D) -> void:
 	if target == null:
 		return
 	face_toward_position(target.global_position.x)
+
+
+func is_player_in_knife_attack_trigger(player: Node2D) -> bool:
+	if player == null:
+		return false
+	if _knife_attack_trigger_area == null:
+		return false
+	for body in _knife_attack_trigger_area.get_overlapping_bodies():
+		if body == player:
+			return true
+	return false
 
 
 # =============================================================================
