@@ -75,10 +75,14 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 
 	if dist <= PICKUP_REACH_DIST:
 		# 到达，播放拾取动画
-		print("[SD:P6] MOVE→PICKUP: reached cleaver, dist=%.1f" % dist)
+		print("[SD:P6] MOVE→PICKUP: reached cleaver, dist=%.1f, sd=%s, cleaver=%s" % [
+			dist, sd.global_position, cleaver_pos])
 		_phase = Phase.PLAY_PICKUP_ANIM
 		sd.velocity.x = 0.0
-		sd.anim_play(&"normal/change_to_has_knife", false)
+		sd._pickup_anim_playing = true
+		if not sd.anim_play(&"normal/change_to_has_knife", false):
+			print("[SD:P6] PICKUP ANIM BLOCKED by hurt: anim=%s, hurt_timer=%.2f" % [
+				sd._current_anim, sd._hurt_timer])
 		return RUNNING
 
 	# 移动朝向
@@ -95,9 +99,15 @@ func _tick_move(sd: SoulDevourer, _dt: float) -> int:
 
 func _tick_pickup_anim(sd: SoulDevourer, blackboard: Blackboard) -> int:
 	# cleaver_pick 事件已在 SoulDevourer._on_spine_event_cleaver_pick 处理
+	if not sd.anim_is_playing(&"normal/change_to_has_knife") and not sd.anim_is_finished(&"normal/change_to_has_knife"):
+		if not sd.anim_play(&"normal/change_to_has_knife", false):
+			if Engine.get_physics_frames() % 15 == 0:
+				print("[SD:P6] WAIT PICKUP ANIM: blocked by hurt, current=%s, hurt_timer=%.2f" % [
+					sd._current_anim, sd._hurt_timer])
 	if sd.anim_is_finished(&"normal/change_to_has_knife"):
 		# 动画完成 → 正式持刀
 		sd._has_knife = true
+		sd._pickup_anim_playing = false
 		print("[SD:P6] PICKUP DONE: has_knife=true")
 		# 设置技能 CD
 		var actor_id: String = str(sd.get_instance_id())
@@ -110,6 +120,7 @@ func _cleanup(sd: SoulDevourer) -> void:
 	if sd._current_target_cleaver != null and is_instance_valid(sd._current_target_cleaver):
 		sd._current_target_cleaver.claimed = false
 	sd._current_target_cleaver = null
+	sd._pickup_anim_playing = false
 	sd.velocity.x = 0.0
 
 

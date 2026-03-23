@@ -43,6 +43,7 @@ var _aggro_mode: bool = false
 var _is_full: bool = false
 var _hunt_succeed_playing: bool = false  # huntting_succeed 动画播放中，条件保持 SUCCESS
 var _has_knife: bool = false
+var _pickup_anim_playing: bool = false
 var _is_floating_invisible: bool = false
 var _forced_invisible: bool = false
 
@@ -222,11 +223,12 @@ func _physics_process(dt: float) -> void:
 # 动画播放接口
 # =============================================================================
 
-func anim_play(anim_name: StringName, loop: bool) -> void:
+func anim_play(anim_name: StringName, loop: bool) -> bool:
 	# Hurt 僵直期间不允许行为树覆写动画（仅内部 _force_anim_play 可绕过）
 	if _hurt_active:
-		return
+		return false
 	_force_anim_play(anim_name, loop)
+	return true
 
 
 ## 内部用：绕过 hurt 锁定强制播放动画
@@ -438,6 +440,7 @@ func _reset_runtime_state_after_respawn() -> void:
 	_is_full = false
 	_hunt_succeed_playing = false
 	_has_knife = false
+	_pickup_anim_playing = false
 	_is_floating_invisible = false
 	_forced_invisible = false
 	_death_rebirth_started = false

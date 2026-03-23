@@ -17,6 +17,8 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 	# 隐身/漂浮状态不拾取刀（仅显现状态才拾取）
 	if sd._is_floating_invisible or sd._forced_invisible:
 		return FAILURE
+	if sd._pickup_anim_playing:
+		return SUCCESS
 
 	# 已有正在拾取中的目标刀 → 跳过重新搜索（防止 SequenceReactive 重评导致无限中断）
 	if sd._current_target_cleaver != null and is_instance_valid(sd._current_target_cleaver):

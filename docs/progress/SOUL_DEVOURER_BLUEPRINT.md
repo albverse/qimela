@@ -375,7 +375,8 @@ func _update_weak_state() -> void:
 → born 完成
 → _reset_runtime_state_after_respawn()
   ├─ hp = max_hp
-  ├─ 所有状态标志归零（aggro/full/knife/invisible/landing/death_rebirth）
+  ├─ 保留 `_aggro_mode`
+  ├─ 清空 full/knife/invisible/landing/death_rebirth 等临时状态
   ├─ 恢复显示 / 碰撞 / AI
   └─ → normal/idle
 ```
@@ -539,11 +540,12 @@ func _find_nearest_cleaver() -> SoulCleaver:
 
 ### 10.3 优先级 3：光炮（full 状态）
 
-条件：`_is_full == true`。
+条件：`_aggro_mode == true && _is_full == true`。
 
 ### 10.4 优先级 4：no_full 补充猎杀
 
-条件：`_is_full == false` 且 `huntable_ghost` 存在。
+条件：`_aggro_mode == true && _is_full == false` 且 `huntable_ghost` 存在。
+非 aggro 情况不走这一支，而是走 §14 行为树里的 `Cond_NotAggroAndGhostVisible` 被动猎杀分支。
 
 ### 10.5 强制隐身（idle 状态下玩家 < 100px）
 
@@ -781,7 +783,7 @@ BeehaveTree (process_thread: PHYSICS)
 #### `act_hunt_ghost`
 - 用 `_find_nearest_huntable_ghost()` 查找，锁定为 `_current_target_ghost`
 - 朝目标移动：
-  - **地面显现态**：播放 **`normal/huntting`**（循环）— 不复用 `normal/run`
+  - **地面显现态**：远距离播放 `normal/run`，接近后切到 `normal/huntting`
   - **隐身悬浮态**：播放 `normal/float_move`（循环）— 不使用 `huntting`
 - 每帧检查目标有效性（`_is_huntable_ghost_valid(target)`）
 - 目标隐身 / 无效 / 被销毁 → 停止 `huntting` → 返回 FAILURE（回落 idle）
@@ -801,7 +803,7 @@ BeehaveTree (process_thread: PHYSICS)
 
 ## 15. 合体机制
 
-场上 2 只 SoulDevourer 且都 `_is_floating_invisible` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 双方 queue_free → 中点生成 TwoHeadedSoulDevourer。
+场上 2 只 SoulDevourer 且都 `_is_floating_invisible` → 实例 ID 小者发起 → 双方向对方移动 → 接触 → 记录 HP → 中点生成 TwoHeadedSoulDevourer → 两只原始 SD 先隐藏并交由双头犬流程托管恢复，不在该时点直接 `queue_free()`。
 
 双头犬：`ENTER → FALL → LAND → dual_beam → SPLIT → END`。落地后无敌。分离时还原两只犬 + HP + `_force_separate = true` → 远离 200px。
 
