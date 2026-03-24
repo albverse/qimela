@@ -18,6 +18,12 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 		checked_count += 1
 		if now_ms >= end_time:
 			available_skills.append(key)
+	if checked_count == 0:
+		# 没有任何技能被使用过 → 不应生成炸弹填充，Boss 应优先使用技能
+		if now_ms - _last_log_time > 5000.0:
+			_last_log_time = now_ms
+			print("[COND_ALL_CD_DEBUG] FAILURE: no skills used yet (checked=0), skip bomb spawn")
+		return FAILURE
 	if available_skills.size() > 0:
 		# 每 5 秒输出一次诊断日志
 		if now_ms - _last_log_time > 5000.0:
@@ -29,7 +35,7 @@ func tick(actor: Node, blackboard: Blackboard) -> int:
 				cd_info += " %s=%.1fs" % [key, remaining]
 			print("[COND_ALL_CD_DEBUG] FAILURE: available=%s (checked=%d) |%s" % [available_skills, checked_count, cd_info])
 		return FAILURE  # 有已用过且已冷却完毕的技能
-	# 所有已用过的技能都在CD中，或没有技能被用过 → 允许生成炸弹
+	# 所有已用过的技能都在CD中 → 允许生成炸弹填充
 	if now_ms - _last_log_time > 5000.0:
 		_last_log_time = now_ms
 		print("[COND_ALL_CD_DEBUG] SUCCESS: checked=%d skills on cd, bombs can spawn" % checked_count)

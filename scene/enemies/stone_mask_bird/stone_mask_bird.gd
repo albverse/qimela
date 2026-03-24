@@ -434,6 +434,21 @@ func _enter_weak_stunned() -> void:
 	mode = Mode.STUNNED
 
 
+func _apply_chain_damage(amount: int) -> void:
+	## 锁链命中扣血的统一路径：扣血 + 闪白 + 虚弱/死亡检查。
+	## 避免直接操作 hp 导致遗漏 _on_death() 兜底。
+	if hp_locked:
+		_flash_once()
+		return
+	hp = max(hp - amount, 0)
+	_flash_once()
+	if hp <= weak_hp:
+		_enter_weak_stunned()
+		return
+	if hp <= 0:
+		_on_death()
+
+
 # =============================================================================
 # 受击规则（核心：按 mode 判定，规格第 8 节）
 # =============================================================================
@@ -551,28 +566,18 @@ func on_chain_hit(_player: Node, _slot: int) -> int:
 	# RESTING / WAKING / WAKE_FROM_STUN：链无效
 	if mode == Mode.RESTING or mode == Mode.WAKING or mode == Mode.WAKE_FROM_STUN:
 		return 0
-	# HUNTING：链命中只造成闪烁，不打断（除非进入 weak）
+	# HUNTING：链命中造成伤害，不打断模式（除非进入 weak）
 	if mode == Mode.HUNTING:
-		if hp_locked:
-			_flash_once()
-			return 0
-		hp = max(hp - 1, 0)
-		_flash_once()
-		if hp <= weak_hp:
-			unfreeze_hunt_target()
-			_enter_weak_stunned()
+		_apply_chain_damage(1)
 		return 0
 
-	# 飞行状态：造成 1 点伤害（走本怪自定义规则，避免 EntityBase 直杀）
-	if hp_locked:
-		_flash_once()
-		return 0
-	hp = max(hp - 1, 0)
-	_flash_once()
-	if hp <= weak_hp:
-		_enter_weak_stunned()
-	elif mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING or mode == Mode.HUNTING:
-		mode = Mode.HURT
+	# 飞行状态：造成 1 点伤害，走统一扣血路径
+	var was_hp: int = hp
+	_apply_chain_damage(1)
+	# 未进入虚弱且仍存活：飞行/修复/狩猎态切 HURT
+	if not weak and hp > 0 and was_hp != hp:
+		if mode == Mode.FLYING_ATTACK or mode == Mode.REPAIRING or mode == Mode.HUNTING:
+			mode = Mode.HURT
 	return 0
 
 
