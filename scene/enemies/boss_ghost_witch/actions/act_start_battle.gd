@@ -59,6 +59,8 @@ func tick(actor: Node, _blackboard: Blackboard) -> int:
 	return FAILURE
 
 func _player_in_scythe_area(boss: BossGhostWitch) -> bool:
+	if boss._scythe_detect_area == null:
+		return false
 	if not boss._scythe_detect_area.monitoring:
 		return false
 	for body in boss._scythe_detect_area.get_overlapping_bodies():
@@ -67,6 +69,8 @@ func _player_in_scythe_area(boss: BossGhostWitch) -> bool:
 	return false
 
 func _damage_player(boss: BossGhostWitch, amount: int) -> void:
+	if boss._scythe_detect_area == null:
+		return
 	if not boss._scythe_detect_area.monitoring:
 		return
 	for body in boss._scythe_detect_area.get_overlapping_bodies():
