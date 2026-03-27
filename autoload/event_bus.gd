@@ -51,3 +51,46 @@ func emit_slot_switched(active_slot: int) -> void:
 
 func emit_fusion_rejected() -> void:
 	fusion_rejected.emit()
+
+
+# ── 背包事件 ──
+@warning_ignore("unused_signal")
+signal inventory_opened()
+@warning_ignore("unused_signal")
+signal inventory_closed()
+@warning_ignore("unused_signal")
+signal inventory_selection_changed(slot_idx: int)
+@warning_ignore("unused_signal")
+signal inventory_item_added(slot_idx: int, item: Resource, count: int)
+@warning_ignore("unused_signal")
+signal inventory_item_removed(slot_idx: int)
+@warning_ignore("unused_signal")
+signal inventory_item_used(item_id: StringName, slot_idx: int)
+@warning_ignore("unused_signal")
+signal inventory_item_failed(item_id: StringName, slot_idx: int, err_code: int)
+@warning_ignore("unused_signal")
+signal inventory_full()
+
+func emit_inventory_opened() -> void:
+	inventory_opened.emit()
+
+func emit_inventory_closed() -> void:
+	inventory_closed.emit()
+
+func emit_inventory_selection_changed(slot_idx: int) -> void:
+	inventory_selection_changed.emit(slot_idx)
+
+func emit_inventory_item_added(slot_idx: int, item: Resource, count: int) -> void:
+	inventory_item_added.emit(slot_idx, item, count)
+
+func emit_inventory_item_removed(slot_idx: int) -> void:
+	inventory_item_removed.emit(slot_idx)
+
+func emit_inventory_item_used(item_id: StringName, slot_idx: int) -> void:
+	inventory_item_used.emit(item_id, slot_idx)
+
+func emit_inventory_item_failed(item_id: StringName, slot_idx: int, err_code: int) -> void:
+	inventory_item_failed.emit(item_id, slot_idx, err_code)
+
+func emit_inventory_full() -> void:
+	inventory_full.emit()
