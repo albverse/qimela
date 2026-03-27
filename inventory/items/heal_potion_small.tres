@@ -5,14 +5,20 @@
 
 [resource]
 script = ExtResource("1")
-icon = ExtResource("2")
 id = &"heal_potion_small"
 display_name = "小治愈药水"
 desc_short = "恢复 2 点 HP。甘甜的草药汁液，散发微光。"
-category = 0
+main_category = 0
+sub_category = 0
+use_type = 1
+drop_sprite = ExtResource("2")
+inventory_icon = ExtResource("2")
 max_stack = 5
 cooldown_sec = 0.5
 usable_in_combat = true
 target_mode = 0
 consume_on_use = true
+sell_value = 10
+can_drop = true
+can_sell = true
 hp_restore = 2

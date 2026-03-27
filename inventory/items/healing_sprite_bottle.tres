@@ -5,13 +5,19 @@
 
 [resource]
 script = ExtResource("1")
-icon = ExtResource("2")
 id = &"healing_sprite_bottle"
 display_name = "治愈精灵瓶"
 desc_short = "释放一只治愈精灵，填入身上的精灵槽位。精灵槽已满时无法使用。"
-category = 1
+main_category = 0
+sub_category = 0
+use_type = 2
+drop_sprite = ExtResource("2")
+inventory_icon = ExtResource("2")
 max_stack = 3
 cooldown_sec = 0.0
 usable_in_combat = true
 target_mode = 0
 consume_on_use = true
+sell_value = 15
+can_drop = true
+can_sell = true

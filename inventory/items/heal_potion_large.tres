@@ -5,14 +5,20 @@
 
 [resource]
 script = ExtResource("1")
-icon = ExtResource("2")
 id = &"heal_potion_large"
 display_name = "大治愈药水"
 desc_short = "恢复 4 点 HP。浓缩的月光精华，饮后全身温暖。"
-category = 0
+main_category = 0
+sub_category = 0
+use_type = 1
+drop_sprite = ExtResource("2")
+inventory_icon = ExtResource("2")
 max_stack = 3
 cooldown_sec = 1.0
 usable_in_combat = true
 target_mode = 0
 consume_on_use = true
+sell_value = 25
+can_drop = true
+can_sell = true
 hp_restore = 4

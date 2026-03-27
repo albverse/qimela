@@ -14,13 +14,15 @@ var _cooldown_overlay: ColorRect = null
 var _highlight_rect: ColorRect = null
 
 # ── 视觉状态 ──
-enum SlotVisual { EMPTY, NORMAL, HIGHLIGHT, COOLDOWN, DISABLED }
+enum SlotVisual { EMPTY, NORMAL, HIGHLIGHT, COOLDOWN, DISABLED, PLUS_SLOT }
 var _visual_state: int = SlotVisual.EMPTY
 
 # ── 数据缓存 ──
 var _item_data: ItemData = null
 var _item_count: int = 0
 var _cooldown_ratio: float = 0.0
+var _is_plus_slot: bool = false
+var _plus_label: Label = null
 
 
 func _ready() -> void:
@@ -70,6 +72,30 @@ func _ready() -> void:
 	add_child(_highlight_rect)
 
 	_update_visual()
+
+
+func set_as_plus_slot() -> void:
+	## 将此格设为 "+" 功能键（OtherItems 入口）
+	_is_plus_slot = true
+	_item_data = null
+	_item_count = 0
+	_icon.texture = null
+	_count_label.text = ""
+	_cooldown_overlay.visible = false
+	# 创建 "+" 标签
+	if _plus_label == null:
+		_plus_label = Label.new()
+		_plus_label.text = "+"
+		_plus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_plus_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_plus_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_plus_label.add_theme_font_size_override("font_size", 24)
+		_plus_label.add_theme_color_override("font_color", Color(0.7, 0.6, 0.9, 0.8))
+		_plus_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_plus_label)
+	_plus_label.visible = true
+	_bg.color = Color(0.15, 0.13, 0.22, 0.6)
+	_visual_state = SlotVisual.PLUS_SLOT
 
 
 func set_slot_data(item: ItemData, count: int, cooldown_ratio: float) -> void:
@@ -128,6 +154,14 @@ func _update_visual() -> void:
 	if _icon == null:
 		return
 
+	# "+" 功能格保持自身外观
+	if _is_plus_slot:
+		return
+
+	# 隐藏 "+" 标签（非功能格）
+	if _plus_label != null:
+		_plus_label.visible = false
+
 	if _item_data == null:
 		_icon.texture = null
 		_count_label.text = ""
@@ -136,7 +170,7 @@ func _update_visual() -> void:
 		_visual_state = SlotVisual.EMPTY
 		return
 
-	_icon.texture = _item_data.icon
+	_icon.texture = _item_data.inventory_icon
 	_bg.color = Color(0.12, 0.12, 0.16, 0.7)
 
 	# 数量角标（可堆叠物品始终显示数量）

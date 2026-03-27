@@ -5,13 +5,19 @@
 
 [resource]
 script = ExtResource("1")
-icon = ExtResource("2")
 id = &"key_old_medallion"
 display_name = "古旧徽章"
 desc_short = "刻有奇美拉纹样的青铜徽章。似乎是某扇门的钥匙。"
-category = 5
+main_category = 1
+sub_category = 1
+use_type = 0
+drop_sprite = ExtResource("2")
+inventory_icon = ExtResource("2")
 max_stack = 1
 cooldown_sec = 0.0
 usable_in_combat = false
-target_mode = 2
+target_mode = 3
 consume_on_use = false
+sell_value = 0
+can_drop = false
+can_sell = false
