@@ -47,4 +47,4 @@ func _load_test_items() -> void:
 		print("[InventoryTestLoader] Added: %s" % medallion.display_name)
 
 	print("[InventoryTestLoader] Test items loaded. Total slots used: %d/%d" % [
-		inv.get_item_count(), PlayerInventory.CAPACITY])
+		inv.get_item_count(), PlayerInventory.MAIN_CAPACITY])

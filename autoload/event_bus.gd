@@ -94,3 +94,30 @@ func emit_inventory_item_failed(item_id: StringName, slot_idx: int, err_code: in
 
 func emit_inventory_full() -> void:
 	inventory_full.emit()
+
+# ── 背包扩展事件（v0.2 物品系统升级） ──
+@warning_ignore("unused_signal")
+signal inventory_pickup_failed(item_id: StringName, reason: int)
+@warning_ignore("unused_signal")
+signal inventory_open_other_items()
+@warning_ignore("unused_signal")
+signal inventory_close_other_items()
+@warning_ignore("unused_signal")
+signal inventory_drop_item(item_id: StringName, count: int)
+@warning_ignore("unused_signal")
+signal inventory_slots_sorted()
+
+func emit_inventory_pickup_failed(item_id: StringName, reason: int) -> void:
+	inventory_pickup_failed.emit(item_id, reason)
+
+func emit_inventory_open_other_items() -> void:
+	inventory_open_other_items.emit()
+
+func emit_inventory_close_other_items() -> void:
+	inventory_close_other_items.emit()
+
+func emit_inventory_drop_item(item_id: StringName, count: int) -> void:
+	inventory_drop_item.emit(item_id, count)
+
+func emit_inventory_slots_sorted() -> void:
+	inventory_slots_sorted.emit()

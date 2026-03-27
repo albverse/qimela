@@ -29,8 +29,8 @@ func _ready() -> void:
 
 	# 图标精灵
 	_sprite = Sprite2D.new()
-	if item_resource != null and item_resource.icon != null:
-		_sprite.texture = item_resource.icon
+	if item_resource != null and item_resource.drop_sprite != null:
+		_sprite.texture = item_resource.drop_sprite
 	else:
 		# 占位：加载 icon.svg
 		var tex: Texture2D = load("res://icon.svg") as Texture2D
@@ -56,8 +56,8 @@ func _ready() -> void:
 func setup(item: ItemData, count: int = 1) -> void:
 	item_resource = item
 	item_count = count
-	if _sprite != null and item.icon != null:
-		_sprite.texture = item.icon
+	if _sprite != null and item.drop_sprite != null:
+		_sprite.texture = item.drop_sprite
 
 
 func _process(dt: float) -> void:
@@ -114,12 +114,18 @@ func _try_collect() -> void:
 	if _player == null or _player.inventory == null:
 		return
 
-	# 检查背包是否能放下
-	var slot_idx: int = _player.inventory.add_item(item_resource, item_count)
-	if slot_idx < 0:
-		# 背包满了 — 抖动提示
-		_play_reject_shake()
-		return
+	# 按子分类路由：MATERIAL 进入 OtherItems，其余进入主背包
+	if item_resource.sub_category == ItemData.SubCategory.MATERIAL:
+		var ok: bool = _player.inventory.add_other_item(item_resource, item_count)
+		if not ok:
+			_play_reject_shake()
+			return
+	else:
+		var slot_idx: int = _player.inventory.add_item(item_resource, item_count)
+		if slot_idx < 0:
+			# 背包满了 — 抖动提示
+			_play_reject_shake()
+			return
 
 	# 开始飞行动画
 	_state = State.FLYING

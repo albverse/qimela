@@ -292,16 +292,38 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if inventory != null and inventory.is_open():
-		# 背包打开时：左右导航 + 使用
-		if _is_action_just_pressed(event, action_inventory_left, KEY_LEFT):
-			inventory.move_selection(-1)
+		var bag_state: int = inventory.get_bag_state()
+
+		# ── OtherItems 面板状态 ──
+		if bag_state == PlayerInventory.BagState.OPEN_OTHER:
+			if _is_action_just_pressed(event, action_inventory_left, KEY_UP):
+				inventory.move_other_selection(-1)
+				return
+			if _is_action_just_pressed(event, action_inventory_right, KEY_DOWN):
+				inventory.move_other_selection(1)
+				return
+			if _is_action_just_pressed(event, action_inventory_use, KEY_E):
+				# E 在 OtherItems 中触发扔出确认
+				_handle_other_items_confirm()
+				return
+			# B/Esc 返回主背包（由 toggle() 处理：OPEN_OTHER -> OPEN_MAIN）
 			return
-		if _is_action_just_pressed(event, action_inventory_right, KEY_RIGHT):
-			inventory.move_selection(1)
-			return
-		if _is_action_just_pressed(event, action_inventory_use, KEY_E):
-			inventory.try_use_selected()
-			return
+
+		# ── 主背包状态 ──
+		if bag_state == PlayerInventory.BagState.OPEN_MAIN:
+			if _is_action_just_pressed(event, action_inventory_left, KEY_LEFT):
+				inventory.move_selection(-1)
+				return
+			if _is_action_just_pressed(event, action_inventory_right, KEY_RIGHT):
+				inventory.move_selection(1)
+				return
+			if _is_action_just_pressed(event, action_inventory_use, KEY_E):
+				# 当选中 "+" 格时，打开 OtherItems
+				if inventory.get_selected_slot() >= PlayerInventory.MAIN_CAPACITY:
+					inventory.open_other_items()
+				else:
+					inventory.try_use_selected()
+				return
 
 	# C / use healing sprite
 	if _is_action_just_pressed(event, &"use_healing", KEY_C):
@@ -708,6 +730,31 @@ func get_healing_orbit_center_global(index: int) -> Vector2:
 	return global_position
 
 
+func _handle_other_items_confirm() -> void:
+	## OtherItems 面板中按 E：触发扔出（通过 InventoryUI 的 DropConfirmDialog）
+	## 实际扔出逻辑由 PlayerInventory.try_drop_other_item() 处理
+	## 扔出成功后在玩家脚下生成 WorldItem
+	if inventory == null:
+		return
+	var other_idx: int = inventory.get_other_selected()
+	var snapshot: Array = inventory.get_other_items_snapshot()
+	if other_idx < 0 or other_idx >= snapshot.size():
+		return
+	var entry: Dictionary = snapshot[other_idx] as Dictionary
+	var item: ItemData = entry["item"] as ItemData
+	if not item.can_drop:
+		EventBus.emit_inventory_item_failed(item.id, -1, PlayerInventory.UseError.ERR_DROP_FORBIDDEN)
+		return
+	# 执行扔出
+	var err: int = inventory.try_drop_other_item(other_idx)
+	if err == PlayerInventory.UseError.OK:
+		# 在玩家脚下生成掉落物
+		var world_item: WorldItem = WorldItem.new()
+		world_item.global_position = global_position + Vector2(facing * 30.0, -10.0)
+		world_item.setup(item, 1)
+		get_parent().add_child(world_item)
+
+
 func use_healing_sprite() -> bool:
 	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
 		return false
@@ -901,7 +948,7 @@ func _debug_load_test_items() -> void:
 		inventory.add_item(sprite_bottle, 2)
 	if medallion != null:
 		inventory.add_item(medallion)
-	log_msg("INV", "debug test items loaded: %d/%d slots" % [inventory.get_item_count(), PlayerInventory.CAPACITY])
+	log_msg("INV", "debug test items loaded: %d/%d slots" % [inventory.get_item_count(), PlayerInventory.MAIN_CAPACITY])
 
 
 # ── 输入辅助 ──
