@@ -211,10 +211,12 @@ func _on_selection_changed(slot_idx: int) -> void:
 
 	if old_idx != slot_idx:
 		if _tooltip_locked and _tooltip_shown:
-			# 锁定模式：仅更新内容，不重播动画
+			# 锁定模式：更新内容，不重播动画
+			# 若目标是空格/"+"格，tooltip 会被隐藏并解除锁定
 			_update_tooltip_content()
-		elif not _tooltip_locked:
-			# 未锁定：重置计时
+		else:
+			# 未锁定或 tooltip 已隐藏：重置计时重新等待
+			_reset_tooltip()
 			_hover_elapsed = 0.0
 
 
@@ -397,14 +399,13 @@ func _update_tooltip_content() -> void:
 	if _player_inventory == null:
 		return
 	if _selected_slot >= SLOT_COUNT:
-		# "+" 格：隐藏 tooltip
-		_tooltip.hide_tooltip()
-		_tooltip_shown = false
+		# "+" 格：隐藏 tooltip 并解除锁定
+		_reset_tooltip()
 		return
 	var slot_data: Dictionary = _player_inventory.get_slot(_selected_slot)
 	if slot_data.is_empty():
-		_tooltip.hide_tooltip()
-		_tooltip_shown = false
+		# 空格：隐藏 tooltip 并解除锁定
+		_reset_tooltip()
 		return
 	var item: ItemData = slot_data["item"] as ItemData
 	var count: int = slot_data["count"] as int
