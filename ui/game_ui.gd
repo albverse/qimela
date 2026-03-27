@@ -11,6 +11,7 @@ class_name GameUI
 var _hearts_ui: Control = null
 var _chain_slots_ui: Control = null
 var _weapon_label: Label = null
+var _inventory_ui: InventoryUI = null
 var _player: Player = null
 
 
@@ -20,6 +21,13 @@ func _ready() -> void:
 	_chain_slots_ui = get_node_or_null(chain_slots_ui_path)
 	_weapon_label = get_node_or_null(weapon_label_path) as Label
 	
+	# 创建 InventoryUI（代码构建，无需 .tscn）
+	_inventory_ui = InventoryUI.new()
+	_inventory_ui.name = "InventoryUI"
+	_inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_inventory_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_inventory_ui)
+
 	# 延迟初始化，等待Player加载
 	call_deferred("_init_with_player")
 
@@ -49,6 +57,10 @@ func _init_with_player() -> void:
 	
 	# 初始化武器显示
 	_update_weapon_label()
+
+	# 初始化 InventoryUI
+	if _inventory_ui != null and _player.inventory != null:
+		_inventory_ui.setup(_player.inventory)
 
 
 func _find_player() -> void:

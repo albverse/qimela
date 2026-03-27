@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://inventory/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"heal_potion_small"
+display_name = "小治愈药水"
+desc_short = "恢复 2 点 HP。甘甜的草药汁液，散发微光。"
+category = 0
+max_stack = 5
+cooldown_sec = 0.5
+usable_in_combat = true
+target_mode = 0
+consume_on_use = true
+hp_restore = 2

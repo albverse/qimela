@@ -25,6 +25,10 @@ extends CharacterBody2D
 @export var action_fuse: StringName = &"fuse"
 @export var action_healing_burst: StringName = &"healing_burst"
 @export var action_chain_switch_slot: StringName = &"switch_chain_slot"
+@export var action_inventory_toggle: StringName = &"inventory_toggle"
+@export var action_inventory_use: StringName = &"inventory_use"
+@export var action_inventory_left: StringName = &"inventory_left"
+@export var action_inventory_right: StringName = &"inventory_right"
 
 # ── Phase 1: ChainSystem 配置参数 ──
 @export_group("Chain System")
@@ -100,6 +104,7 @@ var health: PlayerHealth = null
 var animator: PlayerAnimator = null
 var weapon_controller: WeaponController = null
 var ghost_fist: GhostFist = null
+var inventory: PlayerInventory = null
 
 # ── HealingSprite 持有与使用 ──
 @export var max_healing_sprites: int = 3
@@ -147,6 +152,15 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
+	# Inventory 组件（可选，不阻断启动）
+	inventory = get_node_or_null(^"Components/Inventory") as PlayerInventory
+	if inventory == null:
+		# 动态创建（场景树中没有手动挂载时）
+		inventory = PlayerInventory.new()
+		inventory.name = "Inventory"
+		$Components.add_child(inventory)
+	inventory.setup(self)
+
 	# Ghost Fist 引用（Visual 子节点）
 	ghost_fist = get_node_or_null(^"Visual/GhostFist") as GhostFist
 	if ghost_fist == null:
@@ -172,6 +186,10 @@ func _ready() -> void:
 	if health.has_signal("damage_applied"):
 		health.damage_applied.connect(_on_health_damage_applied)
 
+	# 调试：自动加载测试背包道具（发布前删除）
+	if debug_log and inventory != null:
+		call_deferred("_debug_load_test_items")
+
 	log_msg("BUS", "ready ok — tick order: Movement→move_and_slide→Loco→Action→Health→Animator→Chain")
 
 
@@ -191,6 +209,10 @@ func _physics_process(dt: float) -> void:
 	# === 5) Health: 无敌帧/击退 ===
 	if health != null:
 		health.tick(dt)
+
+	# === 5.5) Inventory: 冷却倒计时 ===
+	if inventory != null:
+		inventory.tick(dt)
 
 	# === 6) Animator: 裁决 + 播放 ===
 	animator.tick(dt)
@@ -253,9 +275,33 @@ func _commit_pending_chain_fire() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _petrified:
-		return  # 石化中禁止所有输入
-	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		# 石化中强制关闭背包
+		if inventory != null and inventory.is_open():
+			inventory.force_close()
 		return
+	if action_fsm != null and action_fsm.state == PlayerActionFSM.State.DIE:
+		# 死亡时强制关闭背包
+		if inventory != null and inventory.is_open():
+			inventory.force_close()
+		return
+
+	# ── 背包输入（B / E / ← / →）──
+	if _is_action_just_pressed(event, action_inventory_toggle, KEY_B):
+		if inventory != null:
+			inventory.toggle()
+		return
+
+	if inventory != null and inventory.is_open():
+		# 背包打开时：左右导航 + 使用
+		if _is_action_just_pressed(event, action_inventory_left, KEY_LEFT):
+			inventory.move_selection(-1)
+			return
+		if _is_action_just_pressed(event, action_inventory_right, KEY_RIGHT):
+			inventory.move_selection(1)
+			return
+		if _is_action_just_pressed(event, action_inventory_use, KEY_E):
+			inventory.try_use_selected()
+			return
 
 	# C / use healing sprite
 	if _is_action_just_pressed(event, &"use_healing", KEY_C):
@@ -491,6 +537,9 @@ func on_action_anim_end(event: StringName) -> void:
 func _on_health_damage_applied(_amount: int, _source_pos: Vector2) -> void:
 	_block_chain_fire_this_frame = true
 	_pending_chain_fire_side = ""
+	# 受伤时强制关闭背包
+	if inventory != null and inventory.is_open():
+		inventory.force_close()
 	action_fsm.on_damaged()
 
 
@@ -833,6 +882,26 @@ func log_msg(source: String, msg: String) -> void:
 	var sl: String = str(chain_sys.slot_L_available) if chain_sys != null and "slot_L_available" in chain_sys else "?"
 	print("[F:%d][L:%s][A:%s] floor=%s vy=%s intent=%s hp=%d sR=%s sL=%s | [%s] %s" % [
 		f, l_str, a_str, floor_str, vy_str, intent_str, hp_val, sr, sl, source, msg])
+
+
+# ── 调试：测试背包道具 ──
+
+func _debug_load_test_items() -> void:
+	if inventory == null:
+		return
+	var heal_small: ItemData = load("res://inventory/items/heal_potion_small.tres") as ItemData
+	var heal_large: ItemData = load("res://inventory/items/heal_potion_large.tres") as ItemData
+	var sprite_bottle: ItemData = load("res://inventory/items/healing_sprite_bottle.tres") as ItemData
+	var medallion: ItemData = load("res://inventory/items/key_old_medallion.tres") as ItemData
+	if heal_small != null:
+		inventory.add_item(heal_small, 3)
+	if heal_large != null:
+		inventory.add_item(heal_large, 2)
+	if sprite_bottle != null:
+		inventory.add_item(sprite_bottle, 2)
+	if medallion != null:
+		inventory.add_item(medallion)
+	log_msg("INV", "debug test items loaded: %d/%d slots" % [inventory.get_item_count(), PlayerInventory.CAPACITY])
 
 
 # ── 输入辅助 ──
