@@ -1,4 +1,3 @@
-class_name ItemRegistry
 extends Node
 
 ## 物品注册表（Autoload 单例）
