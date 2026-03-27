@@ -139,8 +139,8 @@ func _update_visual() -> void:
 	_icon.texture = _item_data.icon
 	_bg.color = Color(0.12, 0.12, 0.16, 0.7)
 
-	# 数量角标（仅堆叠物品显示）
-	if _item_data.max_stack > 1 and _item_count > 1:
+	# 数量角标（可堆叠物品始终显示数量）
+	if _item_data.max_stack > 1:
 		_count_label.text = "x%d" % _item_count
 	else:
 		_count_label.text = ""

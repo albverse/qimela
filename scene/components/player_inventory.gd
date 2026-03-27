@@ -313,14 +313,21 @@ func _use_heal(item: ItemData, slot_index: int) -> Dictionary:
 
 func _use_healing_sprite_item(_item: ItemData, slot_index: int) -> Dictionary:
 	# 检查玩家精灵槽是否有空位
-	var count: int = _player.get_healing_sprite_count()
-	if count >= _player.max_healing_sprites:
+	var sprite_count: int = _player.get_healing_sprite_count()
+	if sprite_count >= _player.max_healing_sprites:
 		EventBus.emit_inventory_item_failed(_item.id, slot_index, UseError.ERR_INVALID_TARGET)
 		return { "ok": false, "err": UseError.ERR_INVALID_TARGET }
-	# 精灵槽补充成功（注意：这里不创建真实的 HealingSprite 节点，
-	# 而是在精灵槽中放一个标记。完整实现需要与 HealingSprite 场景协同。
-	# 暂时用 heal 代替作为占位逻辑）
-	_player.heal(1)
+	# 实例化一只真实的 HealingSprite 并放在玩家身边，让它自动进入 ACQUIRE 状态
+	var scene_res: Resource = load("res://scene/HealingSprite.tscn")
+	if scene_res == null:
+		return { "ok": false, "err": UseError.ERR_INVALID_TARGET }
+	var packed: PackedScene = scene_res as PackedScene
+	if packed == null:
+		return { "ok": false, "err": UseError.ERR_INVALID_TARGET }
+	var sprite: Node2D = packed.instantiate() as Node2D
+	# 在玩家附近生成，距离小于 acquire_range(150) 让它自动飞向玩家
+	sprite.global_position = _player.global_position + Vector2(0.0, -30.0)
+	_player.get_parent().add_child(sprite)
 	return { "ok": true, "err": UseError.OK }
 
 

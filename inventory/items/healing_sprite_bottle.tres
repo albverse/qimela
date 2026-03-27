@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://inventory/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="2"]
 
 [resource]
 script = ExtResource("1")
+icon = ExtResource("2")
 id = &"healing_sprite_bottle"
 display_name = "治愈精灵瓶"
 desc_short = "释放一只治愈精灵，填入身上的精灵槽位。精灵槽已满时无法使用。"

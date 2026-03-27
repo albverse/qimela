@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://inventory/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="2"]
 
 [resource]
 script = ExtResource("1")
+icon = ExtResource("2")
 id = &"heal_potion_large"
 display_name = "大治愈药水"
 desc_short = "恢复 4 点 HP。浓缩的月光精华，饮后全身温暖。"

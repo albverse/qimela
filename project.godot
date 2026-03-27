@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 EventBus="*res://autoload/event_bus.gd"
 FusionRegistry="*res://autoload/fusion_registry.gd"
+ItemDropHelper="*res://inventory/item_drop_helper.gd"
 BeehaveGlobalMetrics="*uid://c3ktl6ontsdt7"
 BeehaveGlobalDebugger="*uid://bl3ma400hpvsh"
 

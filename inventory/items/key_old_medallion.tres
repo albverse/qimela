@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://inventory/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="2"]
 
 [resource]
 script = ExtResource("1")
+icon = ExtResource("2")
 id = &"key_old_medallion"
 display_name = "古旧徽章"
 desc_short = "刻有奇美拉纹样的青铜徽章。似乎是某扇门的钥匙。"
