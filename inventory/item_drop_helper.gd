@@ -1,4 +1,3 @@
-class_name ItemDropHelper
 extends Node
 
 ## 道具掉落管理器（Autoload 单例）
