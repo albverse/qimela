@@ -94,3 +94,41 @@ func emit_inventory_item_failed(item_id: StringName, slot_idx: int, err_code: in
 
 func emit_inventory_full() -> void:
 	inventory_full.emit()
+
+
+# ── 背包音频事件（预留接口，音频制作完毕后连接） ──
+@warning_ignore("unused_signal")
+signal inventory_sfx_pickup(item_id: StringName)
+@warning_ignore("unused_signal")
+signal inventory_sfx_open()
+@warning_ignore("unused_signal")
+signal inventory_sfx_close()
+@warning_ignore("unused_signal")
+signal inventory_sfx_use(item_id: StringName)
+@warning_ignore("unused_signal")
+signal inventory_sfx_fail(item_id: StringName, err_code: int)
+@warning_ignore("unused_signal")
+signal inventory_sfx_bag_full()
+@warning_ignore("unused_signal")
+signal inventory_sfx_navigate()
+
+func emit_inventory_sfx_pickup(item_id: StringName) -> void:
+	inventory_sfx_pickup.emit(item_id)
+
+func emit_inventory_sfx_open() -> void:
+	inventory_sfx_open.emit()
+
+func emit_inventory_sfx_close() -> void:
+	inventory_sfx_close.emit()
+
+func emit_inventory_sfx_use(item_id: StringName) -> void:
+	inventory_sfx_use.emit(item_id)
+
+func emit_inventory_sfx_fail(item_id: StringName, err_code: int) -> void:
+	inventory_sfx_fail.emit(item_id, err_code)
+
+func emit_inventory_sfx_bag_full() -> void:
+	inventory_sfx_bag_full.emit()
+
+func emit_inventory_sfx_navigate() -> void:
+	inventory_sfx_navigate.emit()

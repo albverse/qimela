@@ -12,7 +12,7 @@ enum UIState { CLOSED, OPENING, OPEN, CLOSING }
 const SLOT_COUNT: int = 10
 const OPEN_DURATION: float = 0.18     # 展开动画时长
 const CLOSE_DURATION: float = 0.15    # 收回动画时长
-const TOOLTIP_HOVER_SEC: float = 3.0  # 高亮停留触发说明框的秒数
+const TOOLTIP_HOVER_SEC: float = 1.0  # 高亮停留触发说明框的秒数
 const SLOT_SIZE: float = 56.0
 const SLOT_GAP: float = 4.0
 const STAGGER_DELAY: float = 0.02     # 格子依次弹出的间隔
@@ -147,8 +147,8 @@ func _process(dt: float) -> void:
 	if not _tooltip_shown and _hover_elapsed >= TOOLTIP_HOVER_SEC:
 		_show_tooltip_for_selected()
 
-	# 实时更新冷却显示
-	_refresh_slots_display()
+	# 仅更新有冷却中的格子（低功耗）
+	_refresh_cooldown_slots()
 
 
 # ══════════════════════════════════════
@@ -329,6 +329,7 @@ func _hide_tooltip() -> void:
 # ══════════════════════════════════════
 
 func _refresh_slots_display() -> void:
+	## 全量刷新所有格子（仅在打开/数据变更时调用）
 	if _player_inventory == null:
 		return
 	var snapshot: Array = _player_inventory.get_slots_snapshot()
@@ -345,6 +346,23 @@ func _refresh_slots_display() -> void:
 			if item.cooldown_sec > 0.0 and cd > 0.0:
 				cd_ratio = cd / item.cooldown_sec
 			slot_ui.set_slot_data(item, count, cd_ratio)
+
+
+func _refresh_cooldown_slots() -> void:
+	## 低功耗帧刷新：仅更新有冷却中的格子
+	if _player_inventory == null:
+		return
+	for i in range(SLOT_COUNT):
+		var slot_data: Dictionary = _player_inventory.get_slot(i)
+		if slot_data.is_empty():
+			continue
+		var item: ItemData = slot_data["item"] as ItemData
+		var cd: float = slot_data["cooldown"] as float
+		if cd > 0.0 and item.cooldown_sec > 0.0:
+			var cd_ratio: float = cd / item.cooldown_sec
+			(_slots[i] as InventorySlotUI).update_cooldown(cd_ratio)
+		elif (_slots[i] as InventorySlotUI).is_showing_cooldown():
+			(_slots[i] as InventorySlotUI).update_cooldown(0.0)
 
 
 func _update_count_badge() -> void:
