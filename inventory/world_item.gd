@@ -79,13 +79,15 @@ func _process(dt: float) -> void:
 	var dist: float = global_position.distance_to(_player.global_position)
 
 	if dist <= interact_range:
-		_set_prompt(true)
+		# 可交互范围：高亮提示
+		_set_prompt(true, true)
 		_state = State.PROMPT
 	elif dist <= prompt_range:
-		_set_prompt(true)
-		_state = State.PROMPT
+		# 仅可见范围：暗提示（不可交互）
+		_set_prompt(true, false)
+		_state = State.IDLE
 	else:
-		_set_prompt(false)
+		_set_prompt(false, false)
 		_state = State.IDLE
 
 
@@ -182,9 +184,17 @@ func _play_reject_shake() -> void:
 	tw.tween_property(self, "position:x", ox, 0.04)
 
 
-func _set_prompt(show: bool) -> void:
-	if _prompt_label != null:
-		_prompt_label.visible = show
+func _set_prompt(show: bool, interactable: bool = false) -> void:
+	if _prompt_label == null:
+		return
+	_prompt_label.visible = show
+	if show:
+		if interactable:
+			_prompt_label.text = "[E]"
+			_prompt_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.7, 0.9))
+		else:
+			_prompt_label.text = "..."
+			_prompt_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.7, 0.35))
 
 
 func _find_player() -> Player:

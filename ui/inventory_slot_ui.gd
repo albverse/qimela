@@ -22,6 +22,11 @@ var _item_data: ItemData = null
 var _item_count: int = 0
 var _cooldown_ratio: float = 0.0
 
+# ── Tween 引用（防冲突） ──
+var _scale_tween: Tween = null
+var _bg_tween: Tween = null
+var _shake_tween: Tween = null
+
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(56, 56)
@@ -86,17 +91,31 @@ func clear_slot() -> void:
 	_update_visual()
 
 
+func update_cooldown(cd_ratio: float) -> void:
+	## 仅更新冷却遮罩（低功耗帧调用）
+	_cooldown_ratio = cd_ratio
+	if cd_ratio > 0.0:
+		_cooldown_overlay.visible = true
+		_cooldown_overlay.color.a = 0.5 * cd_ratio
+	else:
+		_cooldown_overlay.visible = false
+
+
+func is_showing_cooldown() -> bool:
+	return _cooldown_overlay.visible
+
+
 func set_highlighted(highlighted: bool) -> void:
 	_highlight_rect.visible = highlighted
+	if _scale_tween != null and _scale_tween.is_valid():
+		_scale_tween.kill()
 	if highlighted:
 		_visual_state = SlotVisual.HIGHLIGHT
-		# 轻微放大效果
-		var tw: Tween = create_tween()
-		tw.tween_property(self, "scale", Vector2(1.06, 1.06), 0.08).set_ease(Tween.EASE_OUT)
+		_scale_tween = create_tween()
+		_scale_tween.tween_property(self, "scale", Vector2(1.06, 1.06), 0.08).set_ease(Tween.EASE_OUT)
 	else:
-		# 恢复正常大小
-		var tw: Tween = create_tween()
-		tw.tween_property(self, "scale", Vector2.ONE, 0.08).set_ease(Tween.EASE_OUT)
+		_scale_tween = create_tween()
+		_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.08).set_ease(Tween.EASE_OUT)
 		if _item_data != null:
 			_visual_state = SlotVisual.NORMAL
 		else:
@@ -105,23 +124,29 @@ func set_highlighted(highlighted: bool) -> void:
 
 func play_use_flash() -> void:
 	## 使用成功闪白反馈
-	var tw: Tween = create_tween()
+	if _bg_tween != null and _bg_tween.is_valid():
+		_bg_tween.kill()
 	_bg.color = Color(1.0, 1.0, 1.0, 0.8)
-	tw.tween_property(_bg, "color", Color(0.12, 0.12, 0.16, 0.7), 0.3)
+	_bg_tween = create_tween()
+	_bg_tween.tween_property(_bg, "color", Color(0.12, 0.12, 0.16, 0.7), 0.3)
 
 
 func play_fail_shake() -> void:
 	## 使用失败抖动反馈
-	var tw: Tween = create_tween()
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+	if _bg_tween != null and _bg_tween.is_valid():
+		_bg_tween.kill()
 	var orig_pos: Vector2 = position
-	tw.tween_property(self, "position", orig_pos + Vector2(4, 0), 0.04)
-	tw.tween_property(self, "position", orig_pos + Vector2(-4, 0), 0.04)
-	tw.tween_property(self, "position", orig_pos + Vector2(2, 0), 0.04)
-	tw.tween_property(self, "position", orig_pos, 0.04)
+	_shake_tween = create_tween()
+	_shake_tween.tween_property(self, "position", orig_pos + Vector2(4, 0), 0.04)
+	_shake_tween.tween_property(self, "position", orig_pos + Vector2(-4, 0), 0.04)
+	_shake_tween.tween_property(self, "position", orig_pos + Vector2(2, 0), 0.04)
+	_shake_tween.tween_property(self, "position", orig_pos, 0.04)
 	# 红闪
 	_bg.color = Color(0.8, 0.15, 0.15, 0.7)
-	var tw2: Tween = create_tween()
-	tw2.tween_property(_bg, "color", Color(0.12, 0.12, 0.16, 0.7), 0.3)
+	_bg_tween = create_tween()
+	_bg_tween.tween_property(_bg, "color", Color(0.12, 0.12, 0.16, 0.7), 0.3)
 
 
 func _update_visual() -> void:

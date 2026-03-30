@@ -89,9 +89,11 @@ func toggle() -> void:
 			_selected_slot = _last_used_slot
 			EventBus.emit_inventory_opened()
 			EventBus.emit_inventory_selection_changed(_selected_slot)
+			EventBus.emit_inventory_sfx_open()
 		BagState.OPEN:
 			_state = BagState.CLOSING
 			EventBus.emit_inventory_closed()
+			EventBus.emit_inventory_sfx_close()
 		# OPENING / CLOSING 期间忽略重复 toggle
 
 
@@ -134,6 +136,7 @@ func move_selection(dir: int) -> void:
 	if new_idx != _selected_slot:
 		_selected_slot = new_idx
 		EventBus.emit_inventory_selection_changed(_selected_slot)
+		EventBus.emit_inventory_sfx_navigate()
 
 
 # ══════════════════════════════════════
@@ -141,34 +144,61 @@ func move_selection(dir: int) -> void:
 # ══════════════════════════════════════
 
 func add_item(item: ItemData, count: int = 1) -> int:
-	## 添加道具到背包。返回放入的槽位索引，-1 = 满了
+	## 添加道具到背包。返回首个放入的槽位索引，-1 = 满了（一个也放不下）
 	if item == null:
 		return -1
+
+	var remaining: int = count
+	var first_slot: int = -1
 
 	# 先尝试叠加到已有同 id 槽位
 	if item.max_stack > 1:
 		for i in range(CAPACITY):
+			if remaining <= 0:
+				break
 			if _slots[i] == null:
 				continue
 			var slot: Dictionary = _slots[i] as Dictionary
 			var slot_item: ItemData = slot["item"] as ItemData
 			if slot_item.id == item.id and slot["count"] < item.max_stack:
 				var can_add: int = item.max_stack - slot["count"]
-				var to_add: int = count if count <= can_add else can_add
+				var to_add: int = remaining if remaining <= can_add else can_add
 				slot["count"] += to_add
+				remaining -= to_add
 				EventBus.emit_inventory_item_added(i, item, slot["count"])
-				return i
+				if first_slot < 0:
+					first_slot = i
 
-	# 找空槽
-	for i in range(CAPACITY):
-		if _slots[i] == null:
-			_slots[i] = { "item": item, "count": count, "cooldown": 0.0 }
-			EventBus.emit_inventory_item_added(i, item, count)
-			return i
+	# 剩余放入空槽
+	while remaining > 0:
+		var empty_idx: int = -1
+		for i in range(CAPACITY):
+			if _slots[i] == null:
+				empty_idx = i
+				break
+		if empty_idx < 0:
+			break
+		var to_put: int = remaining if remaining <= item.max_stack else item.max_stack
+		_slots[empty_idx] = { "item": item, "count": to_put, "cooldown": 0.0 }
+		remaining -= to_put
+		EventBus.emit_inventory_item_added(empty_idx, item, to_put)
+		if first_slot < 0:
+			first_slot = empty_idx
 
-	# 满了
-	EventBus.emit_inventory_full()
-	return -1
+	if first_slot < 0:
+		# 一个都没放进去
+		EventBus.emit_inventory_full()
+		EventBus.emit_inventory_sfx_bag_full()
+		return -1
+
+	# 至少放入了一部分
+	EventBus.emit_inventory_sfx_pickup(item.id)
+
+	if remaining > 0:
+		# 部分放入，背包已满
+		EventBus.emit_inventory_full()
+
+	return first_slot
 
 
 func remove_item(slot_index: int, count: int = 1) -> void:
@@ -276,6 +306,11 @@ func _use_item_at(slot_index: int) -> Dictionary:
 		# 游标记忆
 		_last_used_slot = slot_index
 		EventBus.emit_inventory_item_used(item.id, slot_index)
+		EventBus.emit_inventory_sfx_use(item.id)
+	else:
+		var err_code: int = result["err"] as int
+		if err_code != UseError.OK:
+			EventBus.emit_inventory_sfx_fail(item.id, err_code)
 
 	return result
 
@@ -390,5 +425,10 @@ func _is_state_blocked() -> bool:
 	if _player.action_fsm != null:
 		var s: int = _player.action_fsm.state
 		if s == PlayerActionFSM.State.DIE or s == PlayerActionFSM.State.HURT:
+			return true
+		# 攻击/融合中禁止使用道具（防止打断攻击动画或变身流程）
+		if s == PlayerActionFSM.State.ATTACK or s == PlayerActionFSM.State.ATTACK_CANCEL:
+			return true
+		if s == PlayerActionFSM.State.FUSE:
 			return true
 	return false
