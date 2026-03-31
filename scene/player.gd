@@ -9,6 +9,11 @@ extends CharacterBody2D
 @export var debug_log: bool = false
 @export var debug_invincible: bool = false  ## 测试用：开启后被攻击不减HP
 
+# ── 对话立绘皮肤（预留接口，未来迭代完善）──
+## 当前角色皮肤名，对话立绘 PlayerPortraitSkinResolver 自动同步此值
+## 换装后赋值此变量，立绘皮肤将在下次对话刷新时自动跟随
+@export var current_skin: StringName = &"Default"
+
 # ── 移动参数 ──
 @export var move_speed: float = 260.0
 @export var run_speed_mult: float = 1.5
