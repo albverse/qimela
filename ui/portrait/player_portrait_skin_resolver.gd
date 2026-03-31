@@ -15,12 +15,12 @@ static func resolve(scene_tree: SceneTree) -> StringName:
 		return &"type1"  # 测试期间默认使用 type1
 
 	# 读取场景亮暗状态（通过 SceneEnvironment autoload）
-	var light: SceneEnvironment.LightState = SceneEnvironment.LightState.DARK
+	var light: int = 1  # 默认 DARK = 1
 	var env_node: Node = scene_tree.root.get_node_or_null("/root/SceneEnvironment")
 	if env_node != null and env_node.has_method("get_light_state"):
 		light = env_node.get_light_state()
 
-	if light == SceneEnvironment.LightState.DARK:
+	if light == 1:  # DARK
 		return StringName(str(base_skin) + "_dark")
 	return StringName(str(base_skin) + "_bright")
 
