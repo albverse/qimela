@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://c2bnd2uh3qxjp"
+path="res://.godot/imported/test_beastnormal.skel-a3ae5841f7994eecbda8ac9efe078653.spskel"
+
+[deps]
+
+source_file="res://art/dialogic_art/test_beastnormal.skel"
+dest_files=["res://.godot/imported/test_beastnormal.skel-a3ae5841f7994eecbda8ac9efe078653.spskel"]
+
+[params]
+
