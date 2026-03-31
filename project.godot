@@ -31,10 +31,10 @@ Dialogic="*uid://ds2q0uclmolvu"
 
 [dialogic]
 
-directories/dch_directory={"res://dialogic/characters/": true}
-directories/dtl_directory={"res://dialogic/timelines/": true}
-layout/style_directory={"res://dialogic/styles/": true}
-event/event_directory={"res://dialogic/events/": true}
+directories/dch_directory={}
+directories/dtl_directory={}
+layout/style_directory={}
+event/event_directory={}
 glossary/default_case_sensitive=true
 layout/style_list=[]
 layout/default_style="Default"
