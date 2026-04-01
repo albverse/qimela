@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DialogicCharacter" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/dialogic/Resources/character.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "玩家"
+color = Color(0.5, 0.7, 1.0, 1.0)
+default_portrait = ""
+portraits = {}
+custom_info = {}

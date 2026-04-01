@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/dialogic/Resources/dialogic_layout_base.gd" id="1_base"]
+
+[node name="ChimeraBubbleBase" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_base")

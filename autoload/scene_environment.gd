@@ -1,6 +1,5 @@
 ## 场景环境状态管理（预留接口，当前硬编码 DARK）
 ## 后续由场景主动调用 set_light_state() 切换亮暗
-class_name SceneEnvironment
 extends Node
 
 enum LightState {

@@ -31,13 +31,13 @@ Dialogic="*uid://ds2q0uclmolvu"
 
 [dialogic]
 
-directories/dch_directory={"res://dialogic/characters/": true}
-directories/dtl_directory={"res://dialogic/timelines/": true}
-layout/style_directory={"res://dialogic/styles/": true}
-event/event_directory={"res://dialogic/events/": true}
+directories/dch_directory={"player": "res://dialogic/characters/player.dch", "cultist": "res://dialogic/characters/cultist.dch"}
+directories/dtl_directory={"test_bubble": "res://dialogic/timelines/test_bubble.dtl"}
+layout/style_directory={"chimera_bubble": "res://dialogic/styles/chimera_bubble.tres"}
+event/event_directory={"emotion_event": "res://dialogic/events/emotion_event.gd"}
 glossary/default_case_sensitive=true
-layout/style_list=[]
-layout/default_style="Default"
+layout/style_list=["res://dialogic/styles/chimera_bubble.tres"]
+layout/default_style="ChimeraBubble"
 variables={}
 text/letter_speed=0.01
 text/initial_text_reveal_skippable=true

@@ -143,7 +143,7 @@ func build_event_editor() -> void:
 #region STATE
 ####################################################################################################
 
-func _clear_state(clear_flag:=Dialogic.ClearFlags.FULL_CLEAR) -> void:
+func _clear_state(clear_flag:=DialogicGameHandler.ClearFlags.FULL_CLEAR) -> void:
 	pass
 
 func _load_state(load_flag:=LoadFlags.FULL_LOAD) -> void:
