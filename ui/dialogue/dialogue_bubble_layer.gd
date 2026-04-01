@@ -6,10 +6,10 @@ extends DialogicLayoutLayer
 
 # ── 编辑器可调参数 ──
 @export_group("Slot Positions")
-@export var player_current_pos: Vector2 = Vector2(220, 500)
-@export var other_current_pos: Vector2 = Vector2(900, 180)
-@export var player_history_pos: Vector2 = Vector2(220, 350)
-@export var other_history_pos: Vector2 = Vector2(900, 50)
+@export var player_current_pos: Vector2 = Vector2(150, 300)
+@export var other_current_pos: Vector2 = Vector2(620, 90)
+@export var player_history_pos: Vector2 = Vector2(150, 120)
+@export var other_history_pos: Vector2 = Vector2(620, -70)
 
 @export_group("Animation")
 @export var appear_duration: float = 0.25
@@ -18,8 +18,12 @@ extends DialogicLayoutLayer
 @export var history_alpha: float = 0.5
 
 @export_group("Bubble")
-@export var bubble_width: float = 380.0
-@export var bubble_font_size: int = 18
+@export var bubble_width: float = 400.0
+@export var bubble_font_size: int = 22
+@export var bubble_padding_top: int = 22
+@export var bubble_padding_bottom: int = 50
+@export var bubble_padding_side: int = 35
+@export var show_speaker_name: bool = false
 
 @export_group("Portraits")
 ## 玩家立绘控制器（场景中 SpinePortraitController 节点路径）
@@ -68,15 +72,8 @@ func _ready() -> void:
 		if n is SpinePortraitController:
 			_other_portrait = n as SpinePortraitController
 
-	# 连接 Dialogic 文字信号（有 Dialogic 时才连接）
-	if Dialogic != null and Dialogic.has_method("get") and Dialogic.Text != null:
-		if not Dialogic.Text.about_to_show_text.is_connected(_on_about_to_show_text):
-			Dialogic.Text.about_to_show_text.connect(_on_about_to_show_text)
-		if not Dialogic.Text.text_finished.is_connected(_on_text_finished):
-			Dialogic.Text.text_finished.connect(_on_text_finished)
-		# 连接 Dialogic 信号事件（接收 EmotionEvent 发来的信号）
-		if not Dialogic.signal_event.is_connected(_on_dialogic_signal):
-			Dialogic.signal_event.connect(_on_dialogic_signal)
+	# 安全连接 Dialogic 信号
+	_connect_dialogic()
 
 
 func _apply_export_overrides() -> void:
@@ -96,8 +93,29 @@ func _apply_slot_settings() -> void:
 	_slot_manager.history_alpha = history_alpha
 	_slot_manager.bubble_width = bubble_width
 	_slot_manager.bubble_font_size = bubble_font_size
+	_slot_manager.bubble_padding_top = bubble_padding_top
+	_slot_manager.bubble_padding_bottom = bubble_padding_bottom
+	_slot_manager.bubble_padding_side = bubble_padding_side
+	_slot_manager.show_speaker_name = show_speaker_name
 	if bubble_texture != null:
 		_slot_manager.set_bubble_texture(bubble_texture)
+
+
+## ── Dialogic 信号连接 ──
+
+func _connect_dialogic() -> void:
+	var d: Node = get_node_or_null("/root/Dialogic")
+	if d == null:
+		return
+	var text_sub: Variant = d.get("Text")
+	if text_sub == null:
+		return
+	if text_sub.has_signal("about_to_show_text"):
+		text_sub.about_to_show_text.connect(_on_about_to_show_text)
+	if text_sub.has_signal("text_finished"):
+		text_sub.text_finished.connect(_on_text_finished)
+	if d.has_signal("signal_event"):
+		d.signal_event.connect(_on_dialogic_signal)
 
 
 ## ── Dialogic 信号处理 ──
@@ -105,9 +123,13 @@ func _apply_slot_settings() -> void:
 ## 文字即将显示时：推进气泡 + 驱动立绘动画
 func _on_about_to_show_text(info: Dictionary) -> void:
 	# 读取待处理的情绪数据（由 EmotionEvent 通过 signal_event 提前写入）
-	var role: StringName = _pending_emotion.get("speaker_role", &"other")
+	var role: StringName = _pending_emotion.get("speaker_role", &"")
 	var emotion: StringName = _pending_emotion.get("emotion", &"idle")
 	var use_talk: bool = _pending_emotion.get("use_talk", true)
+
+	# 若无 EmotionEvent 提供角色，从 Dialogic 角色信息推断
+	if role == &"":
+		role = _resolve_role_from_character(info)
 	_pending_emotion.clear()
 
 	# 推进气泡
@@ -147,6 +169,16 @@ func _on_dialogic_signal(arg: Variant) -> void:
 
 
 ## ── 辅助 ──
+
+## 从 Dialogic 角色信息推断 role（player / other）
+func _resolve_role_from_character(info: Dictionary) -> StringName:
+	var character: Variant = info.get("character")
+	if character != null and character is Resource:
+		var char_name: String = character.get("display_name") if character.get("display_name") else ""
+		if char_name == player_display_name:
+			return &"player"
+	return &"other"
+
 
 func _get_portrait(role: StringName) -> SpinePortraitController:
 	if role == &"player":
