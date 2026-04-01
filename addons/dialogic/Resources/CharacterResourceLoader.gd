@@ -43,7 +43,46 @@ func _load(path: String, _original_path: String, _use_sub_threads: bool, _cache_
 		print("[Dialogic] Error opening file:", FileAccess.get_open_error())
 		return FileAccess.get_open_error()
 
-	return dict_to_inst(str_to_var(file.get_as_text()))
+	var text := file.get_as_text()
+	var data: Variant = str_to_var(text)
+	if data is Dictionary:
+		return dict_to_inst(data)
+
+	# Fallback: allow loading .dch files that were accidentally saved
+	# as text resources ([gd_resource ...]) instead of Dialogic's
+	# var_to_str(inst_to_dict(...)) format.
+	var parsed: DialogicCharacter = _parse_text_resource_character(path, text)
+	if parsed != null:
+		return parsed
+
+	push_error("[Dialogic] Failed to load character '%s': invalid .dch format." % path)
+	return ERR_PARSE_ERROR
+
+
+func _parse_text_resource_character(path: String, text: String) -> DialogicCharacter:
+	if not text.begins_with("[gd_resource"):
+		return null
+	var c := DialogicCharacter.new()
+	c.resource_path = path
+
+	for raw_line: String in text.split("\n"):
+		var line := raw_line.strip_edges()
+		if line.is_empty() or line.begins_with("["):
+			continue
+		var eq_idx := line.find("=")
+		if eq_idx == -1:
+			continue
+		var key := line.left(eq_idx).strip_edges()
+		var value_expr := line.substr(eq_idx + 1).strip_edges()
+		if value_expr.begins_with("ExtResource("):
+			continue
+		var value: Variant = str_to_var(value_expr)
+		if value == null and value_expr != "null":
+			continue
+		if key in c:
+			c.set(key, value)
+
+	return c
 
 
 func _get_dependencies(path:String, _add_type:bool) -> PackedStringArray:
