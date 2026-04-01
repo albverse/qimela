@@ -4,6 +4,8 @@ class_name DialogueRunner
 ## 对话运行器
 ## 职责：持有 DialogueResource，调用 get_next_dialogue_line() 推进对话
 ## 将 DialogueLine 交给 DialogueStage，不直接操作 UI 或 Spine
+##
+## 输入：仅左键点击推进对话，对话期间吞掉所有输入防止玩家操作
 
 const LOG_PREFIX: String = "[DialogueRunner]"
 
@@ -25,26 +27,28 @@ func _ready() -> void:
 	if _dialogue_stage != null:
 		_dialogue_stage.dialogue_line_completed.connect(_on_line_completed)
 		_dialogue_stage.dialogue_finished.connect(_on_dialogue_finished)
+	# 对话运行时需要最高优先级拦截输入
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_running:
 		return
 
+	# 对话期间吞掉所有按键/鼠标输入，防止玩家角色移动或攻击
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
+		# 只有左键点击才推进对话
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 			_handle_advance()
-			get_viewport().set_input_as_handled()
+		# 吞掉所有鼠标按钮事件
+		get_viewport().set_input_as_handled()
 	elif event is InputEventKey:
-		var key: InputEventKey = event as InputEventKey
-		if key.pressed and (key.keycode == KEY_SPACE or key.keycode == KEY_ENTER):
-			_handle_advance()
-			get_viewport().set_input_as_handled()
+		# 对话期间吞掉所有键盘输入
+		get_viewport().set_input_as_handled()
 
 
 func start_dialogue(resource: Resource, title: String = "start", config: Dictionary = {}) -> void:
-	## 启动对话
 	if _dialogue_stage == null:
 		push_error("%s No DialogueStage found at path: %s" % [LOG_PREFIX, str(dialogue_stage_path)])
 		return
@@ -52,15 +56,12 @@ func start_dialogue(resource: Resource, title: String = "start", config: Diction
 	_dialogue_resource = resource
 	_is_running = true
 
-	# 配置会话
 	_dialogue_stage.configure_session(config)
 
 	if debug_log:
 		print("%s Starting dialogue, title: %s" % [LOG_PREFIX, title])
 
 	dialogue_started.emit()
-
-	# 获取第一行
 	_advance_to_next_line(title)
 
 
@@ -72,6 +73,10 @@ func stop_dialogue() -> void:
 
 	if debug_log:
 		print("%s Dialogue stopped" % LOG_PREFIX)
+
+
+func is_running() -> bool:
+	return _is_running
 
 
 func _handle_advance() -> void:
@@ -92,7 +97,6 @@ func _advance_to_next_line(title_or_id: String = "") -> void:
 		_finish()
 		return
 
-	# 调用 DialogueManager 获取下一行
 	var dm: Object = _find_dialogue_manager()
 	if dm == null:
 		push_error("%s DialogueManager not found!" % LOG_PREFIX)
@@ -111,15 +115,13 @@ func _advance_to_next_line(title_or_id: String = "") -> void:
 
 	if debug_log:
 		var char_name: String = str(line.character) if "character" in line else "???"
-		var text: String = str(line.text) if "text" in line else ""
-		print("%s Got line: [%s] %s" % [LOG_PREFIX, char_name, text.left(40)])
+		var text_preview: String = str(line.text).left(40) if "text" in line else ""
+		print("%s Got line: [%s] %s" % [LOG_PREFIX, char_name, text_preview])
 
-	# 交给舞台
 	_dialogue_stage.present_line(line)
 
 
 func _on_line_completed() -> void:
-	# 推进到下一行
 	if _current_line != null and "next_id" in _current_line:
 		var next_id: String = str(_current_line.next_id)
 		_advance_to_next_line(next_id)
@@ -143,11 +145,9 @@ func _finish() -> void:
 
 
 func _find_dialogue_manager() -> Object:
-	## 查找 DialogueManager autoload（注册为 Engine singleton）
 	if Engine.has_singleton("DialogueManager"):
 		return Engine.get_singleton("DialogueManager")
 
-	# 兜底：从场景树查找
 	var root: Node = get_tree().root
 	for child: Node in root.get_children():
 		if child.name == "DialogueManager":

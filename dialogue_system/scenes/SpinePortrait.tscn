@@ -5,6 +5,10 @@
 [node name="SpinePortrait" type="Control"]
 anchors_preset = 0
 script = ExtResource("1_script")
+portrait_scale = Vector2(0.8, 0.8)
+slide_in_enabled = true
+slide_in_offset_x = 600.0
+slide_in_duration = 0.6
 
 [node name="SpineContainer" type="Node2D" parent="."]
 position = Vector2(0, 400)

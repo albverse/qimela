@@ -36,9 +36,21 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="SlotA_OtherHistory" type="Marker2D" parent="."]
+position = Vector2(180, 80)
+
+[node name="SlotB_PlayerHistory" type="Marker2D" parent="."]
+position = Vector2(780, 80)
+
+[node name="SlotC_OtherCurrent" type="Marker2D" parent="."]
+position = Vector2(100, 320)
+
+[node name="SlotD_PlayerCurrent" type="Marker2D" parent="."]
+position = Vector2(700, 320)
+
 [node name="BubbleSlotManager" type="Node" parent="."]
 script = ExtResource("2_slot_mgr")
-player_current_slot_position = Vector2(60, 280)
-other_current_slot_position = Vector2(660, 280)
-player_history_slot_position = Vector2(60, 80)
-other_history_slot_position = Vector2(660, 80)
+slot_a_other_history_path = NodePath("../SlotA_OtherHistory")
+slot_b_player_history_path = NodePath("../SlotB_PlayerHistory")
+slot_c_other_current_path = NodePath("../SlotC_OtherCurrent")
+slot_d_player_current_path = NodePath("../SlotD_PlayerCurrent")

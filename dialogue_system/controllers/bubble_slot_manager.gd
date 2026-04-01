@@ -4,6 +4,10 @@ class_name BubbleSlotManager
 ## 气泡槽位管理器
 ## 职责：管理四个固定槽位的气泡生命周期、位置、透明度、历史推进
 ## 不读取 Dialogue 文件，不控制 Spine 动画
+##
+## 使用方式：在场景中放置 4 个 Marker2D 作为槽位锚点，
+## 美术只需拖动 Marker2D 即可改变气泡出现/移动的位置。
+## 当前区（C/D）同一时刻只保留一个气泡。
 
 const LOG_PREFIX: String = "[BubbleSlot]"
 
@@ -11,24 +15,48 @@ signal bubble_typing_finished()
 
 @export var debug_log: bool = false
 
-## 槽位位置（编辑器可调）
-@export var player_current_slot_position: Vector2 = Vector2(180, 200)
-@export var other_current_slot_position: Vector2 = Vector2(780, 200)
-@export var player_history_slot_position: Vector2 = Vector2(180, 60)
-@export var other_history_slot_position: Vector2 = Vector2(780, 60)
+## ── 槽位锚点（美术在编辑器中拖动 Marker2D 即可调整位置） ──
+@export_group("Slot Anchors")
+## A点：对方历史气泡位置（屏幕上方左侧）
+@export_node_path("Marker2D") var slot_a_other_history_path: NodePath = NodePath("")
+## B点：玩家历史气泡位置（屏幕上方右侧）
+@export_node_path("Marker2D") var slot_b_player_history_path: NodePath = NodePath("")
+## C点：对方当前气泡位置（屏幕下方左侧）
+@export_node_path("Marker2D") var slot_c_other_current_path: NodePath = NodePath("")
+## D点：玩家当前气泡位置（屏幕下方右侧）
+@export_node_path("Marker2D") var slot_d_player_current_path: NodePath = NodePath("")
 
-## 动画参数（编辑器可调）
+## 运行时解析后的锚点引用
+var _slot_a: Marker2D = null
+var _slot_b: Marker2D = null
+var _slot_c: Marker2D = null
+var _slot_d: Marker2D = null
+
+## ── 动画参数（编辑器可调） ──
+@export_group("Animation")
+## 气泡入场持续时间
 @export var bubble_enter_duration: float = 0.3
+## 气泡入场缩放起始值
+@export var bubble_enter_scale_from: float = 0.85
+## 当前气泡移动到历史区的持续时间
 @export var bubble_to_history_duration: float = 0.4
+## 历史气泡淡出持续时间
 @export var history_fadeout_duration: float = 0.3
-@export var history_opacity: float = 0.5
+## 历史气泡透明度（0~1）
+@export_range(0.0, 1.0) var history_opacity: float = 0.5
 
-## 历史文本缩略参数
+## ── 历史文本缩略参数 ──
+@export_group("History Text")
+## 触发缩略的字符阈值
 @export var history_shrink_threshold: int = 100
+## 历史气泡显示的最大字符数
 @export var history_preview_char_count: int = 20
+## 历史缩略后缀
 @export var history_preview_suffix: String = "……"
 
-## 打字机速度
+## ── 打字机 ──
+@export_group("Typewriter")
+## 打字机每秒字符数
 @export var typewriter_speed: float = 30.0
 
 ## 气泡场景引用
@@ -37,18 +65,17 @@ var bubble_scene: PackedScene = null
 ## 样式控制器引用
 var style_controller: BubbleStyleController = null
 
-## 槽位容器节点
+## 气泡父容器
 var _slots_container: Control = null
 
-## 当前活跃气泡
-var _player_current_bubble: DialogueBubble = null
-var _other_current_bubble: DialogueBubble = null
-var _player_history_bubble: DialogueBubble = null
-var _other_history_bubble: DialogueBubble = null
+## 当前唯一的活跃气泡（CD区同一时刻只有一个）
+var _current_bubble: DialogueBubble = null
+var _current_bubble_role: StringName = &""
+var _current_full_text: String = ""
 
-## 当前气泡的完整文本（用于历史缩略）
-var _player_current_full_text: String = ""
-var _other_current_full_text: String = ""
+## 历史气泡（最多一个）
+var _history_bubble: DialogueBubble = null
+var _history_bubble_role: StringName = &""
 
 
 func setup(container: Control, scene: PackedScene, style_ctrl: BubbleStyleController) -> void:
@@ -56,118 +83,98 @@ func setup(container: Control, scene: PackedScene, style_ctrl: BubbleStyleContro
 	bubble_scene = scene
 	style_controller = style_ctrl
 
+	# 解析 Marker2D 锚点
+	if slot_a_other_history_path != NodePath(""):
+		_slot_a = get_node_or_null(slot_a_other_history_path) as Marker2D
+	if slot_b_player_history_path != NodePath(""):
+		_slot_b = get_node_or_null(slot_b_player_history_path) as Marker2D
+	if slot_c_other_current_path != NodePath(""):
+		_slot_c = get_node_or_null(slot_c_other_current_path) as Marker2D
+	if slot_d_player_current_path != NodePath(""):
+		_slot_d = get_node_or_null(slot_d_player_current_path) as Marker2D
+
 	if debug_log:
-		print("%s Setup complete" % LOG_PREFIX)
+		print("%s Setup: A=%s B=%s C=%s D=%s" % [
+			LOG_PREFIX,
+			str(_slot_a != null), str(_slot_b != null),
+			str(_slot_c != null), str(_slot_d != null),
+		])
 
 
 func show_bubble(payload: BubblePayload) -> void:
-	## 显示新的当前气泡，处理历史推进
-	var role: StringName = payload.speaker_role
+	## 显示新的当前气泡
+	## 核心逻辑：CD区只保留一个气泡，旧气泡移入对应历史区
+	var new_role: StringName = payload.speaker_role
 
-	if role == &"player":
-		_advance_player_bubble(payload)
-	else:
-		_advance_other_bubble(payload)
+	# 1. 淡出销毁旧的历史气泡
+	_fadeout_and_destroy(_history_bubble)
+	_history_bubble = null
+	_history_bubble_role = &""
+
+	# 2. 当前气泡 → 历史区（根据旧气泡的 role 决定去 A 还是 B）
+	if _current_bubble != null:
+		_history_bubble = _current_bubble
+		_history_bubble_role = _current_bubble_role
+		var history_pos: Vector2 = _get_history_slot_position(_current_bubble_role)
+		_move_to_history(_history_bubble, history_pos, _current_bubble_role, _current_full_text)
+
+	# 3. 创建新的当前气泡（根据新 role 决定出现在 C 还是 D）
+	_current_full_text = payload.full_text
+	_current_bubble_role = new_role
+	var current_pos: Vector2 = _get_current_slot_position(new_role)
+	_current_bubble = _create_bubble(payload, current_pos, new_role)
+
+	if debug_log:
+		print("%s Bubble [%s] at slot %s, text: %s" % [
+			LOG_PREFIX, new_role,
+			"D" if new_role == &"player" else "C",
+			payload.full_text.left(30)
+		])
 
 
 func skip_current_typing() -> void:
-	## 跳过当前气泡打字机
-	if _player_current_bubble != null and _player_current_bubble.is_typing():
-		_player_current_bubble.skip_typing()
-	if _other_current_bubble != null and _other_current_bubble.is_typing():
-		_other_current_bubble.skip_typing()
+	if _current_bubble != null and _current_bubble.is_typing():
+		_current_bubble.skip_typing()
 
 
 func is_any_typing() -> bool:
-	if _player_current_bubble != null and _player_current_bubble.is_typing():
-		return true
-	if _other_current_bubble != null and _other_current_bubble.is_typing():
+	if _current_bubble != null and _current_bubble.is_typing():
 		return true
 	return false
 
 
 func clear_all() -> void:
-	## 清除所有气泡
-	_destroy_bubble(_player_current_bubble)
-	_destroy_bubble(_other_current_bubble)
-	_destroy_bubble(_player_history_bubble)
-	_destroy_bubble(_other_history_bubble)
-	_player_current_bubble = null
-	_other_current_bubble = null
-	_player_history_bubble = null
-	_other_history_bubble = null
+	_destroy_bubble(_current_bubble)
+	_destroy_bubble(_history_bubble)
+	_current_bubble = null
+	_history_bubble = null
+	_current_bubble_role = &""
+	_history_bubble_role = &""
 
 
-## ── 内部：玩家气泡推进 ──
+## ── 槽位位置读取 ──
 
-func _advance_player_bubble(payload: BubblePayload) -> void:
-	# 1. 旧历史气泡淡出销毁
-	_fadeout_and_destroy(_player_history_bubble)
-	_player_history_bubble = null
-
-	# 2. 当前气泡 → 历史
-	if _player_current_bubble != null:
-		_player_history_bubble = _player_current_bubble
-		_move_to_history(
-			_player_history_bubble,
-			player_history_slot_position,
-			&"player",
-			_player_current_full_text
-		)
-
-	# 3. 同时处理对方的历史气泡（规则C：任何时刻最多只有一个历史气泡）
-	# 如果对方有历史气泡，淡出
-	_fadeout_and_destroy(_other_history_bubble)
-	_other_history_bubble = null
-
-	# 4. 创建新的当前气泡
-	_player_current_full_text = payload.full_text
-	_player_current_bubble = _create_bubble(
-		payload,
-		player_current_slot_position,
-		&"player"
-	)
-
-	if debug_log:
-		print("%s Player bubble advanced, text: %s" % [
-			LOG_PREFIX, payload.full_text.left(30)
-		])
+func _get_current_slot_position(role: StringName) -> Vector2:
+	## D = 玩家当前，C = 对方当前
+	if role == &"player" and _slot_d != null:
+		return _slot_d.global_position
+	elif role != &"player" and _slot_c != null:
+		return _slot_c.global_position
+	# 兜底
+	return Vector2(400, 300)
 
 
-func _advance_other_bubble(payload: BubblePayload) -> void:
-	# 1. 旧历史气泡淡出销毁
-	_fadeout_and_destroy(_other_history_bubble)
-	_other_history_bubble = null
-
-	# 2. 当前气泡 → 历史
-	if _other_current_bubble != null:
-		_other_history_bubble = _other_current_bubble
-		_move_to_history(
-			_other_history_bubble,
-			other_history_slot_position,
-			&"other",
-			_other_current_full_text
-		)
-
-	# 3. 清理玩家历史
-	_fadeout_and_destroy(_player_history_bubble)
-	_player_history_bubble = null
-
-	# 4. 创建新的当前气泡
-	_other_current_full_text = payload.full_text
-	_other_current_bubble = _create_bubble(
-		payload,
-		other_current_slot_position,
-		&"other"
-	)
-
-	if debug_log:
-		print("%s Other bubble advanced, text: %s" % [
-			LOG_PREFIX, payload.full_text.left(30)
-		])
+func _get_history_slot_position(role: StringName) -> Vector2:
+	## B = 玩家历史，A = 对方历史
+	if role == &"player" and _slot_b != null:
+		return _slot_b.global_position
+	elif role != &"player" and _slot_a != null:
+		return _slot_a.global_position
+	# 兜底
+	return Vector2(400, 80)
 
 
-## ── 内部：气泡创建与动画 ──
+## ── 气泡创建与动画 ──
 
 func _create_bubble(
 	payload: BubblePayload,
@@ -180,7 +187,7 @@ func _create_bubble(
 
 	var bubble: DialogueBubble = bubble_scene.instantiate() as DialogueBubble
 	_slots_container.add_child(bubble)
-	bubble.position = slot_position
+	bubble.global_position = slot_position
 
 	# 应用样式
 	if style_controller != null:
@@ -188,15 +195,15 @@ func _create_bubble(
 		if texture != null:
 			bubble.bubble_texture = texture
 
-	# 入场动画
+	# 入场动画：淡入 + 缩放
 	bubble.modulate.a = 0.0
-	bubble.scale = Vector2(0.9, 0.9)
+	bubble.scale = Vector2(bubble_enter_scale_from, bubble_enter_scale_from)
 	var tw: Tween = bubble.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(bubble, "modulate:a", 1.0, bubble_enter_duration)
-	tw.tween_property(bubble, "scale", Vector2(1.0, 1.0), bubble_enter_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(bubble, "modulate:a", 1.0, bubble_enter_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(bubble, "scale", Vector2.ONE, bubble_enter_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
-	# 显示文本（打字机效果）
+	# 显示文本
 	bubble.show_with_typewriter(payload, typewriter_speed)
 	bubble.typing_finished.connect(_on_bubble_typing_finished, CONNECT_ONE_SHOT)
 
@@ -212,7 +219,7 @@ func _move_to_history(
 	if bubble == null:
 		return
 
-	# 断开旧的打字完成信号
+	# 断开打字完成信号
 	if bubble.typing_finished.is_connected(_on_bubble_typing_finished):
 		bubble.typing_finished.disconnect(_on_bubble_typing_finished)
 
@@ -232,18 +239,21 @@ func _move_to_history(
 	if style_controller != null:
 		style_controller.apply_history_style(bubble, role)
 
-	# 移动动画
+	# 平滑移动到历史位置
 	var tw: Tween = bubble.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(bubble, "position", history_position, bubble_to_history_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(bubble, "modulate:a", history_opacity, bubble_to_history_duration)
+	tw.tween_property(
+		bubble, "global_position", history_position, bubble_to_history_duration
+	).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(
+		bubble, "modulate:a", history_opacity, bubble_to_history_duration
+	)
 
 
 func _fadeout_and_destroy(bubble: DialogueBubble) -> void:
 	if bubble == null:
 		return
 
-	# 断开信号
 	if bubble.typing_finished.is_connected(_on_bubble_typing_finished):
 		bubble.typing_finished.disconnect(_on_bubble_typing_finished)
 
@@ -259,6 +269,5 @@ func _destroy_bubble(bubble: DialogueBubble) -> void:
 
 func _on_bubble_typing_finished() -> void:
 	bubble_typing_finished.emit()
-
 	if debug_log:
 		print("%s Typing finished" % LOG_PREFIX)

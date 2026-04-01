@@ -6,7 +6,6 @@
 [node name="DialogueBubble" type="Control"]
 custom_minimum_size = Vector2(300, 100)
 size = Vector2(500, 160)
-layout_mode = 3
 anchors_preset = 0
 script = ExtResource("1_script")
 bubble_texture = ExtResource("2_texture")
@@ -41,7 +40,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 bbcode_enabled = true
-text = "对话文本"
+text = ""
 fit_content = true
 scroll_active = false
 autowrap_mode = 2
@@ -53,3 +52,5 @@ offset_top = -25.0
 offset_right = 250.0
 offset_bottom = 0.0
 text = ""
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
