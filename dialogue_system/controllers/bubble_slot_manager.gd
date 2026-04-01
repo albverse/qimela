@@ -187,7 +187,7 @@ func _create_bubble(
 
 	var bubble: DialogueBubble = bubble_scene.instantiate() as DialogueBubble
 	_slots_container.add_child(bubble)
-	bubble.global_position = slot_position
+	bubble.global_position = _get_centered_position_for_bubble(bubble, slot_position)
 
 	# 应用样式
 	if style_controller != null:
@@ -243,7 +243,7 @@ func _move_to_history(
 	var tw: Tween = bubble.create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(
-		bubble, "global_position", history_position, bubble_to_history_duration
+		bubble, "global_position", _get_centered_position_for_bubble(bubble, history_position), bubble_to_history_duration
 	).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_property(
 		bubble, "modulate:a", history_opacity, bubble_to_history_duration
@@ -271,3 +271,15 @@ func _on_bubble_typing_finished() -> void:
 	bubble_typing_finished.emit()
 	if debug_log:
 		print("%s Typing finished" % LOG_PREFIX)
+
+
+func _get_centered_position_for_bubble(bubble: DialogueBubble, slot_position: Vector2) -> Vector2:
+	if bubble == null:
+		return slot_position
+	var size_hint: Vector2 = bubble.size
+	if size_hint == Vector2.ZERO:
+		size_hint = bubble.custom_minimum_size
+	var combined_min: Vector2 = bubble.get_combined_minimum_size()
+	size_hint.x = max(size_hint.x, combined_min.x)
+	size_hint.y = max(size_hint.y, combined_min.y)
+	return slot_position - size_hint * 0.5

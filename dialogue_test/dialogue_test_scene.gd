@@ -15,11 +15,14 @@ class_name DialogueTestScene
 const LOG_PREFIX: String = "[DialogueTestScene]"
 
 @export var dialogue_file: Resource = null
+@export var test_skeleton_data: Resource = null
 @export var start_title: String = "start"
 @export var auto_start: bool = true
 
 @onready var dialogue_runner: DialogueRunner = $DialogueRunner
 @onready var dialogue_stage: DialogueStage = $DialogueStage
+@onready var player_portrait: SpinePortraitScene = $DialogueStage/PlayerPortrait
+@onready var other_portrait: SpinePortraitScene = $DialogueStage/OtherPortrait
 @onready var info_label: Label = $UI/InfoLabel
 @onready var restart_button: Button = $UI/RestartButton
 
@@ -30,6 +33,7 @@ func _ready() -> void:
 	dialogue_runner.dialogue_started.connect(_on_dialogue_started)
 	dialogue_runner.dialogue_ended.connect(_on_dialogue_ended)
 	restart_button.pressed.connect(_on_restart_pressed)
+	_apply_test_portrait_assets()
 
 	# 加载对话资源
 	if dialogue_file != null:
@@ -41,6 +45,19 @@ func _ready() -> void:
 
 	if auto_start:
 		call_deferred("_start_test")
+
+
+func _apply_test_portrait_assets() -> void:
+	if test_skeleton_data == null:
+		return
+
+	var player_sprite: Node = player_portrait.get_spine_sprite() if player_portrait != null else null
+	var other_sprite: Node = other_portrait.get_spine_sprite() if other_portrait != null else null
+
+	if player_sprite != null and "skeleton_data_res" in player_sprite:
+		player_sprite.skeleton_data_res = test_skeleton_data
+	if other_sprite != null and "skeleton_data_res" in other_sprite:
+		other_sprite.skeleton_data_res = test_skeleton_data
 
 
 func _start_test() -> void:

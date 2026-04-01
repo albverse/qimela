@@ -81,11 +81,20 @@ func setup_controller() -> void:
 		push_warning("%s No SpineSprite found in SpineContainer" % LOG_PREFIX)
 		return
 
+	if portrait_controller != null and is_instance_valid(portrait_controller):
+		return
+
 	portrait_controller = SpinePortraitController.new()
 	portrait_controller.debug_log = debug_log
 	portrait_controller.name = "PortraitController"
 	add_child(portrait_controller)
 	portrait_controller.setup(_spine_sprite)
+
+
+func reset_controller() -> void:
+	if portrait_controller != null and is_instance_valid(portrait_controller):
+		portrait_controller.queue_free()
+	portrait_controller = null
 
 
 func play_slide_in() -> void:
