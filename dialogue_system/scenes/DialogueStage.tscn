@@ -54,3 +54,23 @@ slot_a_other_history_path = NodePath("../BubbleLayer/SlotA_OtherHistory")
 slot_b_player_history_path = NodePath("../BubbleLayer/SlotB_PlayerHistory")
 slot_c_other_current_path = NodePath("../BubbleLayer/SlotC_OtherCurrent")
 slot_d_player_current_path = NodePath("../BubbleLayer/SlotD_PlayerCurrent")
+
+[node name="ResponsesLayer" type="Control" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ResponsesContainer" type="VBoxContainer" parent="ResponsesLayer"]
+layout_mode = 0
+offset_left = 500.0
+offset_top = 420.0
+offset_right = 780.0
+offset_bottom = 680.0
+mouse_filter = 0
+alignment = 2
+theme_override_constants/separation = 8

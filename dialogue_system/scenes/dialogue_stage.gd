@@ -15,6 +15,7 @@ class_name DialogueStage
 const LOG_PREFIX: String = "[DialogueStage]"
 
 signal dialogue_line_completed()
+signal dialogue_response_selected(next_id: String)
 signal dialogue_finished()
 
 @export var debug_log: bool = false
@@ -24,6 +25,10 @@ signal dialogue_finished()
 @export var bubble_scene: PackedScene = null
 @export var player_portrait_path: NodePath = ""
 @export var other_portrait_path: NodePath = ""
+@export_node_path("Control") var bubble_layer_path: NodePath = NodePath("BubbleLayer")
+@export_node_path("Node") var bubble_slot_manager_path: NodePath = NodePath("BubbleSlotManager")
+@export_node_path("Control") var responses_layer_path: NodePath = NodePath("ResponsesLayer")
+@export_node_path("VBoxContainer") var responses_container_path: NodePath = NodePath("ResponsesLayer/ResponsesContainer")
 
 ## ── 皮肤同步开关（美术素材未就绪时关闭） ──
 @export_group("Skin Sync")
@@ -54,14 +59,23 @@ var _is_waiting_for_input: bool = false
 var _current_light_state: StringName = &"bright"
 var _player_node_ref: Node = null
 var _portraits_entered: bool = false
+var _dialogue_active: bool = false
+var _responses_layer: Control = null
+var _responses_container: VBoxContainer = null
+var _current_line: Object = null
 
 
 func _ready() -> void:
-	_bubble_layer = $BubbleLayer as Control
+	_bubble_layer = get_node_or_null(bubble_layer_path) as Control
 	_player_portrait = get_node_or_null(player_portrait_path) as SpinePortraitScene
 	_other_portrait = get_node_or_null(other_portrait_path) as SpinePortraitScene
+	_responses_layer = get_node_or_null(responses_layer_path) as Control
+	_responses_container = get_node_or_null(responses_container_path) as VBoxContainer
 
 	_init_controllers()
+	_ensure_responses_ui()
+	_hide_responses()
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	if debug_log:
 		print("%s Ready" % LOG_PREFIX)
@@ -74,7 +88,7 @@ func _init_controllers() -> void:
 	_style_controller = BubbleStyleController.new()
 	_style_controller.debug_log = debug_log
 
-	_bubble_slot_manager = $BubbleSlotManager as BubbleSlotManager
+	_bubble_slot_manager = get_node_or_null(bubble_slot_manager_path) as BubbleSlotManager
 	if _bubble_slot_manager == null:
 		_bubble_slot_manager = BubbleSlotManager.new()
 		_bubble_slot_manager.name = "BubbleSlotManager"
@@ -112,6 +126,9 @@ func configure_session(config: Dictionary) -> void:
 
 
 func present_line(line: Object) -> void:
+	_current_line = line
+	_hide_responses()
+
 	# 1. 解析元数据
 	_current_meta = _meta_resolver.resolve(line)
 
@@ -130,6 +147,8 @@ func present_line(line: Object) -> void:
 	_bubble_slot_manager.show_bubble(payload)
 
 	# 4. 驱动立绘动画
+	if light_state_sync_enabled:
+		_current_light_state = _resolve_light_state()
 	_drive_portrait(_current_meta)
 
 	# 5. 等待输入
@@ -142,6 +161,9 @@ func present_line(line: Object) -> void:
 
 
 func handle_input_advance() -> bool:
+	if _has_responses(_current_line):
+		return false
+
 	if _bubble_slot_manager.is_any_typing():
 		_bubble_slot_manager.skip_current_typing()
 		return false
@@ -157,7 +179,13 @@ func handle_input_advance() -> bool:
 
 func finish() -> void:
 	_bubble_slot_manager.clear_all()
+	_hide_responses()
+	_current_line = null
 	_is_waiting_for_input = false
+	if _player_portrait != null:
+		_player_portrait.reset_controller()
+	if _other_portrait != null:
+		_other_portrait.reset_controller()
 	_portraits_entered = false
 	dialogue_finished.emit()
 
@@ -225,8 +253,125 @@ func _stop_current_talk() -> void:
 
 
 func _on_typing_finished() -> void:
+	if _has_responses(_current_line):
+		_show_responses_for_line(_current_line)
+		_is_waiting_for_input = false
+		_stop_current_talk()
+		return
+
 	_is_waiting_for_input = true
 	_stop_current_talk()
 
 	if debug_log:
 		print("%s Typing finished, waiting for input" % LOG_PREFIX)
+
+
+func set_dialogue_active(active: bool) -> void:
+	_dialogue_active = active
+	if not active:
+		_hide_responses()
+		_is_waiting_for_input = false
+
+
+func _input(event: InputEvent) -> void:
+	if not _dialogue_active:
+		return
+	if _responses_layer != null and _responses_layer.visible and _has_responses(_current_line):
+		return
+
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			handle_input_advance()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey:
+		get_viewport().set_input_as_handled()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _dialogue_active:
+		return
+	if _responses_layer == null or not _responses_layer.visible or not _has_responses(_current_line):
+		return
+	if event is InputEventMouseButton or event is InputEventKey:
+		get_viewport().set_input_as_handled()
+
+
+func _has_responses(line: Object) -> bool:
+	if line == null or not ("responses" in line):
+		return false
+	var responses: Variant = line.responses
+	return responses is Array and responses.size() > 0
+
+
+func _resolve_light_state() -> StringName:
+	if _player_node_ref != null:
+		if _player_node_ref.has_method("get_dialogue_light_state"):
+			return StringName(str(_player_node_ref.get_dialogue_light_state()))
+		if "dialogue_light_state" in _player_node_ref:
+			return StringName(str(_player_node_ref.dialogue_light_state))
+	if session_config.has("light_state"):
+		return StringName(session_config["light_state"])
+	return _current_light_state
+
+
+func _ensure_responses_ui() -> void:
+	if _responses_layer != null and _responses_container != null:
+		return
+
+	_responses_layer = Control.new()
+	_responses_layer.name = "ResponsesLayer"
+	_responses_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_responses_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_responses_layer)
+
+	_responses_container = VBoxContainer.new()
+	_responses_container.name = "ResponsesContainer"
+	_responses_container.anchor_left = 0.5
+	_responses_container.anchor_right = 0.5
+	_responses_container.anchor_top = 1.0
+	_responses_container.anchor_bottom = 1.0
+	_responses_container.offset_left = -280.0
+	_responses_container.offset_right = 280.0
+	_responses_container.offset_top = -280.0
+	_responses_container.offset_bottom = -40.0
+	_responses_container.mouse_filter = Control.MOUSE_FILTER_STOP
+	_responses_container.alignment = BoxContainer.ALIGNMENT_END
+	_responses_container.add_theme_constant_override("separation", 8)
+	_responses_layer.add_child(_responses_container)
+
+
+func _show_responses_for_line(line: Object) -> void:
+	if _responses_layer == null or _responses_container == null or not _has_responses(line):
+		return
+
+	for child: Node in _responses_container.get_children():
+		child.queue_free()
+
+	var responses: Array = line.responses
+	for idx: int in range(responses.size()):
+		var response: Object = responses[idx]
+		var btn: Button = Button.new()
+		btn.text = str(response.text) if "text" in response else "Option %d" % (idx + 1)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn.pressed.connect(_on_response_button_pressed.bind(response))
+		_responses_container.add_child(btn)
+
+	_responses_layer.visible = true
+
+
+func _hide_responses() -> void:
+	if _responses_layer != null:
+		_responses_layer.visible = false
+	if _responses_container != null:
+		for child: Node in _responses_container.get_children():
+			child.queue_free()
+
+
+func _on_response_button_pressed(response: Object) -> void:
+	_hide_responses()
+	_is_waiting_for_input = false
+	_stop_current_talk()
+	var next_id: String = str(response.next_id) if "next_id" in response else ""
+	dialogue_response_selected.emit(next_id)

@@ -26,26 +26,8 @@ func _ready() -> void:
 	_dialogue_stage = get_node_or_null(dialogue_stage_path) as DialogueStage
 	if _dialogue_stage != null:
 		_dialogue_stage.dialogue_line_completed.connect(_on_line_completed)
+		_dialogue_stage.dialogue_response_selected.connect(_on_response_selected)
 		_dialogue_stage.dialogue_finished.connect(_on_dialogue_finished)
-	# 对话运行时需要最高优先级拦截输入
-	process_mode = Node.PROCESS_MODE_ALWAYS
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not _is_running:
-		return
-
-	# 对话期间吞掉所有按键/鼠标输入，防止玩家角色移动或攻击
-	if event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		# 只有左键点击才推进对话
-		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			_handle_advance()
-		# 吞掉所有鼠标按钮事件
-		get_viewport().set_input_as_handled()
-	elif event is InputEventKey:
-		# 对话期间吞掉所有键盘输入
-		get_viewport().set_input_as_handled()
 
 
 func start_dialogue(resource: Resource, title: String = "start", config: Dictionary = {}) -> void:
@@ -57,6 +39,7 @@ func start_dialogue(resource: Resource, title: String = "start", config: Diction
 	_is_running = true
 
 	_dialogue_stage.configure_session(config)
+	_dialogue_stage.set_dialogue_active(true)
 
 	if debug_log:
 		print("%s Starting dialogue, title: %s" % [LOG_PREFIX, title])
@@ -68,6 +51,7 @@ func start_dialogue(resource: Resource, title: String = "start", config: Diction
 func stop_dialogue() -> void:
 	_is_running = false
 	if _dialogue_stage != null:
+		_dialogue_stage.set_dialogue_active(false)
 		_dialogue_stage.finish()
 	dialogue_ended.emit()
 
@@ -77,19 +61,6 @@ func stop_dialogue() -> void:
 
 func is_running() -> bool:
 	return _is_running
-
-
-func _handle_advance() -> void:
-	if _dialogue_stage == null:
-		return
-
-	# 如果有 responses，不处理推进
-	if _current_line != null and "responses" in _current_line:
-		var responses: Variant = _current_line.responses
-		if responses is Array and responses.size() > 0:
-			return
-
-	_dialogue_stage.handle_input_advance()
 
 
 func _advance_to_next_line(title_or_id: String = "") -> void:
@@ -131,12 +102,19 @@ func _on_line_completed() -> void:
 
 func _on_dialogue_finished() -> void:
 	_is_running = false
+	if _dialogue_stage != null:
+		_dialogue_stage.set_dialogue_active(false)
 	dialogue_ended.emit()
+
+
+func _on_response_selected(next_id: String) -> void:
+	_advance_to_next_line(next_id)
 
 
 func _finish() -> void:
 	_is_running = false
 	if _dialogue_stage != null:
+		_dialogue_stage.set_dialogue_active(false)
 		_dialogue_stage.finish()
 	dialogue_ended.emit()
 

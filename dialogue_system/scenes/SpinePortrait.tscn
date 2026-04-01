@@ -13,5 +13,7 @@ slide_in_duration = 0.6
 [node name="SpineContainer" type="Node2D" parent="."]
 position = Vector2(0, 400)
 
+[node name="SpineSprite" type="SpineSprite" parent="SpineContainer"]
+
 [node name="BubbleAnchor" type="Marker2D" parent="SpineContainer"]
 position = Vector2(0, -200)

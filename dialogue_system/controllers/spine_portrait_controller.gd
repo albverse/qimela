@@ -105,6 +105,7 @@ func stop_talk() -> void:
 	if _is_talking:
 		_is_talking = false
 		_enter_stable(_pending_stable)
+		talk_finished.emit()
 
 		if debug_log:
 			print("%s Talk stopped, entering stable: %s" % [
