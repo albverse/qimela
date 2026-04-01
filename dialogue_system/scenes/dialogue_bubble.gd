@@ -69,6 +69,9 @@ var _typing_completed: bool = false
 
 
 func _ready() -> void:
+	# 气泡不拦截鼠标事件，让点击穿透到 DialogueRunner
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	_bubble_bg = $BubbleBG
 	_dialogue_label = $BubbleBG/MarginContainer/DialogueLabel as RichTextLabel
 	_name_label = get_node_or_null("NameLabel") as Label

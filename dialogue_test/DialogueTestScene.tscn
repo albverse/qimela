@@ -116,25 +116,25 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="SlotA_OtherHistory" type="Marker2D" parent="DialogueStage"]
+[node name="SlotA_OtherHistory" type="Marker2D" parent="DialogueStage/BubbleLayer"]
 position = Vector2(180, 80)
 
-[node name="SlotB_PlayerHistory" type="Marker2D" parent="DialogueStage"]
+[node name="SlotB_PlayerHistory" type="Marker2D" parent="DialogueStage/BubbleLayer"]
 position = Vector2(780, 80)
 
-[node name="SlotC_OtherCurrent" type="Marker2D" parent="DialogueStage"]
+[node name="SlotC_OtherCurrent" type="Marker2D" parent="DialogueStage/BubbleLayer"]
 position = Vector2(100, 320)
 
-[node name="SlotD_PlayerCurrent" type="Marker2D" parent="DialogueStage"]
+[node name="SlotD_PlayerCurrent" type="Marker2D" parent="DialogueStage/BubbleLayer"]
 position = Vector2(700, 320)
 
 [node name="BubbleSlotManager" type="Node" parent="DialogueStage"]
 script = ExtResource("3_slot_mgr")
 debug_log = true
-slot_a_other_history_path = NodePath("../SlotA_OtherHistory")
-slot_b_player_history_path = NodePath("../SlotB_PlayerHistory")
-slot_c_other_current_path = NodePath("../SlotC_OtherCurrent")
-slot_d_player_current_path = NodePath("../SlotD_PlayerCurrent")
+slot_a_other_history_path = NodePath("../BubbleLayer/SlotA_OtherHistory")
+slot_b_player_history_path = NodePath("../BubbleLayer/SlotB_PlayerHistory")
+slot_c_other_current_path = NodePath("../BubbleLayer/SlotC_OtherCurrent")
+slot_d_player_current_path = NodePath("../BubbleLayer/SlotD_PlayerCurrent")
 bubble_enter_duration = 0.3
 bubble_enter_scale_from = 0.85
 bubble_to_history_duration = 0.4
