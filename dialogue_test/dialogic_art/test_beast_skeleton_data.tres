@@ -1,0 +1,8 @@
+[gd_resource type="SpineSkeletonDataResource" format=3]
+
+[ext_resource type="SpineAtlasResource" uid="uid://cgt6whr4cq8ag" path="res://dialogue_test/dialogic_art/test_beast.atlas" id="1_atlas"]
+[ext_resource type="SpineSkeletonFileResource" uid="uid://c2bnd2uh3qxjp" path="res://dialogue_test/dialogic_art/test_beastnormal.skel" id="2_skel"]
+
+[resource]
+atlas_res = ExtResource("1_atlas")
+skeleton_file_res = ExtResource("2_skel")

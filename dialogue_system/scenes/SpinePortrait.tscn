@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://dialogue_system/scenes/spine_portrait.gd" id="1_script"]
+
+[node name="SpinePortrait" type="Control"]
+anchors_preset = 0
+script = ExtResource("1_script")
+
+[node name="SpineContainer" type="Node2D" parent="."]
+position = Vector2(0, 400)
+
+[node name="BubbleAnchor" type="Marker2D" parent="SpineContainer"]
+position = Vector2(0, -200)

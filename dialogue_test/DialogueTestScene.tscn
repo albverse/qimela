@@ -1,0 +1,146 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://dialogue_test/dialogue_test_scene.gd" id="1_test_script"]
+[ext_resource type="Script" path="res://dialogue_system/scenes/dialogue_stage.gd" id="2_stage_script"]
+[ext_resource type="Script" path="res://dialogue_system/controllers/bubble_slot_manager.gd" id="3_slot_mgr"]
+[ext_resource type="PackedScene" path="res://dialogue_system/scenes/DialogueBubble.tscn" id="4_bubble_scene"]
+[ext_resource type="Script" path="res://dialogue_system/scenes/dialogue_runner.gd" id="5_runner_script"]
+[ext_resource type="Script" path="res://dialogue_system/scenes/spine_portrait.gd" id="6_portrait_script"]
+[ext_resource type="SpineSkeletonDataResource" path="res://dialogue_test/dialogic_art/test_beast_skeleton_data.tres" id="7_skel_data"]
+[ext_resource type="Texture2D" path="res://dialogue_test/dialogic_art/dialogic_text_player.png" id="8_player_tex"]
+[ext_resource type="Texture2D" path="res://dialogue_test/dialogic_art/dialogic_text_character.png" id="9_other_tex"]
+
+[node name="DialogueTestScene" type="Node2D"]
+script = ExtResource("1_test_script")
+auto_start = true
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.12, 0.1, 0.15, 1)
+
+[node name="DialogueStage" type="CanvasLayer" parent="."]
+layer = 10
+script = ExtResource("2_stage_script")
+debug_log = true
+bubble_scene = ExtResource("4_bubble_scene")
+player_portrait_path = NodePath("StageRoot/PortraitLayer/PlayerPortrait")
+other_portrait_path = NodePath("StageRoot/PortraitLayer/OtherPortrait")
+
+[node name="StageRoot" type="Control" parent="DialogueStage"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PortraitLayer" type="Control" parent="DialogueStage/StageRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PlayerPortrait" type="Control" parent="DialogueStage/StageRoot/PortraitLayer"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -500.0
+offset_top = -540.0
+offset_right = -100.0
+grow_horizontal = 2
+grow_vertical = 0
+script = ExtResource("6_portrait_script")
+debug_log = true
+portrait_scale = Vector2(0.8, 0.8)
+portrait_offset = Vector2(100, 450)
+
+[node name="SpineContainer" type="Node2D" parent="DialogueStage/StageRoot/PortraitLayer/PlayerPortrait"]
+
+[node name="SpineSprite" type="SpineSprite" parent="DialogueStage/StageRoot/PortraitLayer/PlayerPortrait/SpineContainer"]
+skeleton_data_res = ExtResource("7_skel_data")
+
+[node name="BubbleAnchor" type="Marker2D" parent="DialogueStage/StageRoot/PortraitLayer/PlayerPortrait/SpineContainer"]
+position = Vector2(80, -280)
+
+[node name="OtherPortrait" type="Control" parent="DialogueStage/StageRoot/PortraitLayer"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = 100.0
+offset_top = -540.0
+offset_right = 500.0
+grow_horizontal = 2
+grow_vertical = 0
+script = ExtResource("6_portrait_script")
+debug_log = true
+portrait_scale = Vector2(-0.8, 0.8)
+portrait_offset = Vector2(300, 450)
+flip_horizontal = true
+
+[node name="SpineContainer" type="Node2D" parent="DialogueStage/StageRoot/PortraitLayer/OtherPortrait"]
+
+[node name="SpineSprite" type="SpineSprite" parent="DialogueStage/StageRoot/PortraitLayer/OtherPortrait/SpineContainer"]
+skeleton_data_res = ExtResource("7_skel_data")
+
+[node name="BubbleAnchor" type="Marker2D" parent="DialogueStage/StageRoot/PortraitLayer/OtherPortrait/SpineContainer"]
+position = Vector2(-80, -280)
+
+[node name="BubbleLayer" type="Control" parent="DialogueStage"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BubbleSlotManager" type="Node" parent="DialogueStage"]
+script = ExtResource("3_slot_mgr")
+debug_log = true
+player_current_slot_position = Vector2(40, 300)
+other_current_slot_position = Vector2(640, 300)
+player_history_slot_position = Vector2(40, 80)
+other_history_slot_position = Vector2(640, 80)
+history_opacity = 0.5
+typewriter_speed = 25.0
+
+[node name="DialogueRunner" type="Node" parent="."]
+script = ExtResource("5_runner_script")
+debug_log = true
+dialogue_stage_path = NodePath("../DialogueStage")
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="InfoLabel" type="Label" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 80.0
+text = "对话系统测试场景"
+
+[node name="RestartButton" type="Button" parent="UI"]
+offset_left = 1100.0
+offset_top = 20.0
+offset_right = 1250.0
+offset_bottom = 55.0
+text = "Restart"
+
+[node name="TitleLabel" type="Label" parent="UI"]
+offset_left = 450.0
+offset_top = 680.0
+offset_right = 850.0
+offset_bottom = 710.0
+horizontal_alignment = 1
+text = "左键/空格 推进对话"

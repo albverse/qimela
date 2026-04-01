@@ -1,0 +1,44 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://dialogue_system/scenes/dialogue_stage.gd" id="1_stage"]
+[ext_resource type="Script" path="res://dialogue_system/controllers/bubble_slot_manager.gd" id="2_slot_mgr"]
+[ext_resource type="PackedScene" path="res://dialogue_system/scenes/DialogueBubble.tscn" id="3_bubble"]
+
+[node name="DialogueStage" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_stage")
+bubble_scene = ExtResource("3_bubble")
+
+[node name="StageRoot" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PortraitLayer" type="Control" parent="StageRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BubbleLayer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BubbleSlotManager" type="Node" parent="."]
+script = ExtResource("2_slot_mgr")
+player_current_slot_position = Vector2(60, 280)
+other_current_slot_position = Vector2(660, 280)
+player_history_slot_position = Vector2(60, 80)
+other_history_slot_position = Vector2(660, 80)
