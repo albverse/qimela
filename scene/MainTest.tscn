@@ -173,7 +173,7 @@ position = Vector2(1257, 500)
 position = Vector2(1234, 383)
 
 [node name="Player" parent="World" unique_id=820198071 groups=["player"] instance=ExtResource("3_ngg7y")]
-position = Vector2(413, 445)
+position = Vector2(484, 432)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player" unique_id=132071226]
 position = Vector2(-7, -36)
@@ -223,10 +223,10 @@ position = Vector2(-51, 546)
 position = Vector2(598, 557)
 
 [node name="SoulDevourer" parent="." unique_id=612925520 instance=ExtResource("23_3ynct")]
-position = Vector2(802, 547)
+position = Vector2(641, 551)
 
 [node name="SoulDevourer2" parent="." unique_id=793952882 instance=ExtResource("23_3ynct")]
-position = Vector2(105, 531)
+position = Vector2(388, 539)
 
 [node name="WanderingGhost2" parent="." unique_id=1977947446 instance=ExtResource("21_wq1er")]
 position = Vector2(-105, 492)

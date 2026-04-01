@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://cgt6whr4cq8ag"
+path="res://.godot/imported/test_beast.atlas-aeea758767424dea45497d15effc636f.spatlas"
+
+[deps]
+
+source_file="res://dialogue_test/dialogic_art/test_beast.atlas"
+dest_files=["res://.godot/imported/test_beast.atlas-aeea758767424dea45497d15effc636f.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

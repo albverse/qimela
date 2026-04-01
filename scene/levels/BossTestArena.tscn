@@ -161,6 +161,7 @@ one_way_collision_margin = 8.0
 
 [node name="PlayerSpawn" parent="." unique_id=748622506 instance=ExtResource("1")]
 position = Vector2(-500, 220)
+debug_log = false
 debug_invincible = true
 
 [node name="Camera2D" type="Camera2D" parent="PlayerSpawn" unique_id=1869481150]
