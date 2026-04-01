@@ -1,0 +1,15 @@
+~ start
+Hero: [#role=player, emotion=idle, talk=true, after=keep] 这不是雨……
+Cultist: [#role=other, emotion=idle, talk=true, after=keep] 那是幸福之雨。
+Hero: [#role=player, emotion=angry, talk=true, after=keep] 不要骗我！我亲眼看到了那些被淹没的村庄。
+Cultist: [#role=other, emotion=angry, talk=true, after=keep] 你所看到的，只是净化的开始。那些不信者注定要被洗去。
+Hero: [#role=player, emotion=idle, talk=true, after=keep] 你们到底想要做什么？
+Cultist: [#role=other, emotion=idle, talk=true, after=keep] 我们只是在执行神的旨意。很快，这片土地上的一切都将被重生的雨水所涤荡。你也不例外。
+Hero: [#role=player, emotion=angry, talk=true, after=angry] 够了！我不会让你们得逞的。
+Cultist: [#role=other, emotion=idle, talk=false, after=keep] ……
+=> END
+
+~ long_text_test
+Hero: [#role=player, emotion=idle, talk=true, after=keep] 这是一段非常长的测试文本，用于验证当文本长度超过一百个字符时，历史气泡是否正确缩略为前二十个字加上省略号。这段话的目的就是要足够长，以触发历史文本缩略逻辑。现在我再多写一些内容来确保长度足够，让我们看看效果如何。
+Cultist: [#role=other, emotion=idle, talk=true, after=keep] 明白了。
+=> END

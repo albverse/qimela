@@ -1,0 +1,76 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://dialogue_system/scenes/dialogue_stage.gd" id="1_stage"]
+[ext_resource type="Script" path="res://dialogue_system/controllers/bubble_slot_manager.gd" id="2_slot_mgr"]
+[ext_resource type="PackedScene" path="res://dialogue_system/scenes/DialogueBubble.tscn" id="3_bubble"]
+
+[node name="DialogueStage" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_stage")
+bubble_scene = ExtResource("3_bubble")
+
+[node name="StageRoot" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PortraitLayer" type="Control" parent="StageRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BubbleLayer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="SlotA_OtherHistory" type="Marker2D" parent="BubbleLayer"]
+position = Vector2(180, 80)
+
+[node name="SlotB_PlayerHistory" type="Marker2D" parent="BubbleLayer"]
+position = Vector2(780, 80)
+
+[node name="SlotC_OtherCurrent" type="Marker2D" parent="BubbleLayer"]
+position = Vector2(100, 320)
+
+[node name="SlotD_PlayerCurrent" type="Marker2D" parent="BubbleLayer"]
+position = Vector2(700, 320)
+
+[node name="BubbleSlotManager" type="Node" parent="."]
+script = ExtResource("2_slot_mgr")
+slot_a_other_history_path = NodePath("../BubbleLayer/SlotA_OtherHistory")
+slot_b_player_history_path = NodePath("../BubbleLayer/SlotB_PlayerHistory")
+slot_c_other_current_path = NodePath("../BubbleLayer/SlotC_OtherCurrent")
+slot_d_player_current_path = NodePath("../BubbleLayer/SlotD_PlayerCurrent")
+
+[node name="ResponsesLayer" type="Control" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ResponsesContainer" type="VBoxContainer" parent="ResponsesLayer"]
+layout_mode = 0
+offset_left = 500.0
+offset_top = 420.0
+offset_right = 780.0
+offset_bottom = 680.0
+mouse_filter = 0
+alignment = 2
+theme_override_constants/separation = 8
