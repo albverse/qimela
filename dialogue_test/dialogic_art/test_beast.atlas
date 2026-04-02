@@ -1,0 +1,36 @@
+test_beast.png
+size:1826,577
+filter:Linear,Linear
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle
+bounds:1395,22,140,34
+offsets:1,1,142,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー
+bounds:1017,21,181,34
+offsets:1,1,183,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 2
+bounds:623,21,209,34
+offsets:1,1,211,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 3
+bounds:2,2,244,34
+offsets:1,1,246,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 4
+bounds:1225,22,168,34
+offsets:1,1,170,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 5
+bounds:248,2,210,34
+offsets:1,1,212,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 6
+bounds:834,21,181,34
+offsets:1,1,183,36
+idle_to_talk talk_loop idle_loop talk_to_idle idle_to_angry angry_loop angry_talk_loop angry_to_idle のコピー 7
+bounds:460,2,140,34
+offsets:1,1,142,36
+レイヤー 1
+bounds:1225,58,599,517
+offsets:21,1,621,539
+レイヤー 2
+bounds:623,57,600,518
+offsets:21,0,621,539
+用紙
+bounds:2,38,619,537
+offsets:1,1,621,539
