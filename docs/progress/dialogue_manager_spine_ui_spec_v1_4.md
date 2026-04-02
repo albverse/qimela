@@ -1302,7 +1302,7 @@ AI 不应被直接放权负责：
   - `BubbleStyleController` 采用**注册表模式**管理纹理和材质，支持通过 tag 动态切换。
   - `DialogueMetaResolver`、`SpinePortraitController`、`ExpressionTransitionResolver`、`PlayerPortraitSkinResolver` 按职责拆分。
 - 🔄 输入职责从”Runner 拦截”调整为”Stage 拦截 + Runner 仅驱动流程”。
-- 🆕 `DialogueRunner` 对话起停时通过 `EventBus.dialogue_input_lock_requested/released` 广播输入锁定状态。
+- 🆕 `DialogueRunner` 对话起停时通过 `EventBus.dialogue_input_lock_requested/released` 广播输入锁定状态。`Player._ready()` 已订阅该信号，对话期间 `_player_locked=true`，移动/跳跃/链条/背包等全部锁定。
 
 ### 17.2 UI 槽位系统（AB 历史 / CD 当前）对标
 
@@ -1325,7 +1325,8 @@ AI 不应被直接放权负责：
 - ✅ 对话期间仅鼠标左键用于推进（非 responses 场景）。
 - 🆕 `_input()` 统一拦截**所有事件类型**（`InputEventMouseButton`、`InputEventKey`、`InputEventJoypadButton`、`InputEventScreenTouch` 等），全部 `set_input_as_handled()`。不再需要 `_unhandled_input()` 兜底。
 - 🆕 **responses 显示时 _input 的处理策略**：当 responses 可见时，所有鼠标事件（包括 press 和 release）全部放行，不调用 `set_input_as_handled()`，确保 Godot GUI 系统能将点击传递给 Button 节点。仅非鼠标事件（键盘/手柄等）被吞掉。修复了此前鼠标释放事件被 `set_input_as_handled()` 拦截导致 Button.pressed 信号永远不触发的 bug。
-- 🆕 `DialogueRunner` 通过 `EventBus.emit_dialogue_input_lock_requested()` / `emit_dialogue_input_lock_released()` 广播锁定状态，player / inventory 等系统可订阅此信号主动禁用自身输入处理。
+- 🆕 `DialogueRunner` 通过 `EventBus.emit_dialogue_input_lock_requested()` / `emit_dialogue_input_lock_released()` 广播锁定状态。
+- ✅ **输入锁定链路已闭环**：`Player._ready()` 连接 `dialogue_input_lock_requested` → `_on_dialogue_lock_requested()`（设 `_player_locked=true`，清 `jump_request`）；连接 `dialogue_input_lock_released` → `_on_dialogue_lock_released()`（释放锁定，但不覆盖石化/外部控制等其他锁定源）。`_player_locked=true` 使 `is_horizontal_input_locked()` 返回 true → 移动系统归零速度与方向；`is_player_locked()` 返回 true → `_unhandled_input` 中的跳跃/背包/链条/融合等操作均被阻断。轮询式 `Input.is_action_pressed()` 也因此无效。
 - ✅ 对话激活态通过 `set_dialogue_active(true/false)` 显式门控。
 - 🆕 `_advance_to_next_line()` 增加 `_is_advancing` 防重入锁，防止 `await` 期间快速点击导致并发推进。
 
@@ -1476,19 +1477,22 @@ dialogue_system/
 ├── scenes/
 │   ├── DialogueBubble.tscn           # 气泡场景（NinePatchRect + RichTextLabel + NameLabel + AnimationPlayer）
 │   ├── DialogueStage.tscn            # 舞台场景（CanvasLayer L10 + 4 Marker2D + ResponsesLayer）
-│   ├── SpinePortrait.tscn            # 立绘场景（SpineContainer + SpineSprite + BubbleAnchor）
+│   ├── SpinePortrait.tscn            # 立绘场景（SpineContainer + SpineSprite + BubbleAnchor + AnimationPlayer）
 │   ├── dialogue_bubble.gd            # DialogueBubble — 打字机 + 抖动 + 样式
 │   ├── dialogue_runner.gd            # DialogueRunner — 流程推进 + 输入锁定广播
 │   ├── dialogue_stage.gd             # DialogueStage — 舞台调度 + 全输入拦截
 │   └── spine_portrait.gd             # SpinePortraitScene — 动效 + shader + 滑入滑出
-└── (共 15 文件)
+├── shaders/
+│   ├── portrait_blink.gdshader       # 闪烁 shader 示例（sin 波白闪）
+│   └── portrait_blink_material.tres  # 闪烁 ShaderMaterial（默认参数）
+└── (共 17 文件)
 ```
 
 ### 17.14 当前状态总览（便于项目管理）
 
 **已完成主路径：**
 - 文本推进、AB/CD 槽位、历史迁移与缩略、打字机、立绘入场、responses 选择。
-- 全输入拦截（所有事件类型）+ EventBus 输入锁定广播。
+- 全输入拦截（所有事件类型）+ EventBus 输入锁定广播 + Player 端订阅闭环（移动/跳跃/链条/背包全锁定）。
 - 气泡方向滑入 + 抖动动效 + 材质/样式注册表切换。
 - 立绘动效命令（shake / fade_in / fade_out / slide_in / slide_out）+ shader 附着。
 - 说话者名字显示。
