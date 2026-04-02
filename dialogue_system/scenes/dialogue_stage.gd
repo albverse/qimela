@@ -32,9 +32,7 @@ signal dialogue_finished()
 
 ## ── 皮肤同步开关（美术素材未就绪时关闭） ──
 @export_group("Skin Sync")
-## 是否启用玩家立绘皮肤自动同步（关闭后不会读取玩家小人皮肤）
 @export var player_skin_sync_enabled: bool = false
-## 是否启用亮暗自动同步
 @export var light_state_sync_enabled: bool = false
 
 ## 会话配置
@@ -63,6 +61,7 @@ var _dialogue_active: bool = false
 var _responses_layer: Control = null
 var _responses_container: VBoxContainer = null
 var _current_line: Object = null
+var _has_ended: bool = false
 
 
 func _ready() -> void:
@@ -103,14 +102,37 @@ func _init_controllers() -> void:
 
 func configure_session(config: Dictionary) -> void:
 	session_config = config
+	_has_ended = false
 
 	if config.has("character_role_map"):
 		_meta_resolver.character_role_map = config["character_role_map"]
 
 	if config.has("player_bubble_style"):
-		_style_controller.player_bubble_texture_path = config["player_bubble_style"]
+		_style_controller.set_default_player_texture(config["player_bubble_style"])
 	if config.has("other_bubble_style"):
-		_style_controller.other_bubble_texture_path = config["other_bubble_style"]
+		_style_controller.set_default_other_texture(config["other_bubble_style"])
+
+	# 支持通过 config 注册额外气泡纹理
+	if config.has("bubble_textures") and config["bubble_textures"] is Dictionary:
+		var textures: Dictionary = config["bubble_textures"]
+		for key: String in textures:
+			_style_controller.register_texture(key, textures[key])
+
+	# 支持通过 config 注册气泡材质
+	if config.has("bubble_materials") and config["bubble_materials"] is Dictionary:
+		var materials: Dictionary = config["bubble_materials"]
+		for key: String in materials:
+			_style_controller.register_material(key, materials[key])
+
+	# 支持通过 config 注册立绘 shader
+	if config.has("portrait_shaders") and config["portrait_shaders"] is Dictionary:
+		var shaders: Dictionary = config["portrait_shaders"]
+		if _player_portrait != null:
+			for key: String in shaders:
+				_player_portrait.register_shader(key, shaders[key])
+		if _other_portrait != null:
+			for key: String in shaders:
+				_other_portrait.register_shader(key, shaders[key])
 
 	if config.has("light_state"):
 		_current_light_state = StringName(config["light_state"])
@@ -136,14 +158,17 @@ func present_line(line: Object) -> void:
 	var payload: BubblePayload = BubblePayload.new()
 	payload.full_text = str(line.text) if "text" in line else ""
 	payload.speaker_role = _current_meta.speaker_role
+	payload.speaker_name = str(_current_meta.speaker_id)
 	payload.bubble_style_id = _current_meta.bubble_style_override
+	payload.bubble_animation = _current_meta.bubble_animation
+	payload.bubble_material_key = _current_meta.bubble_material_key
 	payload.history_preview_text = BubblePayload.build_history_preview_text(
 		payload.full_text,
 		_bubble_slot_manager.history_preview_char_count,
 		_bubble_slot_manager.history_preview_suffix
 	)
 
-	# 3. 显示气泡（CD区只保留一个，旧的自动移到AB历史区）
+	# 3. 显示气泡
 	_bubble_slot_manager.show_bubble(payload)
 
 	# 4. 驱动立绘动画
@@ -151,7 +176,10 @@ func present_line(line: Object) -> void:
 		_current_light_state = _resolve_light_state()
 	_drive_portrait(_current_meta)
 
-	# 5. 等待输入
+	# 5. 驱动立绘动效命令（shader / 抖动 / 淡入淡出等）
+	_apply_portrait_effect(_current_meta)
+
+	# 6. 等待输入
 	_is_waiting_for_input = false
 
 	if debug_log:
@@ -178,6 +206,10 @@ func handle_input_advance() -> bool:
 
 
 func finish() -> void:
+	if _has_ended:
+		return
+	_has_ended = true
+
 	_bubble_slot_manager.clear_all()
 	_hide_responses()
 	_current_line = null
@@ -191,6 +223,15 @@ func finish() -> void:
 
 	if debug_log:
 		print("%s Dialogue finished" % LOG_PREFIX)
+
+
+func set_dialogue_active(active: bool) -> void:
+	_dialogue_active = active
+	if active:
+		_has_ended = false
+	else:
+		_hide_responses()
+		_is_waiting_for_input = false
 
 
 ## ── 内部：立绘入场 ──
@@ -207,16 +248,13 @@ func _play_portraits_enter() -> void:
 		_other_portrait.setup_controller()
 		_other_portrait.play_slide_in()
 
+	_emit_sfx_portrait_changed()
+
 
 ## ── 内部：立绘驱动 ──
 
 func _drive_portrait(meta: DialogueLineMeta) -> void:
-	var portrait: SpinePortraitScene = null
-	if meta.speaker_role == &"player":
-		portrait = _player_portrait
-	else:
-		portrait = _other_portrait
-
+	var portrait: SpinePortraitScene = _get_portrait_for_role(meta.speaker_role)
 	if portrait == null or portrait.portrait_controller == null:
 		return
 
@@ -225,6 +263,8 @@ func _drive_portrait(meta: DialogueLineMeta) -> void:
 	command.use_talk = meta.use_talk
 	command.after_text = meta.after_text
 	command.light_state = _current_light_state
+	command.portrait_effect = meta.portrait_effect
+	command.portrait_shader = meta.portrait_shader
 
 	# 皮肤解析（仅在启用时生效）
 	if meta.speaker_role == &"player" and player_skin_sync_enabled and meta.skin_override == &"":
@@ -233,21 +273,36 @@ func _drive_portrait(meta: DialogueLineMeta) -> void:
 		)
 	elif meta.skin_override != &"":
 		command.resolved_skin = meta.skin_override
-	# 未启用皮肤同步时，不传 resolved_skin，立绘保持默认
 
 	portrait.portrait_controller.execute_command(command)
+
+
+func _apply_portrait_effect(meta: DialogueLineMeta) -> void:
+	## 分发立绘动效命令（shader 附着 / 抖动 / 淡入淡出等）
+	var portrait: SpinePortraitScene = _get_portrait_for_role(meta.speaker_role)
+	if portrait == null:
+		return
+
+	# Shader 附着
+	if meta.portrait_shader != &"":
+		portrait.apply_shader(meta.portrait_shader)
+
+	# 动效命令
+	if meta.portrait_effect != &"":
+		portrait.play_effect(meta.portrait_effect)
+		_emit_sfx_portrait_changed()
+
+
+func _get_portrait_for_role(role: StringName) -> SpinePortraitScene:
+	if role == &"player":
+		return _player_portrait
+	return _other_portrait
 
 
 func _stop_current_talk() -> void:
 	if _current_meta == null:
 		return
-
-	var portrait: SpinePortraitScene = null
-	if _current_meta.speaker_role == &"player":
-		portrait = _player_portrait
-	else:
-		portrait = _other_portrait
-
+	var portrait: SpinePortraitScene = _get_portrait_for_role(_current_meta.speaker_role)
 	if portrait != null and portrait.portrait_controller != null:
 		portrait.portrait_controller.stop_talk()
 
@@ -266,36 +321,27 @@ func _on_typing_finished() -> void:
 		print("%s Typing finished, waiting for input" % LOG_PREFIX)
 
 
-func set_dialogue_active(active: bool) -> void:
-	_dialogue_active = active
-	if not active:
-		_hide_responses()
-		_is_waiting_for_input = false
-
+## ── 输入处理 ──
 
 func _input(event: InputEvent) -> void:
 	if not _dialogue_active:
 		return
-	if _responses_layer != null and _responses_layer.visible and _has_responses(_current_line):
-		return
 
+	# 对话激活时：左键推进对话，其他所有输入全部吞掉
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			# responses 显示时不处理左键推进（让按钮接收点击）
+			if _responses_layer != null and _responses_layer.visible and _has_responses(_current_line):
+				return
 			handle_input_advance()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey:
+	else:
+		# 吞掉所有非鼠标左键事件：键盘、手柄、触摸等
 		get_viewport().set_input_as_handled()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not _dialogue_active:
-		return
-	if _responses_layer == null or not _responses_layer.visible or not _has_responses(_current_line):
-		return
-	if event is InputEventMouseButton or event is InputEventKey:
-		get_viewport().set_input_as_handled()
-
+## ── Responses 系统 ──
 
 func _has_responses(line: Object) -> bool:
 	if line == null or not ("responses" in line):
@@ -375,3 +421,20 @@ func _on_response_button_pressed(response: Object) -> void:
 	_stop_current_talk()
 	var next_id: String = str(response.next_id) if "next_id" in response else ""
 	dialogue_response_selected.emit(next_id)
+
+
+## ── SFX 钩子 ──
+
+func _emit_sfx_portrait_changed() -> void:
+	var bus: Node = _get_event_bus()
+	if bus != null and bus.has_method("emit_dialogue_sfx_portrait_changed"):
+		bus.emit_dialogue_sfx_portrait_changed()
+
+
+func _get_event_bus() -> Node:
+	if Engine.has_singleton("EventBus"):
+		return Engine.get_singleton("EventBus") as Node
+	var root: Node = get_tree().root if get_tree() != null else null
+	if root != null:
+		return root.get_node_or_null("EventBus")
+	return null

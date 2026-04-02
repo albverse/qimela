@@ -56,10 +56,25 @@ func resolve(line: Object) -> DialogueLineMeta:
 	if tag_map.has("bubble_style"):
 		meta.bubble_style_override = StringName(tag_map["bubble_style"])
 
+	# ── 立绘动效 ──
+	if tag_map.has("portrait_effect"):
+		meta.portrait_effect = StringName(tag_map["portrait_effect"])
+
+	if tag_map.has("portrait_shader"):
+		meta.portrait_shader = StringName(tag_map["portrait_shader"])
+
+	# ── 气泡动效 ──
+	if tag_map.has("bubble_anim"):
+		meta.bubble_animation = StringName(tag_map["bubble_anim"])
+
+	if tag_map.has("bubble_material"):
+		meta.bubble_material_key = StringName(tag_map["bubble_material"])
+
 	if debug_log:
-		print("%s Resolved: role=%s, emotion=%s, talk=%s, after=%s, speaker=%s" % [
+		print("%s Resolved: role=%s, emotion=%s, talk=%s, after=%s, speaker=%s, p_effect=%s, b_anim=%s, b_mat=%s" % [
 			LOG_PREFIX, meta.speaker_role, meta.emotion,
-			str(meta.use_talk), meta.after_text, meta.speaker_id
+			str(meta.use_talk), meta.after_text, meta.speaker_id,
+			meta.portrait_effect, meta.bubble_animation, meta.bubble_material_key
 		])
 
 	return meta

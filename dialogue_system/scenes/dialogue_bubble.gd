@@ -6,17 +6,14 @@ class_name DialogueBubble
 ##
 ## 【美术使用说明】
 ## 本场景作为独立 .tscn，美术可自由修改：
-## 1. BubbleBG：气泡背景节点，类型为 TextureRect
+## 1. BubbleBG：气泡背景节点，类型为 NinePatchRect
 ##    - 支持赋予 ShaderMaterial 制作动态效果
 ##    - 支持替换 texture 改变气泡样式
 ##    - 支持通过 AnimationPlayer 制作帧动画气泡
-##    - 九宫格通过 texture 本身的 AtlasTexture 或 NinePatchRect sub-node 实现
 ## 2. MarginContainer：控制文字与气泡边缘的间距
 ## 3. DialogueLabel：RichTextLabel，支持 BBCode 富文本
 ## 4. NameLabel：角色名标签
 ## 5. AnimationPlayer：可添加气泡动效（入场、循环呼吸等）
-##
-## 气泡样式可在运行时通过 DialogueManager tags 命令切换 texture/material
 
 const LOG_PREFIX: String = "[DialogueBubble]"
 
@@ -46,30 +43,28 @@ signal typing_finished()
 		if is_node_ready():
 			_update_text_margins()
 
-## 气泡最小尺寸
-@export var min_bubble_size: Vector2 = Vector2(200, 80)
-## 气泡最大宽度
-@export var max_bubble_width: float = 500.0
-
-## ── 九宫格参数（NinePatchRect 模式下使用） ──
-@export_group("Nine Patch")
-@export var patch_margin_left: int = 60
-@export var patch_margin_top: int = 40
-@export var patch_margin_right: int = 60
-@export var patch_margin_bottom: int = 60
+## ── 抖动动效参数 ──
+@export_group("Shake Effect")
+## 抖动强度（像素）
+@export var shake_intensity: float = 6.0
+## 抖动持续时间
+@export var shake_duration: float = 0.4
+## 抖动频率（次/秒）
+@export var shake_frequency: float = 30.0
 
 ## 内部节点引用
-var _bubble_bg: Node = null  ## TextureRect 或 NinePatchRect
+var _bubble_bg: Node = null  ## NinePatchRect
 var _dialogue_label: RichTextLabel = null
 var _name_label: Label = null
 var _anim_player: AnimationPlayer = null
 var _payload: BubblePayload = null
 var _typing_tween: Tween = null
 var _typing_completed: bool = false
+var _shake_tween: Tween = null
+var _original_position: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
-	# 气泡不拦截鼠标事件，让点击穿透到 DialogueRunner
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	_bubble_bg = $BubbleBG
@@ -80,6 +75,7 @@ func _ready() -> void:
 	_update_bubble_texture()
 	_update_bubble_material()
 	_update_text_margins()
+	_original_position = position
 
 
 func set_payload(payload: BubblePayload) -> void:
@@ -148,14 +144,40 @@ func convert_to_history(preview_text: String) -> void:
 		_payload.is_history = true
 
 
+## ── 动效 API ──
+
+func play_shake() -> void:
+	## 播放抖动动效（表现角色惊讶/震惊）
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+
+	_original_position = position
+	var elapsed: float = 0.0
+	var step: float = 1.0 / shake_frequency
+	var steps: int = int(shake_duration * shake_frequency)
+
+	_shake_tween = create_tween()
+	for i: int in range(steps):
+		var decay: float = 1.0 - (float(i) / float(steps))
+		var offset_x: float = randf_range(-shake_intensity, shake_intensity) * decay
+		var offset_y: float = randf_range(-shake_intensity, shake_intensity) * decay
+		_shake_tween.tween_property(
+			self, "position",
+			_original_position + Vector2(offset_x, offset_y),
+			step
+		)
+		elapsed += step
+	_shake_tween.tween_property(self, "position", _original_position, step)
+
+
 func play_custom_animation(anim_name: String) -> void:
-	## 播放自定义动画（美术在 AnimationPlayer 中制作）
+	## 播放 AnimationPlayer 中预制的自定义动画
 	if _anim_player != null and _anim_player.has_animation(anim_name):
 		_anim_player.play(anim_name)
 
 
 func set_bubble_texture_runtime(texture: Texture2D) -> void:
-	## 运行时动态替换气泡纹理（可通过 dialogue mutation 调用）
+	## 运行时动态替换气泡纹理
 	bubble_texture = texture
 
 
@@ -163,6 +185,8 @@ func set_bubble_material_runtime(mat: Material) -> void:
 	## 运行时动态替换气泡材质/shader
 	bubble_material = mat
 
+
+## ── 内部 ──
 
 func _on_typing_complete() -> void:
 	if _typing_completed:

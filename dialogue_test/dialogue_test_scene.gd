@@ -2,12 +2,10 @@ extends Node2D
 class_name DialogueTestScene
 
 ## 对话系统测试场景
-## 用于验证完整对话 UI 流程：气泡推进、立绘动画、历史缩略
+## 用于验证完整对话 UI 流程：气泡推进、立绘动画、历史缩略、动效命令
 ##
 ## 【美术使用说明】
 ## 1. 拖动 SlotA / SlotB / SlotC / SlotD (Marker2D) 调整气泡位置
-##    A = 对方历史气泡位置，B = 玩家历史气泡位置
-##    C = 对方当前气泡位置，D = 玩家当前气泡位置
 ## 2. 拖动 PlayerPortrait / OtherPortrait 调整立绘位置
 ## 3. 修改 DialogueBubble.tscn 改变气泡样式
 ## 4. 左键点击推进对话
@@ -72,6 +70,10 @@ func _start_test() -> void:
 			"Nathan": "other",
 		},
 		"light_state": "bright",
+		# 可在此注册额外气泡纹理与材质：
+		# "bubble_textures": { "explosion": "res://path/to/explosion.png" },
+		# "bubble_materials": { "explosion": preload("res://path/to/explosion_mat.tres") },
+		# "portrait_shaders": { "dark_aura": preload("res://path/to/dark_aura.tres") },
 	}
 
 	dialogue_runner.start_dialogue(_dialogue_resource, start_title, config)
