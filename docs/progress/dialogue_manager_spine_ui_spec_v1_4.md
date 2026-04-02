@@ -1324,6 +1324,7 @@ AI 不应被直接放权负责：
 
 - ✅ 对话期间仅鼠标左键用于推进（非 responses 场景）。
 - 🆕 `_input()` 统一拦截**所有事件类型**（`InputEventMouseButton`、`InputEventKey`、`InputEventJoypadButton`、`InputEventScreenTouch` 等），全部 `set_input_as_handled()`。不再需要 `_unhandled_input()` 兜底。
+- 🆕 **responses 显示时 _input 的处理策略**：当 responses 可见时，所有鼠标事件（包括 press 和 release）全部放行，不调用 `set_input_as_handled()`，确保 Godot GUI 系统能将点击传递给 Button 节点。仅非鼠标事件（键盘/手柄等）被吞掉。修复了此前鼠标释放事件被 `set_input_as_handled()` 拦截导致 Button.pressed 信号永远不触发的 bug。
 - 🆕 `DialogueRunner` 通过 `EventBus.emit_dialogue_input_lock_requested()` / `emit_dialogue_input_lock_released()` 广播锁定状态，player / inventory 等系统可订阅此信号主动禁用自身输入处理。
 - ✅ 对话激活态通过 `set_dialogue_active(true/false)` 显式门控。
 - 🆕 `_advance_to_next_line()` 增加 `_is_advancing` 防重入锁，防止 `await` 期间快速点击导致并发推进。
@@ -1339,12 +1340,16 @@ AI 不应被直接放权负责：
   - `slide_in`：滑入（使用入场滑入动画参数）
   - `slide_out`：滑出（使用退场滑出动画参数）
   - `shake`：抖动（强度/持续时间/频率均 `@export` 可调）
-  - 统一入口 `SpinePortraitScene.play_effect(effect_name)`，按名称分发。
+  - **自定义动画名**：未匹配内置动效时自动尝试 AnimationPlayer 中的同名动画。美术人员只需在 SpinePortrait 的 AnimationPlayer 中创建动画，即可通过 `[#portrait_effect=动画名]` 直接在对话中调用。
+  - 统一入口 `SpinePortraitScene.play_effect(effect_name)`，按名称分发，兜底到 `play_custom_animation()`。
+- 🆕 `SpinePortrait.tscn` 已包含 `AnimationPlayer` 节点，美术可直接在编辑器中添加自定义动画。
 - 🆕 **立绘 Shader 附着系统**：
-  - 在 session config 中注册 ShaderMaterial：`”portrait_shaders”: { “dark_aura”: shader_mat }`
-  - 通过 `[#portrait_shader=dark_aura]` tag 触发附着
-  - `SpinePortraitScene.apply_shader(shader_id)` / `clear_shader()` 负责实际操作
-  - shader 作用于 SpineSprite 的 `material` 属性
+  - Shader 文件存放于 `dialogue_system/shaders/` 目录。
+  - 在 session config 中注册 ShaderMaterial：`”portrait_shaders”: { “blink”: shader_mat }`
+  - 通过 `[#portrait_shader=blink]` tag 触发附着。
+  - `SpinePortraitScene.apply_shader(shader_id)` / `clear_shader()` 负责实际操作。
+  - shader 作用于 SpineSprite 的 `material` 属性。
+  - 已提供示例：`dialogue_system/shaders/portrait_blink.gdshader`（闪烁效果）+ `portrait_blink_material.tres`。
 
 ### 17.6 皮肤同步策略对标
 

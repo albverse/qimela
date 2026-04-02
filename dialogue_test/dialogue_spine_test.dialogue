@@ -1,21 +1,73 @@
 ~ start
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 欢迎来到对话系统测试。请选择要测试的功能：
+- 基础对话与表情切换 => basic_dialogue
+- 长文本历史缩略测试 => long_text_test
+- 立绘动效与 Shader 测试 => effect_test
+- 气泡动效与材质测试 => bubble_effect_test
+- 连续同角色发言测试 => consecutive_test
+- 强制推进与 Talk 测试 => talk_test
+- 结束 => END
+
+~ basic_dialogue
 Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 这不是雨……
 Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 那是幸福之雨。
 Hero: [#role=player] [#emotion=angry] [#talk=true] [#after=keep] 不要骗我！我亲眼看到了那些被淹没的村庄。
 Cultist: [#role=other] [#emotion=angry] [#talk=true] [#after=keep] 你所看到的，只是净化的开始。那些不信者注定要被洗去。
 Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 你们到底想要做什么？
-Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 我们只是在执行神的旨意。很快，这片土地上的一切都将被重生的雨水所涤荡。你也不例外。
-Hero: [#role=player] [#emotion=angry] [#talk=true] [#after=angry] [#bubble_anim=shake] 够了！我不会让你们得逞的。
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 我们只是在执行神的旨意。
+Hero: [#role=player] [#emotion=angry] [#talk=true] [#after=angry] 够了！
 Cultist: [#role=other] [#emotion=idle] [#talk=false] [#after=keep] ……
-=> END
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 基础对话测试结束。选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END
 
 ~ long_text_test
 Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 这是一段非常长的测试文本，用于验证当文本长度超过一百个字符时，历史气泡是否正确缩略为前二十个字加上省略号。这段话的目的就是要足够长，以触发历史文本缩略逻辑。现在我再多写一些内容来确保长度足够，让我们看看效果如何。
-Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 明白了。
-=> END
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 收到。上面那段长文本应该已经变成历史气泡了，只显示前二十个字。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 现在验证第二轮：这段也是超长文本，再次触发缩略，检验多轮长文本推进是否稳定。这段文字同样需要超过一百个字符的长度限制才会生效。为了达到这个目的，我需要继续写更多的内容直到字数满足要求。
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 长文本缩略测试结束。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END
 
 ~ effect_test
-Hero: [#role=player] [#emotion=idle] [#talk=true] [#portrait_effect=shake] 什么……！？
-Cultist: [#role=other] [#emotion=angry] [#talk=true] [#bubble_material=explosion] [#bubble_anim=shake] 你已经没有退路了！
-Hero: [#role=player] [#emotion=idle] [#talk=false] [#portrait_effect=fade_out] ……
-=> END
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 接下来测试立绘动效命令。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#portrait_effect=shake] 什么……！？（立绘抖动）
+Cultist: [#role=other] [#emotion=angry] [#talk=true] [#portrait_effect=shake] 你太天真了！（对方立绘抖动）
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#portrait_shader=blink] 这是什么力量……（立绘闪烁 Shader）
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#portrait_effect=fade_out] 我的身影正在消失……（立绘淡出）
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#portrait_effect=fade_in] 我回来了。（立绘淡入）
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 立绘动效测试结束。选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END
+
+~ bubble_effect_test
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 接下来测试气泡动效。
+Hero: [#role=player] [#emotion=angry] [#talk=true] [#bubble_anim=shake] 够了！（气泡抖动效果）
+Cultist: [#role=other] [#emotion=angry] [#talk=true] [#bubble_anim=shake] [#bubble_material=explosion] 你完了！（气泡抖动 + 爆炸材质）
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#bubble_material=thinking] 让我想想……（思考材质气泡）
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 这是普通气泡，没有特殊效果。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 气泡动效测试结束。选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END
+
+~ consecutive_test
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 第一句：同一角色连续发言测试开始。
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 第二句：上一句应该移到历史槽 A，此句在当前槽 C。
+Cultist: [#role=other] [#emotion=angry] [#talk=true] [#after=keep] 第三句：第一句应该淡出，第二句在历史槽，此句在当前槽。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 现在切换到玩家。对方最后一句应移到历史槽 A。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 玩家连续第二句。上一句移到历史槽 B。
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 再切换回对方。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] 连续发言测试结束。选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END
+
+~ talk_test
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] Talk 动画测试：本句 talk=true，打字期间应播放 idle_talk_loop。
+Hero: [#role=player] [#emotion=angry] [#talk=true] [#after=keep] 表情切换：从 idle 切到 angry，应播放 idle_to_angry 过渡后进入 angry_talk_loop。
+Hero: [#role=player] [#emotion=angry] [#talk=true] [#after=keep] 同表情连续 talk：仍是 angry，talk 应从头重播，不延续上句。
+Hero: [#role=player] [#emotion=idle] [#talk=false] [#after=keep] talk=false 测试：本句不说话，应直接从 angry_to_idle 过渡到 idle_loop。
+Cultist: [#role=other] [#emotion=idle] [#talk=true] [#after=keep] 对方角色 talk 测试：打字完成后应从 idle_talk_loop 回到 idle_loop。
+Hero: [#role=player] [#emotion=idle] [#talk=true] [#after=keep] Talk 测试结束。选择下一个测试：
+- 返回主菜单 => start
+- 结束 => END

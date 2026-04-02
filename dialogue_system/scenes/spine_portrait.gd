@@ -71,6 +71,7 @@ var _shader_registry: Dictionary = {}
 var _spine_container: Node2D = null
 var _spine_sprite: Node = null
 var _bubble_anchor: Marker2D = null
+var _anim_player: AnimationPlayer = null
 var _slide_tween: Tween = null
 var _effect_tween: Tween = null
 var _original_position: Vector2 = Vector2.ZERO
@@ -80,6 +81,7 @@ var _current_shader_id: StringName = &""
 func _ready() -> void:
 	_spine_container = $SpineContainer as Node2D
 	_bubble_anchor = $SpineContainer/BubbleAnchor as Marker2D
+	_anim_player = get_node_or_null("AnimationPlayer") as AnimationPlayer
 
 	# 查找 SpineSprite 子节点
 	if _spine_container != null:
@@ -207,6 +209,7 @@ func play_slide_out(on_complete: Callable = Callable()) -> void:
 
 func play_effect(effect_name: StringName) -> void:
 	## 统一动效入口，按 effect_name 分发
+	## 内置动效优先匹配；未匹配时尝试播放 AnimationPlayer 中的同名动画
 	match str(effect_name):
 		"fade_in":
 			play_fade_in()
@@ -219,8 +222,10 @@ func play_effect(effect_name: StringName) -> void:
 		"shake":
 			play_shake()
 		_:
-			if debug_log:
-				print("%s Unknown effect: %s" % [LOG_PREFIX, effect_name])
+			# 尝试 AnimationPlayer 中的自定义动画（美术仅需在编辑器中创建即可调用）
+			if not play_custom_animation(str(effect_name)):
+				if debug_log:
+					print("%s Unknown effect and no AnimationPlayer anim: %s" % [LOG_PREFIX, effect_name])
 
 
 func play_fade_in() -> void:
@@ -256,6 +261,18 @@ func play_shake() -> void:
 			step
 		)
 	_effect_tween.tween_property(self, "position", base_pos, step)
+
+
+func play_custom_animation(anim_name: String) -> bool:
+	## 播放 AnimationPlayer 中预制的自定义动画
+	## 美术人员只需在 AnimationPlayer 中创建动画，即可通过 [#portrait_effect=动画名] 调用
+	## 返回 true 表示找到并播放了动画
+	if _anim_player != null and _anim_player.has_animation(anim_name):
+		_anim_player.play(anim_name)
+		if debug_log:
+			print("%s Playing custom animation: %s" % [LOG_PREFIX, anim_name])
+		return true
+	return false
 
 
 ## ── 查询 ──

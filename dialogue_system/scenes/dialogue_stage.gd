@@ -327,17 +327,21 @@ func _input(event: InputEvent) -> void:
 	if not _dialogue_active:
 		return
 
-	# 对话激活时：左键推进对话，其他所有输入全部吞掉
+	# responses 显示时：放行所有鼠标事件（让 Button 接收 press + release）
+	if _responses_layer != null and _responses_layer.visible and _has_responses(_current_line):
+		if event is InputEventMouseButton:
+			return  # 鼠标事件全部放行给 Button
+		# 非鼠标事件仍然吞掉（防止键盘/手柄触发游戏操作）
+		get_viewport().set_input_as_handled()
+		return
+
+	# 非 responses 场景：左键推进对话，其他所有输入全部吞掉
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			# responses 显示时不处理左键推进（让按钮接收点击）
-			if _responses_layer != null and _responses_layer.visible and _has_responses(_current_line):
-				return
 			handle_input_advance()
 		get_viewport().set_input_as_handled()
 	else:
-		# 吞掉所有非鼠标左键事件：键盘、手柄、触摸等
 		get_viewport().set_input_as_handled()
 
 
