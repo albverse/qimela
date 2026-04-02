@@ -186,6 +186,13 @@ func _ready() -> void:
 	if health.has_signal("damage_applied"):
 		health.damage_applied.connect(_on_health_damage_applied)
 
+	# 信号连接: 对话系统输入锁定 → 玩家移动锁定
+	if EventBus != null:
+		if EventBus.has_signal("dialogue_input_lock_requested"):
+			EventBus.dialogue_input_lock_requested.connect(_on_dialogue_lock_requested)
+		if EventBus.has_signal("dialogue_input_lock_released"):
+			EventBus.dialogue_input_lock_released.connect(_on_dialogue_lock_released)
+
 	# 调试：自动加载测试背包道具（发布前删除）
 	if debug_log and inventory != null:
 		call_deferred("_debug_load_test_items")
@@ -574,6 +581,17 @@ func is_player_locked() -> bool:
 
 func set_player_locked(locked: bool) -> void:
 	_player_locked = locked
+
+
+func _on_dialogue_lock_requested() -> void:
+	_player_locked = true
+	jump_request = false
+
+
+func _on_dialogue_lock_released() -> void:
+	# 仅对话锁定时才释放；石化等其他锁定不受影响
+	if not _petrified and not _external_control_frozen:
+		_player_locked = false
 
 
 func set_external_control_frozen(frozen: bool) -> void:

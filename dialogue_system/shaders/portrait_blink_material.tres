@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://dialogue_system/shaders/portrait_blink.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/blink_speed = 6.0
+shader_parameter/blink_intensity = 0.4
+shader_parameter/blink_color = Color(1, 1, 1, 1)

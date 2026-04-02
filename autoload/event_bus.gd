@@ -132,3 +132,40 @@ func emit_inventory_sfx_bag_full() -> void:
 
 func emit_inventory_sfx_navigate() -> void:
 	inventory_sfx_navigate.emit()
+
+
+# ── 对话系统输入锁定事件 ──
+## 对话开始时请求锁定所有游戏输入（移动、背包、交互等）
+@warning_ignore("unused_signal")
+signal dialogue_input_lock_requested()
+## 对话结束时释放输入锁定
+@warning_ignore("unused_signal")
+signal dialogue_input_lock_released()
+
+## 对话音效事件（预留接口，音频制作完毕后连接）
+@warning_ignore("unused_signal")
+signal dialogue_sfx_typewriter_tick()
+@warning_ignore("unused_signal")
+signal dialogue_sfx_bubble_appeared()
+@warning_ignore("unused_signal")
+signal dialogue_sfx_bubble_to_history()
+@warning_ignore("unused_signal")
+signal dialogue_sfx_portrait_changed()
+
+func emit_dialogue_input_lock_requested() -> void:
+	dialogue_input_lock_requested.emit()
+
+func emit_dialogue_input_lock_released() -> void:
+	dialogue_input_lock_released.emit()
+
+func emit_dialogue_sfx_typewriter_tick() -> void:
+	dialogue_sfx_typewriter_tick.emit()
+
+func emit_dialogue_sfx_bubble_appeared() -> void:
+	dialogue_sfx_bubble_appeared.emit()
+
+func emit_dialogue_sfx_bubble_to_history() -> void:
+	dialogue_sfx_bubble_to_history.emit()
+
+func emit_dialogue_sfx_portrait_changed() -> void:
+	dialogue_sfx_portrait_changed.emit()

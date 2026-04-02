@@ -17,3 +17,5 @@ position = Vector2(0, 400)
 
 [node name="BubbleAnchor" type="Marker2D" parent="SpineContainer"]
 position = Vector2(0, -200)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]

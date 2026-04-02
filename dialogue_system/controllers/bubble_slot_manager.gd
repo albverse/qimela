@@ -8,6 +8,7 @@ class_name BubbleSlotManager
 ## 使用方式：在场景中放置 4 个 Marker2D 作为槽位锚点，
 ## 美术只需拖动 Marker2D 即可改变气泡出现/移动的位置。
 ## 当前区（C/D）同一时刻只保留一个气泡。
+## 支持视口百分比定位（自动适配分辨率）或 Marker2D 定位两种模式。
 
 const LOG_PREFIX: String = "[BubbleSlot]"
 
@@ -15,16 +16,22 @@ signal bubble_typing_finished()
 
 @export var debug_log: bool = false
 
-## ── 槽位锚点（美术在编辑器中拖动 Marker2D 即可调整位置） ──
+## ── 槽位锚点（Marker2D 模式，美术拖动即可调整） ──
 @export_group("Slot Anchors")
-## A点：对方历史气泡位置（屏幕上方左侧）
 @export_node_path("Marker2D") var slot_a_other_history_path: NodePath = NodePath("")
-## B点：玩家历史气泡位置（屏幕上方右侧）
 @export_node_path("Marker2D") var slot_b_player_history_path: NodePath = NodePath("")
-## C点：对方当前气泡位置（屏幕下方左侧）
 @export_node_path("Marker2D") var slot_c_other_current_path: NodePath = NodePath("")
-## D点：玩家当前气泡位置（屏幕下方右侧）
 @export_node_path("Marker2D") var slot_d_player_current_path: NodePath = NodePath("")
+
+## ── 视口百分比定位（自动适配分辨率，优先级高于 Marker2D） ──
+@export_group("Viewport-Relative Slots")
+## 启用基于视口百分比的槽位定位
+@export var viewport_relative_enabled: bool = false
+## 各槽位百分比坐标（x=水平百分比, y=垂直百分比, 0.0~1.0）
+@export var slot_a_percent: Vector2 = Vector2(0.14, 0.11)
+@export var slot_b_percent: Vector2 = Vector2(0.61, 0.11)
+@export var slot_c_percent: Vector2 = Vector2(0.08, 0.44)
+@export var slot_d_percent: Vector2 = Vector2(0.55, 0.44)
 
 ## 运行时解析后的锚点引用
 var _slot_a: Marker2D = null
@@ -36,14 +43,19 @@ var _slot_d: Marker2D = null
 @export_group("Animation")
 ## 气泡入场持续时间
 @export var bubble_enter_duration: float = 0.3
-## 气泡入场缩放起始值
-@export var bubble_enter_scale_from: float = 0.85
 ## 当前气泡移动到历史区的持续时间
 @export var bubble_to_history_duration: float = 0.4
 ## 历史气泡淡出持续时间
 @export var history_fadeout_duration: float = 0.3
 ## 历史气泡透明度（0~1）
 @export_range(0.0, 1.0) var history_opacity: float = 0.5
+
+## ── 气泡入场滑入参数 ──
+@export_group("Bubble Slide-In")
+## 气泡入场滑入偏移距离（像素）
+@export var bubble_slide_in_offset: float = 50.0
+## 气泡入场滑入角度（度数，0=纯水平，正值=向下倾斜）
+@export var bubble_slide_in_angle: float = 15.0
 
 ## ── 历史文本缩略参数 ──
 @export_group("History Text")
@@ -94,10 +106,11 @@ func setup(container: Control, scene: PackedScene, style_ctrl: BubbleStyleContro
 		_slot_d = get_node_or_null(slot_d_player_current_path) as Marker2D
 
 	if debug_log:
-		print("%s Setup: A=%s B=%s C=%s D=%s" % [
+		print("%s Setup: A=%s B=%s C=%s D=%s, viewport_relative=%s" % [
 			LOG_PREFIX,
 			str(_slot_a != null), str(_slot_b != null),
 			str(_slot_c != null), str(_slot_d != null),
+			str(viewport_relative_enabled),
 		])
 
 
@@ -111,18 +124,20 @@ func show_bubble(payload: BubblePayload) -> void:
 	_history_bubble = null
 	_history_bubble_role = &""
 
-	# 2. 当前气泡 → 历史区（根据旧气泡的 role 决定去 A 还是 B）
+	# 2. 当前气泡 → 历史区
 	if _current_bubble != null:
 		_history_bubble = _current_bubble
 		_history_bubble_role = _current_bubble_role
 		var history_pos: Vector2 = _get_history_slot_position(_current_bubble_role)
 		_move_to_history(_history_bubble, history_pos, _current_bubble_role, _current_full_text)
+		_emit_sfx_bubble_to_history()
 
-	# 3. 创建新的当前气泡（根据新 role 决定出现在 C 还是 D）
+	# 3. 创建新的当前气泡
 	_current_full_text = payload.full_text
 	_current_bubble_role = new_role
 	var current_pos: Vector2 = _get_current_slot_position(new_role)
 	_current_bubble = _create_bubble(payload, current_pos, new_role)
+	_emit_sfx_bubble_appeared()
 
 	if debug_log:
 		print("%s Bubble [%s] at slot %s, text: %s" % [
@@ -156,22 +171,39 @@ func clear_all() -> void:
 
 func _get_current_slot_position(role: StringName) -> Vector2:
 	## D = 玩家当前，C = 对方当前
+	if viewport_relative_enabled:
+		var vp_size: Vector2 = _get_viewport_size()
+		if role == &"player":
+			return slot_d_percent * vp_size
+		return slot_c_percent * vp_size
+
 	if role == &"player" and _slot_d != null:
 		return _slot_d.global_position
 	elif role != &"player" and _slot_c != null:
 		return _slot_c.global_position
-	# 兜底
 	return Vector2(400, 300)
 
 
 func _get_history_slot_position(role: StringName) -> Vector2:
 	## B = 玩家历史，A = 对方历史
+	if viewport_relative_enabled:
+		var vp_size: Vector2 = _get_viewport_size()
+		if role == &"player":
+			return slot_b_percent * vp_size
+		return slot_a_percent * vp_size
+
 	if role == &"player" and _slot_b != null:
 		return _slot_b.global_position
 	elif role != &"player" and _slot_a != null:
 		return _slot_a.global_position
-	# 兜底
 	return Vector2(400, 80)
+
+
+func _get_viewport_size() -> Vector2:
+	var vp: Viewport = get_viewport()
+	if vp != null:
+		return Vector2(vp.get_visible_rect().size)
+	return Vector2(1280, 720)
 
 
 ## ── 气泡创建与动画 ──
@@ -187,25 +219,47 @@ func _create_bubble(
 
 	var bubble: DialogueBubble = bubble_scene.instantiate() as DialogueBubble
 	_slots_container.add_child(bubble)
-	bubble.global_position = _get_centered_position_for_bubble(bubble, slot_position)
 
-	# 应用样式
+	# 设置说话者名字
+	bubble.set_speaker_name(payload.speaker_name)
+
+	# 应用样式（纹理 + 材质）
 	if style_controller != null:
-		var texture: Texture2D = style_controller.get_bubble_texture(role, payload.bubble_style_id)
-		if texture != null:
-			bubble.bubble_texture = texture
+		style_controller.apply_style_to_bubble(
+			bubble, role, payload.bubble_style_id, payload.bubble_material_key
+		)
 
-	# 入场动画：淡入 + 缩放
+	# 计算居中目标位置（使用 custom_minimum_size 做初始估算）
+	var half_size: Vector2 = bubble.custom_minimum_size * 0.5
+	var target_pos: Vector2 = slot_position - half_size
+
+	# 入场动画：从说话者方向斜向滑入 + 淡入
+	var slide_dir: float = -1.0 if role == &"player" else 1.0
+	var angle_rad: float = deg_to_rad(bubble_slide_in_angle)
+	var slide_offset: Vector2 = Vector2(
+		bubble_slide_in_offset * slide_dir,
+		-bubble_slide_in_offset * sin(angle_rad)
+	)
+
 	bubble.modulate.a = 0.0
-	bubble.scale = Vector2(bubble_enter_scale_from, bubble_enter_scale_from)
+	bubble.global_position = target_pos + slide_offset
+
 	var tw: Tween = bubble.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(bubble, "modulate:a", 1.0, bubble_enter_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(bubble, "scale", Vector2.ONE, bubble_enter_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(
+		bubble, "global_position", target_pos, bubble_enter_duration
+	).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(
+		bubble, "modulate:a", 1.0, bubble_enter_duration
+	).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
-	# 显示文本
+	# 显示文本（打字机效果）
 	bubble.show_with_typewriter(payload, typewriter_speed)
 	bubble.typing_finished.connect(_on_bubble_typing_finished, CONNECT_ONE_SHOT)
+
+	# 播放气泡动效（如抖动）
+	if payload.bubble_animation != &"":
+		_apply_bubble_effect(bubble, payload.bubble_animation)
 
 	return bubble
 
@@ -239,11 +293,16 @@ func _move_to_history(
 	if style_controller != null:
 		style_controller.apply_history_style(bubble, role)
 
-	# 平滑移动到历史位置
+	# 平滑移动到历史位置（居中对齐）
+	var half_size: Vector2 = bubble.size * 0.5
+	if half_size == Vector2.ZERO:
+		half_size = bubble.custom_minimum_size * 0.5
+	var centered_history_pos: Vector2 = history_position - half_size
+
 	var tw: Tween = bubble.create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(
-		bubble, "global_position", _get_centered_position_for_bubble(bubble, history_position), bubble_to_history_duration
+		bubble, "global_position", centered_history_pos, bubble_to_history_duration
 	).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_property(
 		bubble, "modulate:a", history_opacity, bubble_to_history_duration
@@ -267,19 +326,39 @@ func _destroy_bubble(bubble: DialogueBubble) -> void:
 		bubble.queue_free()
 
 
+func _apply_bubble_effect(bubble: DialogueBubble, effect_name: StringName) -> void:
+	## 应用气泡动效（延迟到入场动画结束后执行）
+	match str(effect_name):
+		"shake":
+			get_tree().create_timer(bubble_enter_duration).timeout.connect(bubble.play_shake)
+		_:
+			bubble.play_custom_animation(str(effect_name))
+
+
 func _on_bubble_typing_finished() -> void:
 	bubble_typing_finished.emit()
 	if debug_log:
 		print("%s Typing finished" % LOG_PREFIX)
 
 
-func _get_centered_position_for_bubble(bubble: DialogueBubble, slot_position: Vector2) -> Vector2:
-	if bubble == null:
-		return slot_position
-	var size_hint: Vector2 = bubble.size
-	if size_hint == Vector2.ZERO:
-		size_hint = bubble.custom_minimum_size
-	var combined_min: Vector2 = bubble.get_combined_minimum_size()
-	size_hint.x = max(size_hint.x, combined_min.x)
-	size_hint.y = max(size_hint.y, combined_min.y)
-	return slot_position - size_hint * 0.5
+## ── SFX 钩子 ──
+
+func _emit_sfx_bubble_appeared() -> void:
+	var bus: Node = _get_event_bus()
+	if bus != null and bus.has_method("emit_dialogue_sfx_bubble_appeared"):
+		bus.emit_dialogue_sfx_bubble_appeared()
+
+
+func _emit_sfx_bubble_to_history() -> void:
+	var bus: Node = _get_event_bus()
+	if bus != null and bus.has_method("emit_dialogue_sfx_bubble_to_history"):
+		bus.emit_dialogue_sfx_bubble_to_history()
+
+
+func _get_event_bus() -> Node:
+	if Engine.has_singleton("EventBus"):
+		return Engine.get_singleton("EventBus") as Node
+	var root: Node = get_tree().root if get_tree() != null else null
+	if root != null:
+		return root.get_node_or_null("EventBus")
+	return null
