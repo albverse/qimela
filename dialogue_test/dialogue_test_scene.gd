@@ -24,8 +24,8 @@ const LOG_PREFIX: String = "[DialogueTestScene]"
 
 @onready var dialogue_runner: DialogueRunner = $DialogueRunner
 @onready var dialogue_stage: DialogueStage = $DialogueStage
-@onready var player_portrait: SpinePortraitScene = $DialogueStage/StageRoot/PortraitLayer/PlayerPortrait
-@onready var other_portrait: SpinePortraitScene = $DialogueStage/StageRoot/PortraitLayer/OtherPortrait
+@onready var player_portrait: SpinePortraitScene = $DialogueStage/PlayerPortrait
+@onready var other_portrait: SpinePortraitScene = $DialogueStage/OtherPortrait
 @onready var info_label: Label = $UI/InfoLabel
 @onready var restart_button: Button = $UI/RestartButton
 

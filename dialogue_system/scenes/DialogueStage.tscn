@@ -28,6 +28,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="BubbleLayer" type="Control" parent="."]
+z_index = 10
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -56,6 +57,7 @@ slot_c_other_current_path = NodePath("../BubbleLayer/SlotC_OtherCurrent")
 slot_d_player_current_path = NodePath("../BubbleLayer/SlotD_PlayerCurrent")
 
 [node name="ResponsesLayer" type="Control" parent="."]
+z_index = 20
 visible = false
 layout_mode = 3
 anchors_preset = 15
