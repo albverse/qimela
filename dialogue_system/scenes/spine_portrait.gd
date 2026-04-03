@@ -64,7 +64,9 @@ const LOG_PREFIX: String = "[SpinePortraitScene]"
 ## 控制器
 var portrait_controller: SpinePortraitController = null
 
-## Shader 注册表：shader_id → ShaderMaterial（由外部在 configure_session 时注册）
+## 效果注册表：effect_id → 配置 Dictionary（由外部在 configure_session 时注册）
+## SpineSprite 不走标准 CanvasItem.material 渲染管线，
+## 因此 shader 效果统一通过 self_modulate tween 实现（与项目 entity_base 闪白方案一致）
 var _shader_registry: Dictionary = {}
 
 ## 内部节点
@@ -76,6 +78,8 @@ var _slide_tween: Tween = null
 var _effect_tween: Tween = null
 var _original_position: Vector2 = Vector2.ZERO
 var _current_shader_id: StringName = &""
+var _blink_tween: Tween = null
+var _original_self_modulate: Color = Color.WHITE
 
 
 func _ready() -> void:
@@ -96,6 +100,10 @@ func _ready() -> void:
 
 	_original_position = position
 
+	# 保存 SpineSprite 原始 self_modulate（用于闪白后恢复）
+	if _spine_sprite != null and _spine_sprite is CanvasItem:
+		_original_self_modulate = (_spine_sprite as CanvasItem).self_modulate
+
 
 ## ── Shader 注册 ──
 
@@ -106,32 +114,58 @@ func register_shader(shader_id: String, shader_material: ShaderMaterial) -> void
 		print("%s Registered shader: %s" % [LOG_PREFIX, shader_id])
 
 
-## ── Shader 附着/清除 ──
+## ── 闪白效果（替代 shader，因为 SpineSprite 不支持 CanvasItem.material） ──
 
 func apply_shader(shader_id: StringName) -> void:
-	## 给当前立绘 SpineSprite 附着指定 shader
-	if _spine_sprite == null:
-		return
-	var key: String = str(shader_id)
-	if not _shader_registry.has(key):
+	## 启动持续闪白效果（通过 self_modulate tween 循环实现）
+	## SpineSprite 使用自己的多 slot mesh 渲染管线，标准 CanvasItem.material 无效
+	## 因此使用 self_modulate 高亮闪烁（与项目 entity_base._flash_once 同源方案）
+	if _spine_sprite == null or not (_spine_sprite is CanvasItem):
 		if debug_log:
-			print("%s Shader '%s' not found in registry" % [LOG_PREFIX, key])
+			print("%s Cannot apply shader: SpineSprite null or not CanvasItem" % LOG_PREFIX)
 		return
-	var mat: ShaderMaterial = _shader_registry[key] as ShaderMaterial
-	if mat != null and _spine_sprite is CanvasItem:
-		(_spine_sprite as CanvasItem).material = mat
-		_current_shader_id = shader_id
-		if debug_log:
-			print("%s Applied shader: %s" % [LOG_PREFIX, key])
+
+	_current_shader_id = shader_id
+	_start_blink_loop()
+
+	if debug_log:
+		print("%s Applied blink effect (id=%s) via self_modulate tween" % [LOG_PREFIX, str(shader_id)])
 
 
 func clear_shader() -> void:
-	## 清除立绘上附着的 shader
+	## 停止闪白效果，恢复原始颜色
+	_stop_blink_loop()
+	_current_shader_id = &""
+	if debug_log:
+		print("%s Cleared blink effect" % LOG_PREFIX)
+
+
+func _start_blink_loop() -> void:
+	## 启动持续闪白 tween 循环
+	_stop_blink_loop()
+	if _spine_sprite == null or not (_spine_sprite is CanvasItem):
+		return
+
+	var ci: CanvasItem = _spine_sprite as CanvasItem
+	# 闪白色：self_modulate 拉到高亮白（> 1.0 会过曝，产生闪白视觉）
+	var flash_color: Color = Color(2.5, 2.5, 2.5, _original_self_modulate.a)
+	var normal_color: Color = _original_self_modulate
+
+	_blink_tween = create_tween()
+	_blink_tween.set_loops()  # 无限循环
+	# 闪白上升
+	_blink_tween.tween_property(ci, "self_modulate", flash_color, 0.08).set_ease(Tween.EASE_OUT)
+	# 闪白回落
+	_blink_tween.tween_property(ci, "self_modulate", normal_color, 0.12).set_ease(Tween.EASE_IN)
+
+
+func _stop_blink_loop() -> void:
+	## 停止闪白 tween 并恢复原始 self_modulate
+	if _blink_tween != null and _blink_tween.is_valid():
+		_blink_tween.kill()
+	_blink_tween = null
 	if _spine_sprite != null and _spine_sprite is CanvasItem:
-		(_spine_sprite as CanvasItem).material = null
-		_current_shader_id = &""
-		if debug_log:
-			print("%s Cleared shader" % LOG_PREFIX)
+		(_spine_sprite as CanvasItem).self_modulate = _original_self_modulate
 
 
 ## ── 控制器管理 ──
@@ -153,6 +187,7 @@ func setup_controller() -> void:
 
 
 func reset_controller() -> void:
+	_stop_blink_loop()
 	if portrait_controller != null and is_instance_valid(portrait_controller):
 		portrait_controller.queue_free()
 	portrait_controller = null

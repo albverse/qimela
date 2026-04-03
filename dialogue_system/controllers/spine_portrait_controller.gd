@@ -23,7 +23,7 @@ var _available_animations: PackedStringArray = PackedStringArray()
 ## 状态追踪
 var _is_talking: bool = false
 var _pending_stable: StringName = &""
-var _pending_transition_to_talk: bool = false
+var _pending_transition: bool = false  ## 过渡动画正在播放（完成后进入 talk 或 stable）
 var _transition_resolver: ExpressionTransitionResolver = null
 
 ## 当前动画链
@@ -92,7 +92,7 @@ func execute_command(command: PortraitCommand) -> void:
 
 	# 开始播放动画链
 	if _current_chain.has_transition:
-		_pending_transition_to_talk = _current_chain.talk_anim != &""
+		_pending_transition = true
 		_play_animation(_current_chain.transition_anim, false, 0)
 	elif _current_chain.talk_anim != &"":
 		_start_talk(_current_chain.talk_anim)
@@ -116,7 +116,7 @@ func stop_talk() -> void:
 func force_stop() -> void:
 	## 强制停止当前所有动画状态，回到稳定态
 	_is_talking = false
-	_pending_transition_to_talk = false
+	_pending_transition = false
 	if _pending_stable != &"":
 		_enter_stable(_pending_stable)
 	else:
@@ -175,10 +175,12 @@ func _collect_available_animations() -> void:
 			skeleton_data = skeleton.getData()
 
 	if skeleton_data == null:
-		# 兜底：使用已知测试动画名
+		# 兜底：使用蓝图 §5.2 统一命名规范的动画名
 		_available_animations = PackedStringArray([
-			"idle_loop", "idle_to_talk", "talk_loop", "talk_to_idle",
-			"idle_to_angry", "angry_loop", "angry_talk_loop", "angry_to_idle"
+			"idle_loop", "idle_talk_loop",
+			"idle_to_angry", "angry_loop", "angry_talk_loop", "angry_to_idle",
+			"idle_to_sad", "sad_loop", "sad_talk_loop", "sad_to_idle",
+			"idle_to_fear", "fear_loop", "fear_talk_loop", "fear_to_idle"
 		])
 		if debug_log:
 			print("%s Using fallback animation list" % LOG_PREFIX)
@@ -203,12 +205,13 @@ func _on_anim_completed(track: int, anim_name: StringName) -> void:
 	if track != 0:
 		return
 
-	if _pending_transition_to_talk and _current_chain != null:
-		# 过渡动画完成，开始 talk
-		_pending_transition_to_talk = false
+	# 过渡动画完成 → 进入 talk 或直接进入 stable
+	if _pending_transition and _current_chain != null:
+		_pending_transition = false
 		if _current_chain.talk_anim != &"":
 			_start_talk(_current_chain.talk_anim)
 		else:
+			# 蓝图 §5.5 示例3/4：过渡完成后无 talk，直接进入稳定态
 			_enter_stable(_current_chain.stable_anim)
 		transition_finished.emit()
 		return

@@ -50,20 +50,16 @@ func resolve(
 					LOG_PREFIX, transition_name
 				])
 
-	# 2. Talk 动画
+	# 2. Talk 动画（蓝图 §5.2：统一用 emotion_talk_loop，不使用通用 talk_loop）
 	if use_talk:
 		var talk_name: StringName = StringName(str(target_emotion) + "_talk_loop")
 		if _has_animation(talk_name):
 			chain.talk_anim = talk_name
 		else:
-			# 兜底：尝试通用 talk_loop
-			if _has_animation(&"talk_loop"):
-				chain.talk_anim = &"talk_loop"
-			else:
-				if debug_log:
-					print("%s No talk animation for '%s', skipping talk" % [
-						LOG_PREFIX, target_emotion
-					])
+			if debug_log:
+				print("%s No talk animation '%s', skipping talk" % [
+					LOG_PREFIX, talk_name
+				])
 
 	# 3. 稳定态动画
 	var stable_name: StringName = StringName(str(final_emotion) + "_loop")
@@ -89,12 +85,13 @@ func resolve(
 
 
 func _extract_emotion(anim_name: StringName) -> StringName:
-	## 从 xxx_loop 等动画名中提取情绪基础名
+	## 从 xxx_loop / xxx_talk_loop 等动画名中提取情绪基础名
+	## 注意：_talk_loop 必须在 _loop 之前检查，因为 _talk_loop 也以 _loop 结尾
 	var s: String = str(anim_name)
-	if s.ends_with("_loop"):
-		return StringName(s.left(s.length() - 5))
 	if s.ends_with("_talk_loop"):
 		return StringName(s.left(s.length() - 10))
+	if s.ends_with("_loop"):
+		return StringName(s.left(s.length() - 5))
 	if s == "" or s == "none":
 		return &"idle"
 	return StringName(s)

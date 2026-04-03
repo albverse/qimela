@@ -4,6 +4,6 @@
 
 [resource]
 shader = ExtResource("1_shader")
-shader_parameter/blink_speed = 6.0
-shader_parameter/blink_intensity = 0.4
+shader_parameter/blink_speed = 8.0
+shader_parameter/blink_intensity = 0.75
 shader_parameter/blink_color = Color(1, 1, 1, 1)
