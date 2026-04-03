@@ -50,20 +50,16 @@ func resolve(
 					LOG_PREFIX, transition_name
 				])
 
-	# 2. Talk 动画
+	# 2. Talk 动画（蓝图 §5.2：统一用 emotion_talk_loop，不使用通用 talk_loop）
 	if use_talk:
 		var talk_name: StringName = StringName(str(target_emotion) + "_talk_loop")
 		if _has_animation(talk_name):
 			chain.talk_anim = talk_name
 		else:
-			# 兜底：尝试通用 talk_loop
-			if _has_animation(&"talk_loop"):
-				chain.talk_anim = &"talk_loop"
-			else:
-				if debug_log:
-					print("%s No talk animation for '%s', skipping talk" % [
-						LOG_PREFIX, target_emotion
-					])
+			if debug_log:
+				print("%s No talk animation '%s', skipping talk" % [
+					LOG_PREFIX, talk_name
+				])
 
 	# 3. 稳定态动画
 	var stable_name: StringName = StringName(str(final_emotion) + "_loop")
