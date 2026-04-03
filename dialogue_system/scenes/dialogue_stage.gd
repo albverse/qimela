@@ -283,9 +283,11 @@ func _apply_portrait_effect(meta: DialogueLineMeta) -> void:
 	if portrait == null:
 		return
 
-	# Shader 附着
+	# Shader 附着：有则附着，无则自动清除上一行的 shader
 	if meta.portrait_shader != &"":
 		portrait.apply_shader(meta.portrait_shader)
+	else:
+		portrait.clear_shader()
 
 	# 动效命令
 	if meta.portrait_effect != &"":

@@ -89,12 +89,13 @@ func resolve(
 
 
 func _extract_emotion(anim_name: StringName) -> StringName:
-	## 从 xxx_loop 等动画名中提取情绪基础名
+	## 从 xxx_loop / xxx_talk_loop 等动画名中提取情绪基础名
+	## 注意：_talk_loop 必须在 _loop 之前检查，因为 _talk_loop 也以 _loop 结尾
 	var s: String = str(anim_name)
-	if s.ends_with("_loop"):
-		return StringName(s.left(s.length() - 5))
 	if s.ends_with("_talk_loop"):
 		return StringName(s.left(s.length() - 10))
+	if s.ends_with("_loop"):
+		return StringName(s.left(s.length() - 5))
 	if s == "" or s == "none":
 		return &"idle"
 	return StringName(s)

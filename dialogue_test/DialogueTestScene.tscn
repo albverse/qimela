@@ -18,12 +18,12 @@ color = Color(0.12, 0.1, 0.15, 1)
 
 [node name="DialogueStage" parent="." instance=ExtResource("2_stage_scene")]
 debug_log = true
-player_portrait_path = NodePath("PlayerPortrait")
-other_portrait_path = NodePath("OtherPortrait")
+player_portrait_path = NodePath("StageRoot/PortraitLayer/PlayerPortrait")
+other_portrait_path = NodePath("StageRoot/PortraitLayer/OtherPortrait")
 player_skin_sync_enabled = false
 light_state_sync_enabled = false
 
-[node name="PlayerPortrait" parent="DialogueStage" instance=ExtResource("4_portrait_scene")]
+[node name="PlayerPortrait" parent="DialogueStage/StageRoot/PortraitLayer" instance=ExtResource("4_portrait_scene")]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -44,7 +44,7 @@ slide_in_duration = 0.6
 slide_in_ease = 2
 slide_in_trans = 7
 
-[node name="OtherPortrait" parent="DialogueStage" instance=ExtResource("4_portrait_scene")]
+[node name="OtherPortrait" parent="DialogueStage/StageRoot/PortraitLayer" instance=ExtResource("4_portrait_scene")]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5

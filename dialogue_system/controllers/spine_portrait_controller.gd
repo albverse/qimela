@@ -175,10 +175,12 @@ func _collect_available_animations() -> void:
 			skeleton_data = skeleton.getData()
 
 	if skeleton_data == null:
-		# 兜底：使用已知测试动画名
+		# 兜底：使用蓝图 §5.2 统一命名规范的动画名
 		_available_animations = PackedStringArray([
-			"idle_loop", "idle_to_talk", "talk_loop", "talk_to_idle",
-			"idle_to_angry", "angry_loop", "angry_talk_loop", "angry_to_idle"
+			"idle_loop", "idle_talk_loop",
+			"idle_to_angry", "angry_loop", "angry_talk_loop", "angry_to_idle",
+			"idle_to_sad", "sad_loop", "sad_talk_loop", "sad_to_idle",
+			"idle_to_fear", "fear_loop", "fear_talk_loop", "fear_to_idle"
 		])
 		if debug_log:
 			print("%s Using fallback animation list" % LOG_PREFIX)
